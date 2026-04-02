@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+{% block title %}Programar Acto Protocolario — División{% endblock %}
+{% block page_title %}Programar Acto Protocolario{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+    <!-- Panel izquierdo: Info del expediente + jurado -->
+    <div class="col-lg-4">
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-3"><i class="bi bi-person-badge"></i> Datos del Alumno</div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Nombre completo</small>
+                <div class="fw-bold">{{ expediente.alumno.get_full_name|default:"Sin nombre" }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">N° Control</small>
+                <div>{{ expediente.alumno.username }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Carrera</small>
+                <div>{{ expediente.alumno.carrera.nombre|default:"No asignada" }}</div>
+            </div>
+        </div>
+
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-3"><i class="bi bi-info-circle"></i> Expediente</div>
+            <div class="text-center mb-3">
+                <span class="badge bg-{{ expediente.get_estado_display_color }} fs-6 px-3 py-2 w-100">
+                    {{ expediente.get_estado_display }}
+                </span>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Modalidad</small>
+                <div class="fw-bold">{{ expediente.modalidad.nombre|default:"—" }}</div>
+            </div>
+            {% if expediente.titulo_trabajo %}
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Título del trabajo</small>
+                <div>{{ expediente.titulo_trabajo }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Jurado asignado -->
+        {% with jurado=expediente.jurado %}
+        {% if jurado %}
+        <div class="content-card p-3 mb-3" style="border-left: 3px solid #7c3aed;">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-people" style="color:#7c3aed;"></i>
+                <span style="color:#7c3aed;">Jurado Asignado</span>
+            </div>
+            <div class="mb-2">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge" style="background:#7c3aed;">P</span>
+                    <div>
+                        <small class="text-muted fw-semibold d-block" style="font-size:.65rem;">PRESIDENTE</small>
+                        <span class="fw-semibold small">{{ jurado.presidente.get_full_name }}</span>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-primary">S</span>
+                    <div>
+                        <small class="text-muted fw-semibold d-block" style="font-size:.65rem;">SECRETARIO</small>
+                        <span class="fw-semibold small">{{ jurado.secretario.get_full_name }}</span>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-success">V</span>
+                    <div>
+                        <small class="text-muted fw-semibold d-block" style="font-size:.65rem;">VOCAL</small>
+                        <span class="fw-semibold small">{{ jurado.vocal.get_full_name }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-2 pt-2 border-top">
+                <small class="text-muted">
+                    <i class="bi bi-calendar me-1"></i>Carta: {{ jurado.fecha_carta|date:"d/m/Y" }}
+                </small>
+            </div>
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <!-- Guía del proceso -->
+        <div class="content-card p-3" style="border-left: 3px solid #0ea5e9;">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-lightbulb" style="color:#0ea5e9;"></i>
+                <strong class="small" style="color:#0ea5e9;">Guía del proceso</strong>
+            </div>
+            <p class="small text-muted mb-2">
+                Programa la fecha, hora y lugar del acto protocolario (examen profesional).
+            </p>
+            <ul class="small text-muted mb-0" style="padding-left:1.2rem;">
+                <li>Coordinar disponibilidad del jurado</li>
+                <li>Verificar disponibilidad de la sala</li>
+                <li>Notificar al alumno con anticipación</li>
+                <li>El alumno será notificado automáticamente</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Panel derecho: Formulario -->
+    <div class="col-lg-8">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <i class="bi bi-calendar-event"></i> Programar Acto Protocolario
+            </div>
+            <div class="p-4">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    {% if form.errors %}
+                    <div class="alert alert-danger py-2 mb-4">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Corrige los siguientes errores:</strong>
+                        <ul class="mb-0 mt-1 small">
+                            {% for field in form %}
+                                {% for error in field.errors %}
+                                <li>{{ field.label }}: {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for error in form.non_field_errors %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <div class="row g-3">
+                        <!-- Fecha y hora del acto -->
+                        <div class="col-md-6">
+                            <label for="id_fecha_acto" class="form-label fw-semibold">
+                                <i class="bi bi-calendar-event me-1 text-primary"></i>Fecha y hora del acto
+                            </label>
+                            <input type="datetime-local" name="fecha_acto" id="id_fecha_acto"
+                                   class="form-control {% if form.fecha_acto.errors %}is-invalid{% endif %}"
+                                   value="{{ form.fecha_acto.value|default_if_none:'' }}" required>
+                            {% if form.fecha_acto.errors %}
+                            <div class="invalid-feedback">{{ form.fecha_acto.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Lugar -->
+                        <div class="col-md-6">
+                            <label for="id_lugar" class="form-label fw-semibold">
+                                <i class="bi bi-geo-alt me-1 text-primary"></i>Lugar / Sala
+                            </label>
+                            <input type="text" name="lugar" id="id_lugar"
+                                   class="form-control {% if form.lugar.errors %}is-invalid{% endif %}"
+                                   value="{{ form.lugar.value|default_if_none:'' }}"
+                                   placeholder="Ej: Sala de juntas, Edificio A, Auditorio..."
+                                   required>
+                            {% if form.lugar.errors %}
+                            <div class="invalid-feedback">{{ form.lugar.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Observaciones -->
+                        <div class="col-12">
+                            <label for="id_observaciones" class="form-label fw-semibold">
+                                <i class="bi bi-chat-left-text me-1 text-primary"></i>Observaciones
+                            </label>
+                            <textarea name="observaciones" id="id_observaciones"
+                                      class="form-control {% if form.observaciones.errors %}is-invalid{% endif %}"
+                                      rows="4" placeholder="Instrucciones adicionales, requisitos de vestimenta, etc. (opcional)">{{ form.observaciones.value|default_if_none:'' }}</textarea>
+                            {% if form.observaciones.errors %}
+                            <div class="invalid-feedback">{{ form.observaciones.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Preview card -->
+                    <div class="mt-4 p-3 rounded-3" style="background: linear-gradient(135deg, #f0f7ff 0%, #f3e8ff 100%); border: 1px solid #e0e0ff;">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <i class="bi bi-mortarboard" style="color:#7c3aed; font-size:1.2rem;"></i>
+                            <strong class="small" style="color:#7c3aed;">Resumen del Acto</strong>
+                        </div>
+                        <div class="small text-muted">
+                            <strong>Alumno:</strong> {{ expediente.alumno.get_full_name }}<br>
+                            <strong>Modalidad:</strong> {{ expediente.modalidad.nombre|default:"—" }}<br>
+                            {% if expediente.titulo_trabajo %}
+                            <strong>Trabajo:</strong> {{ expediente.titulo_trabajo }}<br>
+                            {% endif %}
+                            {% with jurado=expediente.jurado %}
+                            {% if jurado %}
+                            <strong>Jurado:</strong> {{ jurado.presidente.get_full_name }} (P),
+                            {{ jurado.secretario.get_full_name }} (S),
+                            {{ jurado.vocal.get_full_name }} (V)
+                            {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'academico:expediente_detalle' expediente.pk %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-left me-1"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary" id="btn-programar-acto">
+                            <i class="bi bi-calendar-check me-1"></i>Programar Acto Protocolario
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

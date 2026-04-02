@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+{% block title %}Recepción de Empastado — División{% endblock %}
+{% block page_title %}Registrar Recepción de Empastado{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+    <!-- Panel izquierdo: Info del expediente -->
+    <div class="col-lg-4">
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-3"><i class="bi bi-person-badge"></i> Datos del Alumno</div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Nombre completo</small>
+                <div class="fw-bold">{{ expediente.alumno.get_full_name|default:"Sin nombre" }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">N° Control</small>
+                <div>{{ expediente.alumno.username }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Carrera</small>
+                <div>{{ expediente.alumno.carrera.nombre|default:"No asignada" }}</div>
+            </div>
+        </div>
+
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-3"><i class="bi bi-info-circle"></i> Expediente</div>
+            <div class="text-center mb-3">
+                <span class="badge bg-{{ expediente.get_estado_display_color }} fs-6 px-3 py-2 w-100">
+                    {{ expediente.get_estado_display }}
+                </span>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Modalidad</small>
+                <div class="fw-bold">{{ expediente.modalidad.nombre|default:"—" }}</div>
+            </div>
+            {% if expediente.titulo_trabajo %}
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Título del trabajo</small>
+                <div>{{ expediente.titulo_trabajo }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Guía del proceso -->
+        <div class="content-card p-3" style="border-left: 3px solid #16a34a;">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-lightbulb text-success"></i>
+                <strong class="small text-success">Guía del proceso</strong>
+            </div>
+            <p class="small text-muted mb-2">
+                El alumno entrega físicamente su trabajo empastado en División de Estudios.
+                Revisa que cumpla con las especificaciones de formato.
+            </p>
+            <ul class="small text-muted mb-0" style="padding-left:1.2rem;">
+                <li>Verificar pasta dura con datos correctos</li>
+                <li>Revisar formato según lineamientos TecNM</li>
+                <li>Confirmar CD/USB con versión digital</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Panel derecho: Formulario -->
+    <div class="col-lg-8">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <i class="bi bi-journal-bookmark"></i> Registro de Recepción de Empastado
+            </div>
+            <div class="p-4">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    {% if form.errors %}
+                    <div class="alert alert-danger py-2 mb-4">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Corrige los siguientes errores:</strong>
+                        <ul class="mb-0 mt-1 small">
+                            {% for field in form %}
+                                {% for error in field.errors %}
+                                <li>{{ field.label }}: {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for error in form.non_field_errors %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <div class="row g-3">
+                        <!-- Fecha de recepción -->
+                        <div class="col-md-6">
+                            <label for="id_fecha_recepcion" class="form-label fw-semibold">
+                                <i class="bi bi-calendar-date me-1 text-primary"></i>Fecha de recepción
+                            </label>
+                            <input type="date" name="fecha_recepcion" id="id_fecha_recepcion"
+                                   class="form-control {% if form.fecha_recepcion.errors %}is-invalid{% endif %}"
+                                   value="{{ form.fecha_recepcion.value|default_if_none:'' }}" required>
+                            {% if form.fecha_recepcion.errors %}
+                            <div class="invalid-feedback">{{ form.fecha_recepcion.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Estado de revisión física -->
+                        <div class="col-md-6">
+                            <label for="id_estado" class="form-label fw-semibold">
+                                <i class="bi bi-clipboard-check me-1 text-primary"></i>Estado de revisión
+                            </label>
+                            <select name="estado" id="id_estado"
+                                    class="form-select {% if form.estado.errors %}is-invalid{% endif %}">
+                                <option value="REVISADO" {% if form.estado.value == 'REVISADO' %}selected{% endif %}>
+                                    ✅ Revisado y Aceptado
+                                </option>
+                                <option value="OBSERVACIONES" {% if form.estado.value == 'OBSERVACIONES' %}selected{% endif %}>
+                                    ⚠️ Con Observaciones
+                                </option>
+                                <option value="RECHAZADO" {% if form.estado.value == 'RECHAZADO' %}selected{% endif %}>
+                                    ❌ Rechazado
+                                </option>
+                            </select>
+                            {% if form.estado.errors %}
+                            <div class="invalid-feedback">{{ form.estado.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Observaciones -->
+                        <div class="col-12">
+                            <label for="id_observaciones" class="form-label fw-semibold">
+                                <i class="bi bi-chat-left-text me-1 text-primary"></i>Observaciones
+                            </label>
+                            <textarea name="observaciones" id="id_observaciones"
+                                      class="form-control {% if form.observaciones.errors %}is-invalid{% endif %}"
+                                      rows="4" placeholder="Ej: Empastado recibido en buenas condiciones. CD incluido con versión digital...">{{ form.observaciones.value|default_if_none:'' }}</textarea>
+                            {% if form.observaciones.errors %}
+                            <div class="invalid-feedback">{{ form.observaciones.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">Describe el estado físico del material recibido.</div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'academico:expediente_detalle' expediente.pk %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-left me-1"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-success" id="btn-registrar-empastado">
+                            <i class="bi bi-check-circle me-1"></i>Registrar Recepción
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% block title %}Enviar a CDMX — Servicios Escolares{% endblock %}
+{% block page_title %}Registrar Envío a CDMX{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+    <!-- Panel izquierdo: Info del expediente -->
+    <div class="col-lg-4">
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-3"><i class="bi bi-person-badge"></i> Datos del Alumno</div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Nombre completo</small>
+                <div class="fw-bold">{{ expediente.alumno.get_full_name|default:"Sin nombre" }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">N° Control</small>
+                <div>{{ expediente.alumno.username }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Carrera</small>
+                <div>{{ expediente.alumno.carrera.nombre|default:"No asignada" }}</div>
+            </div>
+        </div>
+
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-3"><i class="bi bi-info-circle"></i> Expediente</div>
+            <div class="text-center mb-3">
+                <span class="badge bg-{{ expediente.get_estado_display_color }} fs-6 px-3 py-2 w-100">
+                    {{ expediente.get_estado_display }}
+                </span>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Modalidad</small>
+                <div class="fw-bold">{{ expediente.modalidad.nombre|default:"—" }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Documentos</small>
+                <div>{{ expediente.documentos_aprobados }}/{{ expediente.documentos_total }} aprobados</div>
+            </div>
+        </div>
+
+        <!-- Guía -->
+        <div class="content-card p-3" style="border-left: 3px solid #0ea5e9;">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-lightbulb" style="color:#0ea5e9;"></i>
+                <strong class="small" style="color:#0ea5e9;">Guía del proceso</strong>
+            </div>
+            <p class="small text-muted mb-2">
+                El expediente integrado se envía a CDMX/TecNM para el registro del título y la expedición de
+                la cédula profesional electrónica.
+            </p>
+            <ul class="small text-muted mb-0" style="padding-left:1.2rem;">
+                <li>Registra el número de oficio con el que se envía</li>
+                <li>La fecha de envío puede ser la fecha del oficio</li>
+                <li>El alumno será notificado automáticamente</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Panel derecho: Formulario -->
+    <div class="col-lg-8">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <i class="bi bi-send"></i> Registro de Envío a CDMX / TecNM
+            </div>
+            <div class="p-4">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    {% if form.errors %}
+                    <div class="alert alert-danger py-2 mb-4">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Corrige los siguientes errores:</strong>
+                        <ul class="mb-0 mt-1 small">
+                            {% for field in form %}
+                                {% for error in field.errors %}
+                                <li>{{ field.label }}: {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="id_numero_oficio" class="form-label fw-semibold">
+                                <i class="bi bi-hash me-1 text-primary"></i>Número de oficio
+                            </label>
+                            <input type="text" name="numero_oficio" id="id_numero_oficio"
+                                   class="form-control {% if form.numero_oficio.errors %}is-invalid{% endif %}"
+                                   value="{{ form.numero_oficio.value|default_if_none:'' }}"
+                                   placeholder="Ej: DEP/2026/0045" required>
+                            {% if form.numero_oficio.errors %}
+                            <div class="invalid-feedback">{{ form.numero_oficio.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="id_fecha_envio" class="form-label fw-semibold">
+                                <i class="bi bi-calendar-date me-1 text-primary"></i>Fecha de envío
+                            </label>
+                            <input type="date" name="fecha_envio" id="id_fecha_envio"
+                                   class="form-control {% if form.fecha_envio.errors %}is-invalid{% endif %}"
+                                   value="{{ form.fecha_envio.value|default_if_none:'' }}" required>
+                            {% if form.fecha_envio.errors %}
+                            <div class="invalid-feedback">{{ form.fecha_envio.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12">
+                            <label for="id_observaciones_envio" class="form-label fw-semibold">
+                                <i class="bi bi-chat-left-text me-1 text-primary"></i>Observaciones del envío
+                            </label>
+                            <textarea name="observaciones_envio" id="id_observaciones_envio"
+                                      class="form-control {% if form.observaciones_envio.errors %}is-invalid{% endif %}"
+                                      rows="4" placeholder="Notas adicionales sobre el envío (opcional)...">{{ form.observaciones_envio.value|default_if_none:'' }}</textarea>
+                            {% if form.observaciones_envio.errors %}
+                            <div class="invalid-feedback">{{ form.observaciones_envio.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'escolares:expediente_detalle' expediente.pk %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-left me-1"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send me-1"></i>Registrar Envío
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

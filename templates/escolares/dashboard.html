@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% block title %}Panel Servicios Escolares{% endblock %}
+{% block page_title %}Servicios Escolares{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#fff3cd; color:#dc6b02;"><i class="bi bi-hourglass-split"></i></div>
+                <div>
+                    <div class="stat-value" style="color:#dc6b02;">{{ expedientes_para_revision }}</div>
+                    <div class="stat-label">Pendientes de revisión</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#cff4fc; color:#0ea5e9;"><i class="bi bi-layers"></i></div>
+                <div>
+                    <div class="stat-value" style="color:#0ea5e9;">{{ expedientes_para_integrar }}</div>
+                    <div class="stat-label">Listos para integrar</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#f3e8ff; color:#7c3aed;"><i class="bi bi-send"></i></div>
+                <div>
+                    <div class="stat-value" style="color:#7c3aed;">{{ expedientes_enviados_cdmx }}</div>
+                    <div class="stat-label">En revisión CDMX</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#dcfce7; color:#16a34a;"><i class="bi bi-folder2-open"></i></div>
+                <div>
+                    <div class="stat-value" style="color:#16a34a;">{{ expedientes_recientes|length }}</div>
+                    <div class="stat-label">Expedientes activos</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="content-card">
+    <div class="card-header-custom">
+        <i class="bi bi-table"></i> Expedientes Recientes
+        <a href="{% url 'escolares:expedientes' %}" class="ms-auto btn btn-sm btn-outline-primary">
+            Ver todos <i class="bi bi-arrow-right ms-1"></i>
+        </a>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Alumno</th>
+                    <th>Modalidad</th>
+                    <th>Estado</th>
+                    <th>Última actualización</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for exp in expedientes_recientes %}
+                <tr>
+                    <td>
+                        <div class="fw-semibold">{{ exp.alumno.get_full_name }}</div>
+                        <small class="text-muted">{{ exp.alumno.username }}</small>
+                    </td>
+                    <td><small>{{ exp.modalidad.nombre|default:"—" }}</small></td>
+                    <td>
+                        <span class="badge bg-{{ exp.get_estado_display_color }} badge-estado">
+                            {{ exp.get_estado_display }}
+                        </span>
+                    </td>
+                    <td><small class="text-muted">{{ exp.fecha_ultima_actualizacion|date:"d/m/Y H:i" }}</small></td>
+                    <td>
+                        <a href="{% url 'escolares:expediente_detalle' exp.pk %}"
+                           class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-4">Sin expedientes registrados.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

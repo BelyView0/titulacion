@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión — Sistema de Titulación ITA</title>
+    <meta name="description" content="Acceso al Sistema de Gestión de Titulación del Instituto Tecnológico de Apizaco">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body {
+            background: linear-gradient(135deg, #001f4b 0%, #003B73 40%, #CC0000 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-wrapper {
+            width: 100%;
+            max-width: 440px;
+            padding: 1rem;
+        }
+        .login-card {
+            background: rgba(255,255,255,.97);
+            border-radius: 1.25rem;
+            box-shadow: 0 25px 60px rgba(0,0,0,.35);
+            overflow: hidden;
+        }
+        .login-header {
+            background: linear-gradient(135deg, #003B73 0%, #001f4b 100%);
+            padding: 2rem 2rem 1.5rem;
+            text-align: center;
+            position: relative;
+        }
+        .login-header::after {
+            content: '';
+            position: absolute;
+            bottom: -1px; left: 0; right: 0;
+            height: 30px;
+            background: rgba(255,255,255,.97);
+            clip-path: ellipse(55% 100% at 50% 100%);
+        }
+        .ita-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            background: rgba(255,255,255,.12);
+            border: 1px solid rgba(255,255,255,.2);
+            border-radius: 2rem;
+            padding: .35rem .85rem;
+            margin-bottom: 1rem;
+        }
+        .ita-badge span { color: rgba(255,255,255,.9); font-size: .78rem; font-weight: 600; }
+        .ita-badge .dot { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; }
+        .login-header h1 {
+            color: #fff;
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin: 0 0 .3rem;
+        }
+        .login-header p {
+            color: rgba(255,255,255,.65);
+            font-size: .82rem;
+            margin: 0;
+        }
+        .login-body { padding: 2rem; }
+        .form-label { font-weight: 600; font-size: .85rem; color: #1a1a2e; }
+        .form-control {
+            border: 1.5px solid #e2e8f0;
+            border-radius: .6rem;
+            padding: .65rem 1rem;
+            font-size: .9rem;
+            transition: border-color .2s, box-shadow .2s;
+        }
+        .form-control:focus {
+            border-color: #003B73;
+            box-shadow: 0 0 0 3px rgba(0,59,115,.12);
+        }
+        .input-group-text {
+            background: #f8fafc;
+            border: 1.5px solid #e2e8f0;
+            border-right: none;
+            color: #6c757d;
+        }
+        .btn-ingresar {
+            background: linear-gradient(135deg, #003B73 0%, #0057B8 100%);
+            border: none;
+            border-radius: .6rem;
+            padding: .75rem;
+            font-weight: 700;
+            font-size: .95rem;
+            letter-spacing: .02em;
+            color: #fff;
+            width: 100%;
+            transition: transform .15s, box-shadow .15s;
+        }
+        .btn-ingresar:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0,59,115,.35);
+            color: #fff;
+        }
+        .errorlist {
+            background: #fff5f5;
+            border: 1px solid #fed7d7;
+            border-radius: .5rem;
+            padding: .65rem 1rem;
+            font-size: .82rem;
+            color: #c53030;
+            list-style: none;
+            margin: 0 0 1rem;
+        }
+        .login-footer {
+            background: #f8fafc;
+            padding: 1rem 2rem;
+            text-align: center;
+            font-size: .72rem;
+            color: #94a3b8;
+            border-top: 1px solid #f0f4f8;
+        }
+        .login-footer strong { color: #64748b; }
+    </style>
+</head>
+<body>
+<div class="login-wrapper">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="ita-badge">
+                <div class="dot"></div>
+                <span>TecNM — Campus Apizaco</span>
+            </div>
+            <h1>Sistema de Titulación</h1>
+            <p>Proceso Digital de Titulación Institucional</p>
+        </div>
+
+        <div class="login-body">
+            <form method="post" id="login-form">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                <ul class="errorlist">
+                    {% for error in form.non_field_errors %}
+                    <li><i class="bi bi-exclamation-triangle me-1"></i>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+
+                <div class="mb-3">
+                    <label for="id_username" class="form-label">
+                        <i class="bi bi-person me-1"></i> Usuario / Número de control
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-person"></i></span>
+                        <input type="text" name="username" id="id_username"
+                               class="form-control {% if form.username.errors %}is-invalid{% endif %}"
+                               placeholder="Ej: 21370001" autofocus required>
+                    </div>
+                    {% if form.username.errors %}
+                    <div class="invalid-feedback d-block">{{ form.username.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4">
+                    <label for="id_password" class="form-label">
+                        <i class="bi bi-lock me-1"></i> Contraseña
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                        <input type="password" name="password" id="id_password"
+                               class="form-control {% if form.password.errors %}is-invalid{% endif %}"
+                               placeholder="••••••••" required>
+                        <button class="btn btn-outline-secondary" type="button"
+                                onclick="togglePass()" title="Mostrar/ocultar contraseña">
+                            <i class="bi bi-eye" id="pass-icon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-ingresar btn mt-1">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>Ingresar al Sistema
+                </button>
+            </form>
+        </div>
+
+        <div class="login-footer">
+            <strong>Instituto Tecnológico de Apizaco</strong><br>
+            Tecnológico Nacional de México · División de Estudios Profesionales<br>
+            Sistema de Gestión del Proceso de Titulación
+        </div>
+    </div>
+</div>
+
+<script>
+function togglePass() {
+    const input = document.getElementById('id_password');
+    const icon = document.getElementById('pass-icon');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+    } else {
+        input.type = 'password';
+        icon.className = 'bi bi-eye';
+    }
+}
+</script>
+</body>
+</html>

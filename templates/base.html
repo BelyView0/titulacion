@@ -1,0 +1,679 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sistema de Titulación{% endblock %} — ITA</title>
+    <meta name="description" content="Sistema de Gestión del Proceso de Titulación — Instituto Tecnológico de Apizaco, TecNM">
+
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --ita-rojo: #CC0000;
+            --ita-rojo-oscuro: #990000;
+            --ita-azul: #003B73;
+            --ita-azul-claro: #0057B8;
+            --ita-gris: #F4F6F9;
+            --ita-cintillo-bg: #611232;
+            --ita-header-bg: #1B396A;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -1px rgba(0,0,0,.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.1);
+        }
+
+        * {
+            font-family: 'Noto Sans', 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--ita-gris);
+            color: #1a1a2e;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── CINTILLO GOBIERNO ──────────────────────────── */
+        .cintillo-gobierno {
+            width: 100%;
+            background: var(--ita-cintillo-bg);
+            text-align: center;
+            padding: 4px 0;
+        }
+
+        .cintillo-gobierno img {
+            max-width: 100%;
+            height: 36px;
+            object-fit: contain;
+        }
+
+        /* ── HEADER INSTITUCIONAL ──────────────────────── */
+        .header-institucional {
+            background: var(--ita-header-bg);
+            color: white;
+        }
+
+        .header-contenedor {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 40px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .header-logos {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .header-logos .logo-sep { height: 38px; }
+        .header-logos .logo-tecnm { height: 42px; }
+
+        /* ── NAVBAR POR ROL (horizontal) ─────────────────── */
+        .navbar-rol {
+            background: rgba(0,30,60,.95);
+            border-top: 1px solid rgba(255,255,255,.08);
+            border-bottom: 3px solid var(--ita-rojo);
+        }
+
+        .navbar-rol .navbar-nav .nav-link {
+            color: rgba(255,255,255,.85);
+            font-weight: 600;
+            font-size: .88rem;
+            padding: .65rem 1rem;
+            transition: all .2s;
+            display: flex;
+            align-items: center;
+            gap: .45rem;
+        }
+
+        .navbar-rol .navbar-nav .nav-link:hover,
+        .navbar-rol .navbar-nav .nav-link:focus {
+            color: #fff;
+            background: rgba(255,255,255,.1);
+            border-radius: .35rem;
+        }
+
+        .navbar-rol .navbar-nav .nav-link.active {
+            color: #fff;
+            background: var(--ita-azul-claro);
+            border-radius: .35rem;
+            box-shadow: 0 2px 8px rgba(0,87,184,.35);
+        }
+
+        .navbar-rol .navbar-nav .nav-link i {
+            font-size: 1rem;
+        }
+
+        .navbar-rol .dropdown-menu {
+            background: #1a2232;
+            border: 1px solid rgba(255,255,255,.1);
+            border-radius: .5rem;
+            box-shadow: var(--shadow-lg);
+            min-width: 220px;
+        }
+
+        .navbar-rol .dropdown-menu .dropdown-item {
+            color: rgba(255,255,255,.8);
+            font-size: .85rem;
+            font-weight: 500;
+            padding: .55rem 1.15rem;
+            transition: all .15s;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+        }
+
+        .navbar-rol .dropdown-menu .dropdown-item:hover {
+            color: #fff;
+            background: rgba(255,255,255,.1);
+        }
+
+        .navbar-rol .dropdown-menu .dropdown-divider {
+            border-color: rgba(255,255,255,.08);
+        }
+
+        .navbar-rol .dropdown-menu .dropdown-header {
+            color: rgba(255,255,255,.4);
+            font-size: .65rem;
+            font-weight: 700;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+        }
+
+        .navbar-user-info {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+        }
+
+        .navbar-user-info .avatar {
+            width: 32px; height: 32px;
+            background: var(--ita-azul-claro);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; color: #fff; font-size: .75rem;
+            flex-shrink: 0;
+        }
+
+        .navbar-user-info .user-name {
+            color: #fff;
+            font-size: .8rem;
+            font-weight: 600;
+        }
+
+        .navbar-user-info .user-role {
+            color: rgba(255,255,255,.5);
+            font-size: .68rem;
+        }
+
+        /* ── CONTENIDO PRINCIPAL ─────────────────────── */
+        #main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── TOPBAR ──────────────────────────────────── */
+        .topbar {
+            background: #fff;
+            padding: .75rem 1.5rem;
+            border-bottom: 1px solid #e9ecef;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .topbar .page-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--ita-azul);
+            margin: 0;
+        }
+
+        .notif-badge {
+            position: absolute;
+            top: -4px; right: -4px;
+            background: var(--ita-rojo);
+            color: #fff;
+            font-size: .6rem;
+            font-weight: 700;
+            border-radius: 50%;
+            width: 16px; height: 16px;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* ── PÁGINAS ─────────────────────────────────── */
+        .page-content {
+            padding: 1.75rem;
+            flex: 1;
+        }
+
+        /* ── TARJETAS DE STATS ───────────────────────── */
+        .stat-card {
+            background: #fff;
+            border-radius: .75rem;
+            padding: 1.25rem;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid rgba(0,0,0,.05);
+            transition: transform .2s, box-shadow .2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .stat-card .stat-icon {
+            width: 48px; height: 48px;
+            border-radius: .6rem;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem;
+        }
+
+        .stat-card .stat-value {
+            font-size: 1.9rem;
+            font-weight: 800;
+            color: var(--ita-azul);
+        }
+
+        .stat-card .stat-label {
+            font-size: .78rem;
+            font-weight: 500;
+            color: #6c757d;
+        }
+
+        /* ── TARJETAS DE CONTENIDO ───────────────────── */
+        .content-card {
+            background: #fff;
+            border-radius: .75rem;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid rgba(0,0,0,.05);
+            overflow: hidden;
+        }
+
+        .content-card .card-header-custom {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid #f0f0f0;
+            font-weight: 700;
+            font-size: .9rem;
+            color: var(--ita-azul);
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+        }
+
+        /* ── TIMELINE DEL PROCESO ────────────────────── */
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: .65rem;
+            top: 0; bottom: 0;
+            width: 2px;
+            background: #e9ecef;
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -1.47rem;
+            top: .3rem;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: #dee2e6;
+            border: 2px solid #fff;
+            box-shadow: 0 0 0 2px #dee2e6;
+        }
+
+        .timeline-item.done::before { background: #198754; box-shadow: 0 0 0 2px #198754; }
+        .timeline-item.active::before { background: var(--ita-azul-claro); box-shadow: 0 0 0 3px rgba(0,87,184,.3); width: 14px; height: 14px; left: -1.55rem; }
+        .timeline-item.error::before { background: #dc3545; box-shadow: 0 0 0 2px #dc3545; }
+        .timeline-item.warning::before { background: #ffc107; box-shadow: 0 0 0 2px #ffc107; }
+
+        .timeline-item .timeline-date {
+            font-size: .7rem;
+            color: #adb5bd;
+            font-weight: 500;
+        }
+
+        .timeline-item .timeline-desc {
+            font-size: .85rem;
+            color: #495057;
+            margin-top: .15rem;
+        }
+
+        .timeline-item .timeline-by {
+            font-size: .72rem;
+            color: #adb5bd;
+        }
+
+        /* ── BADGES DE ESTADO ───────────────────────── */
+        .badge-estado {
+            font-size: .7rem;
+            font-weight: 600;
+            padding: .35em .65em;
+            border-radius: .35rem;
+        }
+
+        /* ── PROGRESO DEL EXPEDIENTE ─────────────────── */
+        .proceso-progress { margin-bottom: 1.5rem; }
+        .proceso-progress .progress { height: 8px; border-radius: 4px; }
+
+        /* ── DOCUMENTOS ──────────────────────────────── */
+        .doc-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: .85rem 1rem;
+            border-bottom: 1px solid #f8f9fa;
+            transition: background .15s;
+        }
+
+        .doc-item:hover { background: #f8f9fa; }
+        .doc-item:last-child { border-bottom: none; }
+
+        .doc-item .doc-icon {
+            width: 38px; height: 38px;
+            background: #f0f4ff;
+            border-radius: .5rem;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--ita-azul-claro);
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .doc-item .doc-name {
+            font-weight: 600; font-size: .875rem;
+        }
+
+        .doc-item .doc-instruccion {
+            font-size: .75rem; color: #6c757d;
+        }
+
+        /* ── FOOTER ──────────────────────────────────── */
+        .footer-institucional {
+            background: var(--ita-header-bg);
+            color: white;
+            text-align: center;
+            padding: 20px;
+            margin-top: auto;
+        }
+
+        .footer-institucional p {
+            margin: 0;
+            font-size: .82rem;
+            opacity: .85;
+        }
+
+        /* ── RESPONSIVE ──────────────────────────────── */
+        @media (max-width: 768px) {
+            .header-contenedor {
+                flex-direction: column;
+                padding: 10px 15px;
+                gap: 8px;
+            }
+            .page-content { padding: 1rem; }
+        }
+
+        @media (max-width: 992px) {
+            .navbar-rol .navbar-collapse {
+                background: rgba(0,20,50,.98);
+                padding: .75rem;
+                border-radius: 0 0 .5rem .5rem;
+                margin-top: .35rem;
+            }
+        }
+
+        /* ── ANIMACIONES ─────────────────────────────── */
+        .fade-in {
+            animation: fadeIn .4s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── VALIDACIÓN DUAL ─────────────────────────── */
+        .validacion-dual {
+            display: flex;
+            gap: .35rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .validacion-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .25rem;
+            padding: .15rem .5rem;
+            border-radius: 1rem;
+            font-size: .65rem;
+            font-weight: 600;
+            border: 1px solid;
+        }
+
+        .validacion-chip.aprobado {
+            background: rgba(25,135,84,.08);
+            color: #198754;
+            border-color: rgba(25,135,84,.25);
+        }
+
+        .validacion-chip.rechazado {
+            background: rgba(220,53,69,.08);
+            color: #dc3545;
+            border-color: rgba(220,53,69,.25);
+        }
+
+        .validacion-chip.pendiente {
+            background: rgba(108,117,125,.08);
+            color: #6c757d;
+            border-color: rgba(108,117,125,.25);
+        }
+
+        .validacion-chip.correccion {
+            background: rgba(255,193,7,.08);
+            color: #997404;
+            border-color: rgba(255,193,7,.35);
+        }
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- ── CINTILLO DEL GOBIERNO DE MÉXICO ──────────────────────── -->
+<div class="cintillo-gobierno">
+    <img src="{% static 'img/cintillo-gobierno.png' %}" alt="Gobierno de México">
+</div>
+
+<!-- ── HEADER INSTITUCIONAL ────────────────────────────────── -->
+<header class="header-institucional">
+    <div class="header-contenedor">
+        <div class="header-logos">
+            <img src="{% static 'img/logo-sep.png' %}" alt="SEP" class="logo-sep">
+            <img src="{% static 'img/logo-tecnm.png' %}" alt="TecNM" class="logo-tecnm">
+        </div>
+        <div class="d-none d-md-block">
+            <span style="font-size:.85rem; font-weight:600; color:rgba(255,255,255,.9); letter-spacing:.02em;">
+                Sistema de Gestión de Titulación
+            </span>
+        </div>
+    </div>
+</header>
+
+<!-- ── NAVBAR HORIZONTAL POR ROL ──────────────────────────── -->
+{% if user.is_authenticated %}
+<nav class="navbar navbar-expand-lg navbar-rol">
+    <div class="container-fluid px-4">
+        <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'dashboard' %}" style="text-decoration:none;">
+            <span style="color:#CC0000; font-size:1.15rem; font-weight:800; letter-spacing:-.5px;">ITA</span>
+            <span style="color:rgba(255,255,255,.55); font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em;">Titulación</span>
+        </a>
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navRol" aria-label="Toggle navigation">
+            <i class="bi bi-list text-white fs-4"></i>
+        </button>
+        <div class="collapse navbar-collapse" id="navRol">
+            <ul class="navbar-nav me-auto">
+
+                {% if user.es_admin %}
+                <!-- ── ADMIN: Panel de Control ── -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-gear-wide-connected"></i> Panel Admin
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'administracion:dashboard' %}"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+                        <li><a class="dropdown-item" href="{% url 'administracion:usuarios' %}"><i class="bi bi-people"></i> Usuarios</a></li>
+                        <li><a class="dropdown-item" href="{% url 'administracion:carreras' %}"><i class="bi bi-mortarboard"></i> Carreras</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="/admin/"><i class="bi bi-terminal"></i> Django Admin</a></li>
+                    </ul>
+                </li>
+                {% endif %}
+
+                {% if user.es_jefe_proyecto %}
+                <!-- ── ADMINISTRACIÓN: Jefe de Proyecto ── -->
+                <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'jefe_dashboard' %}active{% endif %}" href="{% url 'administracion:jefe_dashboard' %}">
+                        <i class="bi bi-house"></i> Inicio
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'jefe_expedientes' or request.resolver_match.url_name == 'jefe_detalle' %}active{% endif %}" href="{% url 'administracion:jefe_expedientes' %}">
+                        <i class="bi bi-folder2-open"></i> Expedientes
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'jefe_estadisticas' %}active{% endif %}" href="{% url 'administracion:jefe_estadisticas' %}">
+                        <i class="bi bi-bar-chart-line"></i> Estadísticas
+                    </a>
+                </li>
+                {% endif %}
+
+                {% if user.es_alumno %}
+                <!-- ── ALUMNO: Mi Proceso ── -->
+                <li class="nav-item">
+                    <a class="nav-link {% if 'dashboard' in request.path and 'alumno' in request.path %}active{% endif %}" href="{% url 'alumnos:dashboard' %}">
+                        <i class="bi bi-house"></i> Inicio
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if 'expediente' in request.path and 'alumno' in request.path %}active{% endif %}" href="{% url 'alumnos:expediente' %}">
+                        <i class="bi bi-folder2-open"></i> Mi Expediente
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if 'timeline' in request.path %}active{% endif %}" href="{% url 'alumnos:timeline' %}">
+                        <i class="bi bi-diagram-3"></i> Seguimiento
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if 'notificaciones' in request.path %}active{% endif %}" href="{% url 'alumnos:notificaciones' %}">
+                        <i class="bi bi-bell"></i> Notificaciones
+                        {% if notificaciones_no_leidas %}
+                        <span class="badge bg-danger ms-1" style="font-size:.6rem;">{{ notificaciones_no_leidas }}</span>
+                        {% endif %}
+                    </a>
+                </li>
+                {% endif %}
+
+                {% if user.es_escolares %}
+                <!-- ── SERVICIOS ESCOLARES ── -->
+                <li class="nav-item">
+                    <a class="nav-link {% if 'escolares' in request.path and 'dashboard' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'escolares:dashboard' %}">
+                        <i class="bi bi-house"></i> Inicio
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if 'expedientes' in request.path and 'escolares' in request.path %}active{% endif %}" href="{% url 'escolares:expedientes' %}">
+                        <i class="bi bi-folder2-open"></i> Expedientes
+                    </a>
+                </li>
+                {% endif %}
+
+                {% if user.es_academico %}
+                <!-- ── DIVISIÓN DE ESTUDIOS ── -->
+                <li class="nav-item">
+                    <a class="nav-link {% if 'academico' in request.path and 'dashboard' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'academico:dashboard' %}">
+                        <i class="bi bi-house"></i> Inicio
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if 'expedientes' in request.path and 'academico' in request.path %}active{% endif %}" href="{% url 'academico:expedientes' %}">
+                        <i class="bi bi-folder2-open"></i> Expedientes
+                    </a>
+                </li>
+                {% endif %}
+
+            </ul>
+
+            <!-- ── Usuario + Sesión ── -->
+            <ul class="navbar-nav">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <div class="navbar-user-info">
+                            <div class="avatar">{{ user.first_name|first|upper }}{{ user.last_name|first|upper }}</div>
+                            <div class="d-none d-lg-block">
+                                <div class="user-name">{{ user.get_full_name|truncatechars:22 }}</div>
+                                <div class="user-role">{{ user.get_rol_display }}</div>
+                            </div>
+                        </div>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><h6 class="dropdown-header">{{ user.get_full_name }}</h6></li>
+                        <li><a class="dropdown-item" href="{% url 'password_change' %}"><i class="bi bi-shield-lock"></i> Cambiar contraseña</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <form method="post" action="{% url 'logout' %}" class="m-0">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item text-danger" style="cursor:pointer;">
+                                    <i class="bi bi-box-arrow-left"></i> Cerrar sesión
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+{% endif %}
+
+<!-- ── CONTENIDO PRINCIPAL ───────────────────────────────────── -->
+<div id="main-content">
+
+    <!-- Topbar -->
+    <div class="topbar">
+        <h5 class="page-title">{% block page_title %}Sistema de Titulación{% endblock %}</h5>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-muted" style="font-size:.78rem;">
+                <i class="bi bi-building me-1"></i>ITA — TecNM
+            </span>
+            {% if user.is_authenticated and user.es_alumno %}
+            <a href="{% url 'alumnos:notificaciones' %}" class="btn btn-sm btn-light position-relative">
+                <i class="bi bi-bell"></i>
+                {% if notificaciones_no_leidas %}
+                <span class="notif-badge">{{ notificaciones_no_leidas }}</span>
+                {% endif %}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Mensajes del sistema -->
+    {% if messages %}
+    <div class="px-4 pt-3">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            <i class="bi bi-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' or message.tags == 'danger' %}x-circle{% elif message.tags == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %} me-2"></i>
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Contenido de la página -->
+    <main class="page-content fade-in">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer Institucional -->
+    <footer class="footer-institucional">
+        <p><strong>Tecnológico Nacional de México</strong></p>
+        <p>Instituto Tecnológico de Apizaco</p>
+        <p style="opacity:.6; font-size:.75rem;">© 2026 Todos los derechos reservados</p>
+    </footer>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

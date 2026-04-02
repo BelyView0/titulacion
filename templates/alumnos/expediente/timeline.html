@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% block title %}Seguimiento — Mi Expediente{% endblock %}
+{% block page_title %}Seguimiento de mi Proceso de Titulación{% endblock %}
+
+{% block content %}
+{% if not expediente %}
+<div class="text-center py-5">
+    <i class="bi bi-folder-x" style="font-size:4rem; color:#dee2e6;"></i>
+    <p class="mt-3 text-muted">No tienes un expediente de titulación activo.</p>
+    <a href="{% url 'alumnos:expediente_crear' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i>Crear Expediente
+    </a>
+</div>
+{% else %}
+
+<!-- Encabezado del expediente -->
+<div class="content-card p-4 mb-4">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+            <h5 class="fw-bold mb-1">{{ expediente.modalidad.nombre }}</h5>
+            <span class="text-muted small">Plan de Estudios {{ expediente.modalidad.plan_estudios.nombre }}</span>
+        </div>
+        <span class="badge bg-{{ expediente.get_estado_display_color }} fs-6 px-3 py-2">
+            {{ expediente.get_estado_display }}
+        </span>
+    </div>
+    <div class="proceso-progress mt-3">
+        <div class="d-flex justify-content-between mb-1">
+            <small class="fw-semibold text-muted">Progreso general</small>
+            <small class="fw-bold" style="color:var(--ita-azul)">{{ expediente.porcentaje_progreso }}%</small>
+        </div>
+        <div class="progress">
+            <div class="progress-bar bg-primary" role="progressbar"
+                 style="width: {{ expediente.porcentaje_progreso }}%"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Mapa visual de etapas -->
+<div class="content-card p-4 mb-4">
+    <div class="card-header-custom mb-3"><i class="bi bi-signpost-2"></i> Etapas del Proceso</div>
+    <div class="row g-2">
+        {% with estado=expediente.estado %}
+        {% for etapa_val, etapa_label in estados_proceso %}
+        <div class="col-6 col-md-4 col-lg-3">
+            <div class="p-2 rounded-3 text-center small
+                {% if etapa_val == estado %}
+                    border border-primary border-2 bg-primary bg-opacity-10
+                {% elif etapa_val in estados_completados %}
+                    bg-success bg-opacity-10
+                {% else %}
+                    bg-light
+                {% endif %}"
+                style="min-height:56px; display:flex; align-items:center; justify-content:center; flex-direction:column;">
+                {% if etapa_val == estado %}
+                <i class="bi bi-arrow-right-circle-fill text-primary mb-1"></i>
+                {% elif etapa_val in estados_completados %}
+                <i class="bi bi-check-circle-fill text-success mb-1"></i>
+                {% else %}
+                <i class="bi bi-circle text-muted mb-1" style="opacity:.4;"></i>
+                {% endif %}
+                <span class="{% if etapa_val == estado %}fw-bold text-primary{% elif etapa_val in estados_completados %}text-success{% else %}text-muted{% endif %}"
+                      style="font-size:.72rem; line-height:1.2;">
+                    {{ etapa_label }}
+                </span>
+            </div>
+        </div>
+        {% endfor %}
+        {% endwith %}
+    </div>
+</div>
+
+<!-- Timeline detallado -->
+<div class="content-card">
+    <div class="card-header-custom">
+        <i class="bi bi-clock-history"></i> Historial Completo del Proceso
+        {% if historial %}
+        <span class="ms-auto badge bg-secondary rounded-pill">{{ historial|length }} eventos</span>
+        {% endif %}
+    </div>
+    <div class="p-4">
+        {% if historial %}
+        <div class="timeline">
+            {% for h in historial %}
+            <div class="timeline-item
+                {% if forloop.first %}active
+                {% elif h.estado_nuevo == 'CONCLUIDO' %}done
+                {% elif h.estado_nuevo == 'RECHAZADO_ACADEMICO' or h.estado_nuevo == 'RECHAZADO_CDMX' %}error
+                {% elif h.estado_nuevo == 'EN_CORRECCION' or h.estado_nuevo == 'REQUIERE_CORRECCION' %}warning
+                {% else %}done
+                {% endif %}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="timeline-desc fw-semibold">{{ h.descripcion }}</div>
+                        <div class="mt-1">
+                            <span class="badge bg-{{ h.get_estado_nuevo_color|default:'secondary' }} badge-estado me-1" style="font-size:.65rem;">
+                                {{ h.get_estado_nuevo_display }}
+                            </span>
+                            {% if h.estado_anterior %}
+                            <span class="text-muted" style="font-size:.65rem;">
+                                desde {{ h.get_estado_anterior_display }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="text-end flex-shrink-0 ms-3">
+                        <div class="timeline-date">{{ h.fecha|date:"d/m/Y" }}</div>
+                        <div class="timeline-date">{{ h.fecha|date:"H:i" }} hrs</div>
+                    </div>
+                </div>
+                <div class="timeline-by mt-1">
+                    <i class="bi bi-person-circle me-1"></i>{{ h.realizado_por.get_full_name|default:"Sistema" }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-muted">
+            <i class="bi bi-clock" style="font-size:3rem; opacity:.3;"></i>
+            <p class="mt-2">Aún no hay eventos registrados en tu expediente.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Acciones rápidas -->
+<div class="mt-3 d-flex gap-2 flex-wrap">
+    <a href="{% url 'alumnos:expediente' %}" class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-folder2-open me-1"></i>Ver Expediente
+    </a>
+    <a href="{% url 'alumnos:dashboard' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-house me-1"></i>Mi Panel
+    </a>
+</div>
+
+{% endif %}
+{% endblock %}

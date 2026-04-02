@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block title %}Notificaciones{% endblock %}
+{% block page_title %}Mis Notificaciones{% endblock %}
+
+{% block content %}
+<div class="content-card">
+    <div class="card-header-custom">
+        <i class="bi bi-bell"></i> Notificaciones
+        <span class="ms-auto badge bg-secondary rounded-pill">{{ notificaciones|length }} total</span>
+    </div>
+
+    {% if notificaciones %}
+    {% for notif in notificaciones %}
+    <div class="doc-item {% if not notif.leida %}bg-primary bg-opacity-10{% endif %}">
+        <div class="doc-icon"
+             style="background: var(--bs-{{ notif.get_tipo_color }}-bg-subtle, #f0f4ff);">
+            <i class="{{ notif.get_tipo_icono }} text-{{ notif.get_tipo_color }}"></i>
+        </div>
+        <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="doc-name">{{ notif.titulo }}</span>
+                <span class="badge bg-{{ notif.get_tipo_color }} badge-estado" style="font-size:.6rem;">
+                    {{ notif.get_tipo_display }}
+                </span>
+            </div>
+            <div class="doc-instruccion mt-1">{{ notif.mensaje }}</div>
+            {% if notif.url_relacionada %}
+            <a href="{{ notif.url_relacionada }}" class="small mt-1 d-inline-block">
+                <i class="bi bi-link-45deg me-1"></i>Ver detalle
+            </a>
+            {% endif %}
+        </div>
+        <div class="text-end flex-shrink-0 ms-3">
+            <small class="text-muted d-block">{{ notif.fecha|date:"d/m/Y" }}</small>
+            <small class="text-muted d-block">{{ notif.fecha|date:"H:i" }}</small>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Paginación -->
+    {% if is_paginated %}
+    <div class="p-3 d-flex justify-content-center">
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+                {% endif %}
+                {% for num in page_obj.paginator.page_range %}
+                <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                </li>
+                {% endfor %}
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-bell-slash" style="font-size:3rem; opacity:.3;"></i>
+        <p class="mt-3">No tienes notificaciones aún.</p>
+        <small>Las notificaciones aparecerán aquí cuando haya cambios en tu proceso de titulación.</small>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Enlace volver -->
+<div class="mt-3">
+    <a href="{% url 'alumnos:dashboard' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Volver al Panel
+    </a>
+</div>
+{% endblock %}

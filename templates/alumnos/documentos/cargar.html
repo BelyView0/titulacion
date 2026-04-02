@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% block title %}Cargar Documento{% endblock %}
+{% block page_title %}Cargar Documento{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <i class="bi bi-upload"></i> {{ object.tipo_documento.nombre }}
+            </div>
+            <div class="p-4">
+                <!-- Instrucciones del documento -->
+                <div class="alert alert-info small mb-4">
+                    <i class="bi bi-info-circle me-1"></i>
+                    <strong>Instrucciones:</strong><br>
+                    {{ object.tipo_documento.descripcion_ayuda }}
+                </div>
+
+                {% if object.tipo_documento.es_obligatorio %}
+                <div class="mb-3">
+                    <span class="badge bg-danger">
+                        <i class="bi bi-asterisk me-1"></i>Documento obligatorio
+                    </span>
+                </div>
+                {% endif %}
+
+                {% if object.archivo %}
+                <div class="alert alert-secondary small mb-3">
+                    <i class="bi bi-file-earmark me-1"></i>
+                    <strong>Archivo actual:</strong> {{ object.archivo.name|truncatechars:50 }}
+                    <br><small class="text-muted">Versión {{ object.version }} — Cargado: {{ object.fecha_carga|date:"d/m/Y H:i"|default:"Sin fecha" }}</small>
+                    <br><small class="text-muted">Al cargar un nuevo archivo reemplazará el anterior.</small>
+                </div>
+                {% endif %}
+
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label for="id_archivo" class="form-label fw-semibold">
+                            <i class="bi bi-file-earmark-arrow-up me-1"></i>
+                            {% if object.tipo_documento.es_fotografia %}
+                            Fotografía (JPG/PNG)
+                            {% else %}
+                            Archivo PDF
+                            {% endif %}
+                        </label>
+                        <input type="file" name="archivo" id="id_archivo"
+                               class="form-control {% if form.archivo.errors %}is-invalid{% endif %}"
+                               {% if object.tipo_documento.acepta_solo_pdf and not object.tipo_documento.es_fotografia %}
+                               accept=".pdf"
+                               {% elif object.tipo_documento.es_fotografia %}
+                               accept="image/jpeg,image/png"
+                               {% endif %}
+                               required>
+                        {% if form.archivo.errors %}
+                        <div class="invalid-feedback">{{ form.archivo.errors.0 }}</div>
+                        {% endif %}
+                        <div class="form-text">
+                            {% if object.tipo_documento.es_fotografia %}
+                            Formatos aceptados: JPG, PNG. Tamaño máximo: 5 MB.
+                            {% elif object.tipo_documento.acepta_solo_pdf %}
+                            Solo se acepta formato PDF. Tamaño máximo: 10 MB.
+                            {% else %}
+                            Tamaño máximo: 10 MB.
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="id_notas_alumno" class="form-label fw-semibold">
+                            <i class="bi bi-chat-text me-1"></i>Notas adicionales (opcional)
+                        </label>
+                        <textarea name="notas_alumno" id="id_notas_alumno"
+                                  class="form-control" rows="3"
+                                  placeholder="Si tienes algún comentario o aclaración sobre este documento...">{{ form.notas_alumno.value|default:"" }}</textarea>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-upload me-1"></i>
+                            {% if object.archivo %}Reemplazar documento{% else %}Cargar documento{% endif %}
+                        </button>
+                        <a href="{% url 'alumnos:expediente' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Volver
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

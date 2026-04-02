@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}Expedientes — División de Estudios{% endblock %}
+{% block page_title %}Gestión de Expedientes{% endblock %}
+
+{% block content %}
+<!-- Filtros -->
+<div class="content-card p-3 mb-4">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label small fw-semibold">Filtrar por estado</label>
+            <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">— Todos los estados —</option>
+                {% for val, label in estados %}
+                <option value="{{ val }}" {% if estado_filtro == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-auto">
+            {% if estado_filtro %}
+            <a href="{% url 'academico:expedientes' %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-x me-1"></i>Limpiar filtro
+            </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<!-- Tabla de expedientes -->
+<div class="content-card">
+    <div class="card-header-custom">
+        <i class="bi bi-folder2-open"></i> Expedientes
+        <span class="ms-auto badge bg-secondary rounded-pill">{{ expedientes|length }} resultado{{ expedientes|length|pluralize:"s" }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:30px">#</th>
+                    <th>Alumno</th>
+                    <th>Carrera</th>
+                    <th>Modalidad</th>
+                    <th>Estado</th>
+                    <th>Última actualización</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for exp in expedientes %}
+                <tr>
+                    <td><small class="text-muted">{{ exp.pk }}</small></td>
+                    <td>
+                        <div class="fw-semibold">{{ exp.alumno.get_full_name|default:"Sin nombre" }}</div>
+                        <small class="text-muted">{{ exp.alumno.username }}</small>
+                    </td>
+                    <td><small>{{ exp.alumno.carrera.nombre|default:"—" }}</small></td>
+                    <td><small>{{ exp.modalidad.nombre|default:"—"|truncatechars:35 }}</small></td>
+                    <td>
+                        <span class="badge bg-{{ exp.get_estado_display_color }} badge-estado">
+                            {{ exp.get_estado_display }}
+                        </span>
+                    </td>
+                    <td><small class="text-muted">{{ exp.fecha_ultima_actualizacion|date:"d/m/Y H:i" }}</small></td>
+                    <td class="text-center">
+                        <a href="{% url 'academico:expediente_detalle' exp.pk %}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye me-1"></i>Ver
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="bi bi-inbox" style="font-size:2rem; opacity:.3;"></i>
+                        <p class="mt-2 mb-0">No hay expedientes que coincidan con el filtro.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Paginación -->
+    {% if is_paginated %}
+    <div class="p-3 d-flex justify-content-center">
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}"><i class="bi bi-chevron-left"></i></a></li>
+                {% endif %}
+                {% for num in page_obj.paginator.page_range %}
+                <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                    <a class="page-link" href="?page={{ num }}{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}">{{ num }}</a>
+                </li>
+                {% endfor %}
+                {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}"><i class="bi bi-chevron-right"></i></a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
