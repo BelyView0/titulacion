@@ -10,7 +10,6 @@ urlpatterns = [
     path('expedientes/<int:pk>/validar-inicial/', views.ValidarExpedienteInicialView.as_view(), name='validar_inicial'),
     path('documentos/<int:pk>/validar/', views.ValidarDocumentoAcademicoView.as_view(), name='validar_documento'),
     path('expedientes/<int:pk>/empastado/', views.RecepcionEmpastadoView.as_view(), name='recibir_empastado'),
-    path('expedientes/<int:pk>/jurado/', views.AsignacionJuradoView.as_view(), name='asignar_jurado'),
     path('expedientes/<int:pk>/acto/', views.ActoProtocolarioView.as_view(), name='programar_acto'),
     path('actos/<int:pk>/resultado/', views.RegistrarResultadoActoView.as_view(), name='resultado_acto'),
 ]

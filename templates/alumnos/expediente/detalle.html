@@ -120,27 +120,34 @@
             </div>
         </div>
 
-        {% elif expediente.estado == 'DOCUMENTOS_PENDIENTES' %}
+        {% elif expediente.estado == 'DOCUMENTOS_PENDIENTES' or expediente.estado == 'RECHAZADO_CDMX' %}
         <div class="content-card p-3">
             <div class="card-header-custom mb-2"><i class="bi bi-lightning"></i> Acciones</div>
+            {% if expediente.estado == 'RECHAZADO_CDMX' %}
+            <div class="alert alert-danger py-2 small mb-2">
+                <i class="bi bi-exclamation-octagon me-1"></i>
+                Tu expediente fue rechazado por CDMX. Corrige los documentos marcados abajo y vuelve a enviarlos.
+            </div>
+            {% else %}
             <p class="small text-muted">Carga todos los documentos obligatorios y luego envíalos a revisión de Servicios Escolares y División de Estudios.</p>
+            {% endif %}
 
             {% with docs_pendientes=expediente.documentos.all %}
-            {% with total=expediente.documentos_total cargados=0 %}
+            {% with total=expediente.documentos_total %}
             <div class="proceso-progress mb-3">
                 <div class="d-flex justify-content-between mb-1">
-                    <small class="fw-semibold text-muted">Documentos cargados</small>
+                    <small class="fw-semibold text-muted">Progreso de documentos</small>
                     <small class="fw-bold" style="color:var(--ita-azul);">{{ expediente.documentos_aprobados }}/{{ total }}</small>
                 </div>
-                <div class="progress">
-                    <div class="progress-bar bg-primary" style="width: {{ expediente.porcentaje_progreso }}%"></div>
+                <div class="progress" style="height: 6px;">
+                    <div class="progress-bar bg-primary" id="progreso-documentos-bar"></div>
                 </div>
             </div>
             {% endwith %}
             {% endwith %}
 
             <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#modalEnviarDocs">
-                <i class="bi bi-send-check me-2"></i>Enviar Documentos a Revisión
+                <i class="bi bi-send-check me-2"></i>{% if expediente.estado == 'RECHAZADO_CDMX' %}Re-enviar para Revisión{% else %}Enviar Documentos a Revisión{% endif %}
             </button>
         </div>
 
@@ -280,5 +287,15 @@
         {% endif %}
     </div>
 </div>
-{% endif %}
+{% endif %}{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const progressBar = document.getElementById('progreso-documentos-bar');
+        if (progressBar) {
+            progressBar.style.width = '{{ expediente.porcentaje_progreso }}%';
+        }
+    });
+</script>
 {% endblock %}

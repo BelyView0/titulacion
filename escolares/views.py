@@ -299,6 +299,12 @@ class RespuestaCDMXView(EscolaresRequeridoMixin, UpdateView):
     template_name = 'escolares/cdmx/respuesta.html'
     fields = ['estado', 'fecha_respuesta', 'observaciones_cdmx', 'numero_registro_titulo']
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        # Solo documentos que ya estaban aprobados o en revisión (excluye pendientes si hay)
+        ctx['documentos'] = self.object.expediente.documentos.select_related('tipo_documento').all()
+        return ctx
+
     def form_valid(self, form):
         envio = form.save()
         expediente = envio.expediente
@@ -324,17 +330,43 @@ class RespuestaCDMXView(EscolaresRequeridoMixin, UpdateView):
                 mensaje='CDMX aprobó tu expediente. El siguiente paso es entregar el empastado en División de Estudios.',
             )
         else:
+            # Capturar documentos marcados con error
+            docs_con_error_ids = self.request.POST.getlist('documentos_error')
+            docs_nombres = []
+            
+            if docs_con_error_ids:
+                for doc_id in docs_con_error_ids:
+                    try:
+                        doc = expediente.documentos.get(pk=doc_id)
+                        doc.estado = EstadoDocumento.REQUIERE_CORRECCION
+                        doc.save(update_fields=['estado'])
+                        docs_nombres.append(doc.tipo_documento.nombre)
+                        
+                        registrar_cambio_documento(
+                            documento=doc,
+                            accion=f'CDMX rechazó este documento. Motivo general: {envio.observaciones_cdmx}',
+                            realizado_por=self.request.user
+                        )
+                    except Documento.DoesNotExist:
+                        continue
+
             registrar_cambio_estado(
                 expediente=expediente,
                 estado_nuevo=EstadoExpediente.RECHAZADO_CDMX,
                 realizado_por=self.request.user,
                 descripcion=f'CDMX rechazó el expediente. Observaciones: {envio.observaciones_cdmx}'
             )
+            
+            mensaje_notif = f'CDMX rechazó tu expediente. Observaciones: {envio.observaciones_cdmx}.'
+            if docs_nombres:
+                mensaje_notif += f" Debes corregir: {', '.join(docs_nombres)}."
+            mensaje_notif += ' Por favor, corrige los documentos y vuelve a enviarlos para revisión.'
+
             notificar_alumno(
                 expediente=expediente,
                 tipo='RECHAZADO',
                 titulo='Expediente rechazado por CDMX',
-                mensaje=f'CDMX rechazó tu expediente. Observaciones: {envio.observaciones_cdmx}. Contacta a Servicios Escolares.',
+                mensaje=mensaje_notif,
             )
 
         messages.success(self.request, 'Respuesta de CDMX registrada.')

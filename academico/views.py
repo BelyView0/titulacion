@@ -85,6 +85,12 @@ class ExpedienteDetalleAcademicoView(AcademicoRequeridoMixin, DetailView):
             'tipo_documento'
         ).prefetch_related('validaciones').order_by('tipo_documento__orden')
         ctx['historial'] = expediente.historial.select_related('realizado_por')[:15]
+        
+        # Obtener jurado si existe
+        ctx['jurado'] = AsignacionJurado.objects.filter(
+            expediente=expediente
+        ).select_related('presidente', 'secretario', 'vocal').first()
+        
         return ctx
 
 
@@ -242,52 +248,6 @@ class RecepcionEmpastadoView(AcademicoRequeridoMixin, CreateView):
         ctx['expediente'] = self.get_expediente()
         return ctx
 
-
-class AsignacionJuradoView(AcademicoRequeridoMixin, CreateView):
-    model = AsignacionJurado
-    template_name = 'academico/jurado/asignar.html'
-    fields = ['presidente', 'secretario', 'vocal', 'fecha_carta', 'notas']
-
-    def get_expediente(self):
-        return get_object_or_404(Expediente, pk=self.kwargs['pk'],
-                                  estado=EstadoExpediente.EMPASTADO_RECIBIDO)
-
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
-        personal = Usuario.objects.filter(
-            rol__in=['ACADEMICO', 'ADMIN']
-        ).order_by('last_name')
-        form.fields['presidente'].queryset = personal
-        form.fields['secretario'].queryset = personal
-        form.fields['vocal'].queryset = personal
-        return form
-
-    def form_valid(self, form):
-        expediente = self.get_expediente()
-        jurado = form.save(commit=False)
-        jurado.expediente = expediente
-        jurado.asignado_por = self.request.user
-        jurado.save()
-
-        registrar_cambio_estado(
-            expediente=expediente,
-            estado_nuevo=EstadoExpediente.JURADO_ASIGNADO,
-            realizado_por=self.request.user,
-            descripcion=f'Jurado asignado: Presidente {jurado.presidente}, Secretario {jurado.secretario}, Vocal {jurado.vocal}'
-        )
-        notificar_alumno(
-            expediente=expediente,
-            tipo='AVANCE',
-            titulo='Jurado asignado para tu examen profesional',
-            mensaje=f'Se ha asignado el jurado para tu acto protocolario. Presidente: {jurado.presidente.get_full_name()}.',
-        )
-        messages.success(self.request, 'Jurado asignado exitosamente.')
-        return redirect('academico:expediente_detalle', pk=expediente.pk)
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        ctx['expediente'] = self.get_expediente()
-        return ctx
 
 
 class ActoProtocolarioView(AcademicoRequeridoMixin, CreateView):

@@ -21,6 +21,7 @@ from expediente.models import (
     Expediente, Documento, AsignacionJurado,
     EstadoExpediente, EstadoDocumento
 )
+from expediente.notifications import notificar_alumno, registrar_cambio_estado
 
 Usuario = get_user_model()
 
@@ -288,6 +289,21 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
             jurado.save()
 
         messages.success(request, 'Asignación de jurado registrada exitosamente.')
+
+        # Actualizar estado del expediente
+        registrar_cambio_estado(
+            expediente=expediente,
+            estado_nuevo=EstadoExpediente.JURADO_ASIGNADO,
+            realizado_por=request.user,
+            descripcion=f'Jurado asignado por Jefe de Proyecto: Presidente {jurado.presidente}, Secretario {jurado.secretario}, Vocal {jurado.vocal}'
+        )
+        notificar_alumno(
+            expediente=expediente,
+            tipo='AVANCE',
+            titulo='Jurado asignado para tu examen profesional',
+            mensaje=f'Se ha asignado el jurado para tu acto protocolario. Presidente: {jurado.presidente.get_full_name()}.',
+        )
+
         return redirect('administracion:jefe_detalle', pk=pk)
 
 

@@ -126,6 +126,34 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Selección de documentos con error (solo si es Rechazado) -->
+                    <div id="seccion-errores-documentos" style="display:none;" class="mt-4 animate__animated animate__fadeIn">
+                        <div class="alert alert-warning p-3">
+                            <h6 class="fw-bold mb-2">
+                                <i class="bi bi-file-earmark-x me-1"></i>Indica qué documentos tienen error:
+                            </h6>
+                            <p class="small mb-3">Los documentos seleccionados se marcarán como "Requiere Corrección" y el alumno deberá volver a cargarlos.</p>
+                            
+                            <div class="list-group list-group-flush border rounded bg-white">
+                                {% for doc in documentos %}
+                                <label class="list-group-item list-group-item-action d-flex align-items-center py-2">
+                                    <input class="form-check-input me-3 doc-error-check" type="checkbox" 
+                                           name="documentos_error" value="{{ doc.pk }}">
+                                    <div class="flex-grow-1">
+                                        <div class="fw-semibold small">{{ doc.tipo_documento.nombre }}</div>
+                                        <div class="text-muted smaller">v{{ doc.version }} — {{ doc.get_estado_display }}</div>
+                                    </div>
+                                    {% if doc.archivo %}
+                                    <a href="{{ doc.archivo.url }}" target="_blank" class="btn btn-link btn-sm p-0 ms-2" title="Ver archivo actual">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    {% endif %}
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
 
                     <hr>
 
@@ -194,6 +222,9 @@ function seleccionarRespuesta(el, tipo) {
 
     // Show/hide registration number field
     document.getElementById('campo-registro').style.display = tipo === 'aprobado' ? 'block' : 'none';
+    
+    // Show/hide document error list
+    document.getElementById('seccion-errores-documentos').style.display = tipo === 'rechazado' ? 'block' : 'none';
 }
 
 // Initialize on page load

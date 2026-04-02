@@ -146,8 +146,8 @@ class EnviarDocumentosRevisionView(ExpedientePropioMixin, View):
             messages.error(request, 'No tienes expediente activo.')
             return redirect('alumnos:dashboard')
 
-        if expediente.estado != EstadoExpediente.DOCUMENTOS_PENDIENTES:
-            messages.error(request, 'Tu expediente no está en estado de carga de documentos.')
+        if expediente.estado not in [EstadoExpediente.DOCUMENTOS_PENDIENTES, EstadoExpediente.RECHAZADO_CDMX]:
+            messages.error(request, 'Tu expediente no está en un estado que permita el envío de documentos.')
             return redirect('alumnos:expediente')
 
         # Verificar que todos los documentos obligatorios fueron cargados
@@ -169,7 +169,7 @@ class EnviarDocumentosRevisionView(ExpedientePropioMixin, View):
             expediente=expediente,
             estado_nuevo=EstadoExpediente.EN_REVISION_DOCUMENTOS,
             realizado_por=request.user,
-            descripcion='Alumno envió documentos a revisión de Escolares y División.'
+            descripcion='Alumno re-envió documentos a revisión tras correcciones (CDMX o Escolares).'
         )
         notificar_alumno(
             expediente=expediente,

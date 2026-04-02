@@ -64,7 +64,7 @@
                     <small class="fw-bold" style="color:var(--ita-azul)">{{ expediente.porcentaje_progreso }}%</small>
                 </div>
                 <div class="progress">
-                    <div class="progress-bar bg-primary" style="width: {{ expediente.porcentaje_progreso }}%"></div>
+                    <div class="progress-bar bg-primary" id="progreso-bar-academico"></div>
                 </div>
             </div>
         </div>
@@ -98,9 +98,10 @@
             </a>
 
             {% elif expediente.estado == 'EMPASTADO_RECIBIDO' %}
-            <a href="{% url 'academico:asignar_jurado' expediente.pk %}" class="btn btn-primary btn-sm w-100">
-                <i class="bi bi-people me-1"></i>Asignar Jurado
-            </a>
+            <div class="alert alert-info py-2 small mb-0">
+                <i class="bi bi-clock me-1"></i>
+                Esperando a que el Jefe de Proyecto asigne el jurado.
+            </div>
 
             {% elif expediente.estado == 'JURADO_ASIGNADO' %}
             <a href="{% url 'academico:programar_acto' expediente.pk %}" class="btn btn-primary btn-sm w-100">
@@ -126,10 +127,31 @@
                 <p class="small text-success fw-bold mt-2 mb-0">Proceso concluido exitosamente</p>
             </div>
 
-            {% else %}
-            <p class="small text-muted text-center mb-0">No hay acciones disponibles para el estado actual de este expediente.</p>
             {% endif %}
         </div>
+
+        <!-- Información del Jurado (si ya fue asignado) -->
+        {% with jurado=expediente.jurado %}
+        {% if jurado %}
+        <div class="content-card p-3 mb-3 animate__animated animate__fadeIn">
+            <div class="card-header-custom mb-3"><i class="bi bi-people"></i> Jurado Asignado</div>
+            <div class="small">
+                <div class="mb-2">
+                    <span class="badge bg-primary me-2" style="width:20px;">P</span>
+                    <strong>Presidente:</strong> {{ jurado.presidente.get_full_name }}
+                </div>
+                <div class="mb-2">
+                    <span class="badge bg-info me-2" style="width:20px;">S</span>
+                    <strong>Secretario:</strong> {{ jurado.secretario.get_full_name }}
+                </div>
+                <div class="mb-0">
+                    <span class="badge bg-secondary me-2" style="width:20px;">V</span>
+                    <strong>Vocal:</strong> {{ jurado.vocal.get_full_name }}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endwith %}
 
         <!-- Fotografía -->
         <div class="content-card p-3">
@@ -330,4 +352,15 @@
         <i class="bi bi-arrow-left me-1"></i>Volver a expedientes
     </a>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const progressBar = document.getElementById('progreso-bar-academico');
+        if (progressBar) {
+            progressBar.style.width = '{{ expediente.porcentaje_progreso }}%';
+        }
+    });
+</script>
 {% endblock %}
