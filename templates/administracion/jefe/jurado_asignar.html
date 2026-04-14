@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+{% block title %}Asignar Jurado — Jefe de Proyecto{% endblock %}
+{% block page_title %}Asignación de Jurado{% endblock %}
+
+{% block extra_head %}
+<style>
+    .sinodal-select {
+        position: relative;
+    }
+    .sinodal-select select {
+        padding-left: 2.5rem;
+    }
+    .sinodal-select .sinodal-icon {
+        position: absolute;
+        left: .75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        font-weight: 700;
+        font-size: .75rem;
+        z-index: 2;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Panel izquierdo: Info -->
+    <div class="col-lg-4">
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-3"><i class="bi bi-person-badge"></i> Alumno</div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Nombre</small>
+                <div class="fw-bold">{{ expediente.alumno.get_full_name }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">N° Control</small>
+                <div>{{ expediente.alumno.username }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Carrera</small>
+                <div>{{ expediente.alumno.carrera.nombre|default:"—" }}</div>
+            </div>
+        </div>
+
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-3"><i class="bi bi-info-circle"></i> Expediente</div>
+            <div class="text-center mb-2">
+                <span class="badge bg-{{ expediente.get_estado_display_color }} px-3 py-2 w-100">
+                    {{ expediente.get_estado_display }}
+                </span>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Modalidad</small>
+                <div>{{ expediente.modalidad.nombre|default:"—" }}</div>
+            </div>
+            {% if expediente.titulo_trabajo %}
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Título del trabajo</small>
+                <div class="small">{{ expediente.titulo_trabajo }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="content-card p-3" style="border-left: 3px solid #0ea5e9;">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-lightbulb" style="color:#0ea5e9;"></i>
+                <strong class="small" style="color:#0ea5e9;">Guía</strong>
+            </div>
+            <p class="small text-muted mb-2">
+                Asigna los tres miembros del jurado para el acto de recepción profesional del alumno.
+            </p>
+            <ul class="small text-muted mb-0" style="padding-left:1.2rem;">
+                <li>Los tres miembros deben ser personas diferentes</li>
+                <li>El presidente dirige el acto protocolario</li>
+                <li>El secretario da fe del acto</li>
+                <li>El vocal funge como tercer sinodal</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Panel derecho: Formulario -->
+    <div class="col-lg-8">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <i class="bi bi-people"></i> Asignación de Jurado
+            </div>
+            <div class="p-4">
+                <form method="post" id="formJurado">
+                    {% csrf_token %}
+
+                    <div class="row g-4">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">
+                                <span class="badge bg-primary me-1">P</span> Presidente
+                            </label>
+                            <div class="sinodal-select">
+                                <select name="presidente" class="form-select" required id="sel-presidente">
+                                    <option value="">— Seleccionar presidente —</option>
+                                    {% for s in sinodales %}
+                                    <option value="{{ s.pk }}"
+                                            {% if jurado and jurado.presidente_id == s.pk %}selected{% endif %}>
+                                        {{ s.get_full_name }} ({{ s.get_rol_display }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">
+                                <span class="badge bg-info me-1">S</span> Secretario
+                            </label>
+                            <div class="sinodal-select">
+                                <select name="secretario" class="form-select" required id="sel-secretario">
+                                    <option value="">— Seleccionar secretario —</option>
+                                    {% for s in sinodales %}
+                                    <option value="{{ s.pk }}"
+                                            {% if jurado and jurado.secretario_id == s.pk %}selected{% endif %}>
+                                        {{ s.get_full_name }} ({{ s.get_rol_display }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">
+                                <span class="badge bg-secondary me-1">V</span> Vocal
+                            </label>
+                            <div class="sinodal-select">
+                                <select name="vocal" class="form-select" required id="sel-vocal">
+                                    <option value="">— Seleccionar vocal —</option>
+                                    {% for s in sinodales %}
+                                    <option value="{{ s.pk }}"
+                                            {% if jurado and jurado.vocal_id == s.pk %}selected{% endif %}>
+                                        {{ s.get_full_name }} ({{ s.get_rol_display }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'administracion:jefe_detalle' expediente.pk %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-left me-1"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary" id="btn-asignar">
+                            <i class="bi bi-check-circle me-1"></i>{% if jurado %}Actualizar{% else %}Asignar{% endif %} Jurado
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.getElementById('formJurado').addEventListener('submit', function(e) {
+    const p = document.getElementById('sel-presidente').value;
+    const s = document.getElementById('sel-secretario').value;
+    const v = document.getElementById('sel-vocal').value;
+
+    if (!p || !s || !v) {
+        e.preventDefault();
+        alert('Debes seleccionar los tres miembros del jurado.');
+        return;
+    }
+
+    const vals = [p, s, v];
+    if (new Set(vals).size < 3) {
+        e.preventDefault();
+        alert('Los tres miembros del jurado deben ser personas diferentes.');
+        return;
+    }
+
+    if (!confirm('¿Confirmas la asignación de jurado?')) {
+        e.preventDefault();
+    }
+});
+</script>
+{% endblock %}

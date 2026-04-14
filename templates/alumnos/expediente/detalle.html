@@ -1,0 +1,310 @@
+{% extends 'base.html' %}
+{% block title %}Mi Expediente{% endblock %}
+{% block page_title %}Mi Expediente de Titulación{% endblock %}
+
+{% block content %}
+{% if not expediente %}
+<div class="text-center py-5">
+    <i class="bi bi-folder-x" style="font-size:4rem; color:#dee2e6;"></i>
+    <p class="mt-3 text-muted">No tienes expediente activo.</p>
+    <a href="{% url 'alumnos:expediente_crear' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i>Crear Expediente
+    </a>
+</div>
+{% else %}
+
+<div class="row g-3">
+    <!-- Información del expediente -->
+    <div class="col-lg-4">
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-3"><i class="bi bi-info-circle"></i> Estado Actual</div>
+            <div class="text-center mb-3">
+                <span class="badge bg-{{ expediente.get_estado_display_color }} fs-5 px-3 py-2 w-100">
+                    {{ expediente.get_estado_display }}
+                </span>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Modalidad</small>
+                <div class="fw-bold">{{ expediente.modalidad.nombre }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Plan de Estudios</small>
+                <div class="fw-bold">{{ expediente.modalidad.plan_estudios.nombre }}</div>
+            </div>
+            {% if expediente.titulo_trabajo %}
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Título del trabajo</small>
+                <div class="fw-bold">{{ expediente.titulo_trabajo }}</div>
+            </div>
+            {% endif %}
+            {% if expediente.nombre_empresa %}
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Empresa / Organización</small>
+                <div class="fw-bold">{{ expediente.nombre_empresa }}</div>
+            </div>
+            {% endif %}
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Fecha de apertura</small>
+                <div>{{ expediente.fecha_apertura|date:"d/m/Y" }}</div>
+            </div>
+
+            <!-- Fotografía -->
+            <hr>
+            <div class="mb-1">
+                <small class="fw-semibold text-muted">Fotografía óvalo</small>
+            </div>
+            <div class="d-flex gap-2 align-items-center mt-1">
+                {% with foto_doc=expediente.get_documento_fotografia %}
+                <span class="badge bg-{% if foto_doc %}{{ foto_doc.get_estado_color }}{% else %}secondary{% endif %}">
+                    <i class="bi {% if foto_doc.estado == 'APROBADO' %}bi-check-circle{% else %}bi-camera{% endif %} me-1"></i>
+                    Fotografía óvalo ByN: {% if foto_doc %}{{ foto_doc.get_estado_display }}{% else %}Pendiente{% endif %}
+                </span>
+                {% endwith %}
+                <span class="badge bg-{% if expediente.fotografia_fisica_entregada %}success{% else %}secondary{% endif %}">
+                    <i class="bi {% if expediente.fotografia_fisica_entregada %}bi-check{% else %}bi-clock{% endif %} me-1"></i>
+                    Física: {% if expediente.fotografia_fisica_entregada %}Entregada{% else %}Pendiente{% endif %}
+                </span>
+            </div>
+
+            {% if expediente.observaciones_division %}
+            <hr>
+            <div>
+                <small class="text-muted fw-semibold">Observaciones División</small>
+                <div class="alert alert-warning mt-1 p-2 small">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    {{ expediente.observaciones_division }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Acciones -->
+        {% if expediente.estado == 'BORRADOR' %}
+        <div class="content-card p-3">
+            <div class="card-header-custom mb-2"><i class="bi bi-lightning"></i> Acciones</div>
+            <p class="small text-muted">Cuando hayas completado la información de tu expediente, envíalo a revisión de División de Estudios.</p>
+            <button type="button" class="btn btn-success w-100" data-bs-toggle="modal" data-bs-target="#modalConfirmarRevision">
+                <i class="bi bi-send me-2"></i>Enviar a Revisión
+            </button>
+        </div>
+
+        <!-- Modal de confirmación -->
+        <div class="modal fade" id="modalConfirmarRevision" tabindex="-1" aria-labelledby="modalConfirmarRevisionLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-success bg-opacity-10">
+                        <h6 class="modal-title fw-bold" id="modalConfirmarRevisionLabel">
+                            <i class="bi bi-send me-2 text-success"></i>Confirmar envío a revisión
+                        </h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>¿Estás seguro de enviar tu expediente a revisión de División de Estudios?</p>
+                        <div class="alert alert-info small py-2 mb-0">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Una vez enviado, División de Estudios revisará tu expediente. No podrás hacer cambios hasta que te lo devuelvan.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                            <i class="bi bi-x me-1"></i>Cancelar
+                        </button>
+                        <form method="post" action="{% url 'alumnos:solicitar_revision' %}" class="m-0">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success btn-sm">
+                                <i class="bi bi-send me-1"></i>Sí, enviar a revisión
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% elif expediente.estado == 'DOCUMENTOS_PENDIENTES' or expediente.estado == 'RECHAZADO_CDMX' %}
+        <div class="content-card p-3">
+            <div class="card-header-custom mb-2"><i class="bi bi-lightning"></i> Acciones</div>
+            {% if expediente.estado == 'RECHAZADO_CDMX' %}
+            <div class="alert alert-danger py-2 small mb-2">
+                <i class="bi bi-exclamation-octagon me-1"></i>
+                Tu expediente fue rechazado por CDMX. Corrige los documentos marcados abajo y vuelve a enviarlos.
+            </div>
+            {% elif expediente.estado == 'DOCUMENTOS_PENDIENTES' %}
+                {% if expediente.documentos_total > 0 and expediente.documentos_aprobados < expediente.documentos_total %}
+                    {% if expediente.historial.first.estado_anterior == 'EN_REVISION_DOCUMENTOS' %}
+                    <div class="alert alert-warning py-2 small mb-2">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        Tu expediente regresó a corrección. Revisa los documentos rechazados, corrígelos y vuelve a enviar a revisión.
+                    </div>
+                    {% else %}
+                    <p class="small text-muted">Carga todos los documentos obligatorios y luego envíalos a revisión de Servicios Escolares y División de Estudios.</p>
+                    {% endif %}
+                {% endif %}
+            {% endif %}
+
+            {% with docs_pendientes=expediente.documentos.all %}
+            {% with total=expediente.documentos_total %}
+            <div class="proceso-progress mb-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <small class="fw-semibold text-muted">Progreso de documentos</small>
+                    <small class="fw-bold" style="color:var(--ita-azul);">{{ expediente.documentos_aprobados }}/{{ total }}</small>
+                </div>
+                <div class="progress" style="height: 6px;">
+                    <div class="progress-bar bg-primary" id="progreso-documentos-bar"></div>
+                </div>
+            </div>
+            {% endwith %}
+            {% endwith %}
+
+            <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#modalEnviarDocs">
+                <i class="bi bi-send-check me-2"></i>{% if expediente.estado == 'RECHAZADO_CDMX' %}Re-enviar para Revisión{% else %}Enviar Documentos a Revisión{% endif %}
+            </button>
+        </div>
+
+        <!-- Modal de confirmación envío de documentos -->
+        <div class="modal fade" id="modalEnviarDocs" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary bg-opacity-10">
+                        <h6 class="modal-title fw-bold">
+                            <i class="bi bi-send-check me-2 text-primary"></i>Enviar documentos a revisión
+                        </h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>¿Estás seguro de enviar tus documentos a revisión?</p>
+                        <div class="alert alert-info small py-2 mb-0">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Servicios Escolares y División de Estudios revisarán y validarán cada documento. Ambos departamentos deben aprobar para que un documento sea aceptado.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                            <i class="bi bi-x me-1"></i>Cancelar
+                        </button>
+                        <form method="post" action="{% url 'alumnos:enviar_documentos' %}" class="m-0">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-send-check me-1"></i>Sí, enviar a revisión
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Lista de documentos -->
+    <div class="col-lg-8">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <i class="bi bi-files"></i> Documentos Requeridos
+                <span class="ms-auto badge bg-primary rounded-pill">
+                    {{ expediente.documentos_aprobados }}/{{ expediente.documentos_total }}
+                </span>
+            </div>
+            {% for documento in documentos %}
+            <div class="doc-item">
+                <div class="doc-icon
+                    {% if documento.estado == 'APROBADO' %}
+                        bg-success bg-opacity-10
+                    {% elif documento.estado == 'RECHAZADO' %}
+                        bg-danger bg-opacity-10
+                    {% elif documento.estado == 'REQUIERE_CORRECCION' %}
+                        bg-warning bg-opacity-10
+                    {% elif documento.estado == 'CARGADO' or documento.estado == 'EN_REVISION' %}
+                        bg-info bg-opacity-10
+                    {% else %}
+                        bg-light
+                    {% endif %}">
+                    <i class="bi
+                        {% if documento.tipo_documento.es_fotografia %}bi-camera
+                        {% else %}bi-file-earmark-pdf{% endif %}
+                        text-{{ documento.get_estado_color }}"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <div class="doc-name">
+                        {{ documento.tipo_documento.nombre }}
+                        {% if documento.tipo_documento.es_obligatorio %}
+                        <span class="text-danger ms-1" title="Obligatorio">*</span>
+                        {% endif %}
+                    </div>
+                    <div class="doc-instruccion text-truncate" style="max-width:380px;">
+                        {{ documento.tipo_documento.descripcion_ayuda|truncatechars:80 }}
+                    </div>
+                    {% if documento.estado == 'CARGADO' or documento.estado == 'EN_REVISION' %}
+                    <div class="mt-1">
+                        {% with div_val=documento.validacion_division esc_val=documento.validacion_escolares %}
+                        {% if documento.tipo_documento.valida_division %}
+                        <span class="badge badge-estado bg-{{ div_val.get_estado_display|default:'secondary' }} me-1" style="font-size:.65rem;">
+                            <i class="bi bi-mortarboard me-1"></i>División:
+                            {% if div_val %}{{ div_val.get_estado_display }}{% else %}Pendiente{% endif %}
+                        </span>
+                        {% endif %}
+                        {% if documento.tipo_documento.valida_escolares %}
+                        <span class="badge badge-estado bg-secondary" style="font-size:.65rem;">
+                            <i class="bi bi-building me-1"></i>Escolares:
+                            {% if esc_val %}{{ esc_val.get_estado_display }}{% else %}Pendiente{% endif %}
+                        </span>
+                        {% endif %}
+                        {% endwith %}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="text-end">
+                    <span class="badge badge-estado bg-{{ documento.get_estado_color }} mb-2 d-block">
+                        {{ documento.get_estado_display }}
+                    </span>
+                    {% if documento.estado in 'PENDIENTE,RECHAZADO,REQUIERE_CORRECCION' %}
+                    <a href="{% url 'alumnos:documento_cargar' documento.pk %}"
+                       class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-upload me-1"></i>Cargar
+                    </a>
+                    {% elif documento.archivo %}
+                    <a href="{{ documento.archivo.url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-eye me-1"></i>Ver
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox fs-2"></i>
+                <p class="mt-2">No hay documentos requeridos aún.</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Historial reciente -->
+        {% if historial %}
+        <div class="content-card mt-3">
+            <div class="card-header-custom">
+                <i class="bi bi-clock-history"></i> Historial reciente
+            </div>
+            <div class="p-3">
+                <div class="timeline">
+                    {% for h in historial %}
+                    <div class="timeline-item {% if forloop.first %}active{% else %}done{% endif %}">
+                        <div class="timeline-date">{{ h.fecha|date:"d/m/Y H:i" }}</div>
+                        <div class="timeline-desc fw-semibold">{{ h.descripcion }}</div>
+                        <div class="timeline-by">por {{ h.realizado_por.get_full_name }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const progressBar = document.getElementById('progreso-documentos-bar');
+        if (progressBar) {
+            progressBar.style.width = '{{ expediente.porcentaje_progreso }}%';
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,293 @@
+{% extends 'base.html' %}
+{% block title %}Resultado del Acto Protocolario — División{% endblock %}
+{% block page_title %}Registrar Resultado del Acto Protocolario{% endblock %}
+
+{% block extra_head %}
+<style>
+    .resultado-option {
+        cursor: pointer;
+        padding: 1rem;
+        border-radius: .75rem;
+        border: 2px solid #e9ecef;
+        transition: all .2s ease;
+        text-align: center;
+    }
+    .resultado-option:hover {
+        border-color: #adb5bd;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,.08);
+    }
+    .resultado-option.selected {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,.12);
+    }
+    .resultado-option.selected-aprobado {
+        border-color: #16a34a;
+        background: #f0fdf4;
+    }
+    .resultado-option.selected-mencion {
+        border-color: #d97706;
+        background: #fffbeb;
+    }
+    .resultado-option.selected-suspendido {
+        border-color: #dc3545;
+        background: #fef2f2;
+    }
+    .resultado-option.selected-no_presentado {
+        border-color: #6c757d;
+        background: #f8f9fa;
+    }
+    .resultado-option .result-icon {
+        font-size: 2rem;
+        margin-bottom: .5rem;
+    }
+    .resultado-option .result-label {
+        font-weight: 700;
+        font-size: .9rem;
+    }
+    .resultado-option .result-desc {
+        font-size: .75rem;
+        color: #6c757d;
+        margin-top: .25rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+    <!-- Panel izquierdo: Info del acto -->
+    <div class="col-lg-4">
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-3"><i class="bi bi-person-badge"></i> Datos del Alumno</div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Nombre completo</small>
+                <div class="fw-bold">{{ object.expediente.alumno.get_full_name|default:"Sin nombre" }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">N° Control</small>
+                <div>{{ object.expediente.alumno.username }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Carrera</small>
+                <div>{{ object.expediente.alumno.carrera.nombre|default:"No asignada" }}</div>
+            </div>
+        </div>
+
+        <div class="content-card p-3 mb-3" style="border-left: 3px solid #0ea5e9;">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-calendar-event" style="color:#0ea5e9;"></i>
+                <span style="color:#0ea5e9;">Datos del Acto</span>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Fecha y hora</small>
+                <div class="fw-bold">{{ object.fecha_acto|date:"d/m/Y H:i" }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Lugar</small>
+                <div>{{ object.lugar }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Modalidad</small>
+                <div>{{ object.expediente.modalidad.nombre|default:"—" }}</div>
+            </div>
+            {% if object.expediente.titulo_trabajo %}
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Título del trabajo</small>
+                <div>{{ object.expediente.titulo_trabajo }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Jurado -->
+        {% with jurado=object.jurado %}
+        {% if jurado %}
+        <div class="content-card p-3" style="border-left: 3px solid #7c3aed;">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-people" style="color:#7c3aed;"></i>
+                <span style="color:#7c3aed;">Jurado</span>
+            </div>
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge" style="background:#7c3aed;">P</span>
+                <span class="small fw-semibold">{{ jurado.presidente.get_full_name }}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge bg-primary">S</span>
+                <span class="small fw-semibold">{{ jurado.secretario.get_full_name }}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-success">V</span>
+                <span class="small fw-semibold">{{ jurado.vocal.get_full_name }}</span>
+            </div>
+        </div>
+        {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Panel derecho: Formulario de resultado -->
+    <div class="col-lg-8">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <i class="bi bi-clipboard-check"></i> Registrar Resultado del Examen Profesional
+            </div>
+            <div class="p-4">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    {% if form.errors %}
+                    <div class="alert alert-danger py-2 mb-4">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Corrige los siguientes errores:</strong>
+                        <ul class="mb-0 mt-1 small">
+                            {% for field in form %}
+                                {% for error in field.errors %}
+                                <li>{{ field.label }}: {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for error in form.non_field_errors %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <!-- Resultado visual -->
+                    <h6 class="fw-bold mb-3">
+                        <i class="bi bi-award me-1 text-primary"></i>Resultado del Acto
+                    </h6>
+
+                    <input type="hidden" name="resultado" id="id_resultado" value="{{ form.resultado.value|default:'PENDIENTE' }}">
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3 col-6">
+                            <div class="resultado-option" data-valor="APROBADO" onclick="seleccionarResultado(this, 'aprobado')">
+                                <div class="result-icon text-success"><i class="bi bi-check-circle-fill"></i></div>
+                                <div class="result-label text-success">Aprobado</div>
+                                <div class="result-desc">El alumno aprobó el examen</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="resultado-option" data-valor="APROBADO_MENCION" onclick="seleccionarResultado(this, 'mencion')">
+                                <div class="result-icon" style="color:#d97706;"><i class="bi bi-trophy-fill"></i></div>
+                                <div class="result-label" style="color:#d97706;">Mención Honorífica</div>
+                                <div class="result-desc">Aprobado con distinción</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="resultado-option" data-valor="SUSPENDIDO" onclick="seleccionarResultado(this, 'suspendido')">
+                                <div class="result-icon text-danger"><i class="bi bi-x-circle-fill"></i></div>
+                                <div class="result-label text-danger">Suspendido</div>
+                                <div class="result-desc">No aprobó el examen</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="resultado-option" data-valor="NO_PRESENTADO" onclick="seleccionarResultado(this, 'no_presentado')">
+                                <div class="result-icon text-secondary"><i class="bi bi-person-x-fill"></i></div>
+                                <div class="result-label text-secondary">No se presentó</div>
+                                <div class="result-desc">El alumno no asistió</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="row g-3 mt-2">
+                        <!-- Calificación -->
+                        <div class="col-md-4">
+                            <label for="id_calificacion" class="form-label fw-semibold">
+                                <i class="bi bi-123 me-1 text-primary"></i>Calificación
+                            </label>
+                            <input type="number" name="calificacion" id="id_calificacion"
+                                   class="form-control {% if form.calificacion.errors %}is-invalid{% endif %}"
+                                   value="{{ form.calificacion.value|default_if_none:'' }}"
+                                   step="0.01" min="0" max="100"
+                                   placeholder="Ej: 95.50">
+                            {% if form.calificacion.errors %}
+                            <div class="invalid-feedback">{{ form.calificacion.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">Calificación numérica (si aplica).</div>
+                        </div>
+
+                        <!-- Observaciones -->
+                        <div class="col-md-8">
+                            <label for="id_observaciones" class="form-label fw-semibold">
+                                <i class="bi bi-chat-left-text me-1 text-primary"></i>Observaciones
+                            </label>
+                            <textarea name="observaciones" id="id_observaciones"
+                                      class="form-control {% if form.observaciones.errors %}is-invalid{% endif %}"
+                                      rows="4" placeholder="Observaciones del jurado, comentarios sobre el desempeño, etc.">{{ form.observaciones.value|default_if_none:'' }}</textarea>
+                            {% if form.observaciones.errors %}
+                            <div class="invalid-feedback">{{ form.observaciones.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <!-- Advertencia -->
+                    <div class="alert alert-warning py-2 mb-4">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong class="small">Importante:</strong>
+                        <span class="small">Esta acción es definitiva. Un resultado aprobatorio cerrará el proceso de titulación del alumno.</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'academico:expediente_detalle' object.expediente.pk %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-left me-1"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-success" id="btn-registrar-resultado">
+                            <i class="bi bi-check-circle me-1"></i>Registrar Resultado
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function seleccionarResultado(el, tipo) {
+    // Remove all selected states
+    document.querySelectorAll('.resultado-option').forEach(opt => {
+        opt.classList.remove('selected', 'selected-aprobado', 'selected-mencion', 'selected-suspendido', 'selected-no_presentado');
+    });
+    // Add selected state
+    el.classList.add('selected', 'selected-' + tipo);
+    // Update hidden input
+    document.getElementById('id_resultado').value = el.dataset.valor;
+}
+
+// Initialize selection on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const currentVal = document.getElementById('id_resultado').value;
+    if (currentVal && currentVal !== 'PENDIENTE') {
+        const opt = document.querySelector(`.resultado-option[data-valor="${currentVal}"]`);
+        if (opt) {
+            const typeMap = {
+                'APROBADO': 'aprobado',
+                'APROBADO_MENCION': 'mencion',
+                'SUSPENDIDO': 'suspendido',
+                'NO_PRESENTADO': 'no_presentado'
+            };
+            opt.classList.add('selected', 'selected-' + typeMap[currentVal]);
+        }
+    }
+});
+
+// Validate before submit
+document.getElementById('btn-registrar-resultado').addEventListener('click', function(e) {
+    const resultado = document.getElementById('id_resultado').value;
+    if (!resultado || resultado === 'PENDIENTE') {
+        e.preventDefault();
+        alert('Debes seleccionar un resultado antes de registrar.');
+        return;
+    }
+    if (!confirm('¿Estás seguro de registrar este resultado? Esta acción no se puede deshacer.')) {
+        e.preventDefault();
+    }
+});
+</script>
+{% endblock %}

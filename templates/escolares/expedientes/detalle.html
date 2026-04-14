@@ -1,0 +1,513 @@
+{% extends 'base.html' %}
+{% block title %}Expediente #{{ expediente.pk }} — Servicios Escolares{% endblock %}
+{% block page_title %}Expediente de {{ expediente.alumno.get_full_name }}{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+
+    <!-- Panel izquierdo: Info del expediente -->
+    <div class="col-lg-4">
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-3"><i class="bi bi-person-badge"></i> Datos del Alumno</div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Nombre completo</small>
+                <div class="fw-bold">{{ expediente.alumno.get_full_name|default:"Sin nombre" }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Usuario / N° Control</small>
+                <div>{{ expediente.alumno.username }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Carrera</small>
+                <div>{{ expediente.alumno.carrera.nombre|default:"No asignada" }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Correo</small>
+                <div>{{ expediente.alumno.email|default:"—" }}</div>
+            </div>
+        </div>
+
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-3"><i class="bi bi-info-circle"></i> Datos del Expediente</div>
+            <div class="text-center mb-3">
+                <span class="badge bg-{{ expediente.get_estado_display_color }} fs-6 px-3 py-2 w-100">
+                    {{ expediente.get_estado_display }}
+                </span>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Modalidad</small>
+                <div class="fw-bold">{{ expediente.modalidad.nombre|default:"—" }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Plan de Estudios</small>
+                <div>{{ expediente.modalidad.plan_estudios.nombre|default:"—" }}</div>
+            </div>
+            {% if expediente.titulo_trabajo %}
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Título del trabajo</small>
+                <div>{{ expediente.titulo_trabajo }}</div>
+            </div>
+            {% endif %}
+            {% if expediente.nombre_empresa %}
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Empresa</small>
+                <div>{{ expediente.nombre_empresa }}</div>
+            </div>
+            {% endif %}
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Fecha de apertura</small>
+                <div>{{ expediente.fecha_apertura|date:"d/m/Y H:i" }}</div>
+            </div>
+            <div class="proceso-progress mt-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <small class="fw-semibold text-muted">Progreso</small>
+                    <small class="fw-bold" style="color: var(--ita-azul);">{{ expediente.porcentaje_progreso }}%</small>
+                </div>
+                <div class="progress">
+                    <div class="progress-bar bg-primary" id="expediente-progress-bar"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Acciones según estado -->
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-3"><i class="bi bi-lightning"></i> Acciones Disponibles</div>
+
+            {% if expediente.estado == 'EN_REVISION_DOCUMENTOS' %}
+            <p class="small text-muted">Revisa y valida los documentos del alumno.</p>
+            <p class="small text-muted mb-0">Usa los botones "Validar" en cada documento para aprobar, rechazar o solicitar correcciones.</p>
+
+            {% elif expediente.estado == 'LISTO_INTEGRACION' %}
+            <p class="small text-muted">Todos los documentos han sido aprobados. Procede a integrar el expediente.</p>
+            <button type="button" class="btn btn-primary btn-sm w-100" data-bs-toggle="modal" data-bs-target="#modalIntegrar">
+                <i class="bi bi-layers me-1"></i>Integrar Expediente
+            </button>
+
+            {% elif expediente.estado == 'INTEGRADO' %}
+            <div class="alert alert-primary py-2 mb-3 small" style="border-left: 4px solid var(--ita-azul);">
+                <i class="bi bi-info-circle me-1"></i>
+                <strong>Listo para envío:</strong> El expediente ha sido integrado. Descárgalo para realizar el <strong>envío externo/físico</strong>.
+            </div>
+
+            <!-- Paso 1: Descargar -->
+            <div class="mb-3">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="badge bg-primary rounded-circle" style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem;">1</span>
+                    <small class="fw-semibold text-muted">Descargar para envío físico</small>
+                </div>
+                <a href="{% url 'escolares:descargar_expediente' expediente.pk %}" class="btn btn-outline-primary btn-sm w-100">
+                    <i class="bi bi-download me-1"></i>Descargar ZIP del Expediente
+                </a>
+            </div>
+
+            <hr class="my-2" style="opacity:.15;">
+
+            <!-- Paso 2: Registrar envío -->
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="badge bg-primary rounded-circle" style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem;">2</span>
+                    <small class="fw-semibold text-muted">Registrar envío externo</small>
+                </div>
+                <button type="button" class="btn btn-primary btn-sm w-100" data-bs-toggle="modal" data-bs-target="#modalEnviarCDMX">
+                    <i class="bi bi-send me-1"></i>Marcar como Enviado
+                </button>
+            </div>
+
+            {% elif expediente.estado == 'ENVIADO_CDMX' or expediente.estado == 'RECHAZADO_CDMX' or expediente.estado == 'APROBADO_CDMX' or expediente.estado == 'EMPASTADO_PENDIENTE' %}
+            <div class="mb-3">
+                <p class="small text-muted mb-2">
+                    <i class="bi bi-info-circle me-1"></i>
+                    {% if expediente.estado == 'ENVIADO_CDMX' %}Expediente enviado a CDMX. Registra la respuesta cuando llegue.{% else %}Proceso en CDMX: {{ expediente.get_estado_display }}{% endif %}
+                </p>
+
+                <!-- La descarga permanece disponible -->
+                <a href="{% url 'escolares:descargar_expediente' expediente.pk %}" class="btn btn-outline-secondary btn-sm w-100 mb-2">
+                    <i class="bi bi-download me-1"></i>Descargar ZIP (Copia)
+                </a>
+
+                {% if envio_cdmx %}
+                <div class="mb-2 small border rounded p-2 bg-light mt-2">
+                    <div class="text-muted small fw-bold text-uppercase" style="font-size: .65rem;">Datos del Envío Registrado</div>
+                    <strong>Oficio:</strong> {{ envio_cdmx.numero_oficio }}<br>
+                    <strong>Fecha:</strong> {{ envio_cdmx.fecha_envio|date:"d/m/Y" }}
+                </div>
+                {% if expediente.estado == 'ENVIADO_CDMX' %}
+                <a href="{% url 'escolares:respuesta_cdmx' envio_cdmx.pk %}" class="btn btn-info btn-sm w-100 mt-1">
+                    <i class="bi bi-reply me-1"></i>Registrar Respuesta de CDMX
+                </a>
+                {% endif %}
+                {% endif %}
+            </div>
+
+            {% elif expediente.estado == 'CONCLUIDO' %}
+            <div class="text-center">
+                <i class="bi bi-trophy text-success" style="font-size:2rem;"></i>
+                <p class="small text-success fw-bold mt-2 mb-0">Proceso concluido exitosamente</p>
+            </div>
+
+            {% else %}
+            <p class="small text-muted text-center mb-0">No hay acciones disponibles para el estado actual de este expediente.</p>
+            {% endif %}
+        </div>
+
+        <!-- Fotografía -->
+        <div class="content-card p-3">
+            <div class="card-header-custom mb-3"><i class="bi bi-camera"></i> Fotografía Óvalo</div>
+            <div class="d-flex gap-2 align-items-center mb-3">
+                {% with foto_doc=expediente.get_documento_fotografia %}
+                <span class="badge bg-{% if foto_doc %}{{ foto_doc.get_estado_color }}{% else %}secondary{% endif %}">
+                    <i class="bi {% if foto_doc.estado == 'APROBADO' %}bi-check-circle{% else %}bi-camera{% endif %} me-1"></i>
+                    Fotografía óvalo ByN: {% if foto_doc %}{{ foto_doc.get_estado_display }}{% else %}Pendiente{% endif %}
+                </span>
+                {% endwith %}
+                <span class="badge bg-{% if expediente.fotografia_fisica_entregada %}success{% else %}secondary{% endif %}" id="badge-foto-fisica">
+                    <i class="bi {% if expediente.fotografia_fisica_entregada %}bi-check{% else %}bi-clock{% endif %} me-1"></i>
+                    Física: {% if expediente.fotografia_fisica_entregada %}Entregada{% else %}Pendiente{% endif %}
+                </span>
+            </div>
+            
+            {% if expediente.estado != 'BORRADOR' and expediente.estado != 'EN_REVISION_ACADEMICO' and expediente.estado != 'DOCUMENTOS_PENDIENTES' and expediente.estado != 'EN_REVISION_DOCUMENTOS' and expediente.estado != 'LISTO_INTEGRACION' %}
+            <div class="p-2 border rounded bg-light">
+                <form method="post" action="{% url 'escolares:marcar_foto_fisica' expediente.pk %}" id="form-foto-fisica">
+                    {% csrf_token %}
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input" type="checkbox" name="entregada" id="flexSwitchFoto" 
+                               style="cursor: pointer;"
+                               {% if expediente.fotografia_fisica_entregada %}checked{% endif %}
+                               onchange="this.form.submit()">
+                        <label class="form-check-label small fw-semibold" for="flexSwitchFoto" style="cursor: pointer;">
+                            Fotografía física recibida
+                        </label>
+                    </div>
+                </form>
+            </div>
+            {% else %}
+            <div class="alert alert-secondary py-1 px-2 mb-0 small" style="font-size: 0.75rem;">
+                <i class="bi bi-info-circle me-1"></i>
+                Se habilita tras integrar el expediente.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Panel derecho: Documentos + Historial -->
+    <div class="col-lg-8">
+
+        <!-- Info de validación dual -->
+        <div class="alert alert-info py-2 small mb-3" style="border-left:4px solid var(--ita-azul-claro);">
+            <i class="bi bi-info-circle me-1"></i>
+            <strong>Validación dual:</strong> Cada documento requiere aprobación de <strong>División de Estudios</strong> y <strong>Servicios Escolares</strong> para ser aprobado.
+        </div>
+
+        <!-- Documentos -->
+        <div class="content-card mb-3">
+            <div class="card-header-custom">
+                <i class="bi bi-files"></i> Documentos del Expediente
+                <span class="ms-auto badge bg-primary rounded-pill">
+                    {{ expediente.documentos_aprobados }}/{{ expediente.documentos_total }} aprobados
+                </span>
+            </div>
+            {% for doc in documentos %}
+            <div class="doc-item">
+                <div class="doc-icon
+                    {% if doc.estado == 'APROBADO' %}bg-success bg-opacity-10
+                    {% elif doc.estado == 'RECHAZADO' %}bg-danger bg-opacity-10
+                    {% elif doc.estado == 'REQUIERE_CORRECCION' %}bg-warning bg-opacity-10
+                    {% elif doc.estado == 'CARGADO' or doc.estado == 'EN_REVISION' %}bg-info bg-opacity-10
+                    {% else %}bg-light{% endif %}">
+                    <i class="bi {% if doc.tipo_documento.es_fotografia %}bi-camera{% else %}bi-file-earmark-pdf{% endif %} text-{{ doc.get_estado_color }}"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <div class="doc-name">
+                        {{ doc.tipo_documento.nombre }}
+                        {% if doc.tipo_documento.es_obligatorio %}
+                        <span class="text-danger ms-1" title="Obligatorio">*</span>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex gap-1 mt-1 flex-wrap">
+                        <span class="badge bg-{{ doc.get_estado_color }} badge-estado" style="font-size:.6rem;">
+                            {{ doc.get_estado_display }}
+                        </span>
+                        {% if doc.archivo %}
+                        <span class="badge bg-light text-dark badge-estado" style="font-size:.6rem;">
+                            v{{ doc.version }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <!-- Validación dual: siempre mostrar estado de ambos departamentos -->
+                    {% with div_val=doc.validacion_division esc_val=doc.validacion_escolares %}
+                    {% if doc.archivo %}
+                    <div class="validacion-dual mt-1">
+                        {% if doc.tipo_documento.valida_division %}
+                        <span class="validacion-chip {% if div_val and div_val.estado == 'APROBADO' %}aprobado{% elif div_val and div_val.estado == 'RECHAZADO' %}rechazado{% elif div_val and div_val.estado == 'REQUIERE_CORRECCION' %}correccion{% else %}pendiente{% endif %}">
+                            <i class="bi {% if div_val and div_val.estado == 'APROBADO' %}bi-check-circle-fill{% elif div_val and div_val.estado == 'RECHAZADO' %}bi-x-circle-fill{% elif div_val and div_val.estado == 'REQUIERE_CORRECCION' %}bi-pencil-fill{% else %}bi-clock{% endif %}"></i>
+                            División: {% if div_val %}{{ div_val.get_estado_display }}{% else %}Pendiente{% endif %}
+                        </span>
+                        {% endif %}
+                        {% if doc.tipo_documento.valida_escolares %}
+                        <span class="validacion-chip {% if esc_val and esc_val.estado == 'APROBADO' %}aprobado{% elif esc_val and esc_val.estado == 'RECHAZADO' %}rechazado{% elif esc_val and esc_val.estado == 'REQUIERE_CORRECCION' %}correccion{% else %}pendiente{% endif %}">
+                            <i class="bi {% if esc_val and esc_val.estado == 'APROBADO' %}bi-check-circle-fill{% elif esc_val and esc_val.estado == 'RECHAZADO' %}bi-x-circle-fill{% elif esc_val and esc_val.estado == 'REQUIERE_CORRECCION' %}bi-pencil-fill{% else %}bi-clock{% endif %}"></i>
+                            Escolares: {% if esc_val %}{{ esc_val.get_estado_display }}{% else %}Pendiente{% endif %}
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                </div>
+                <div class="text-end d-flex gap-1 flex-shrink-0">
+                    {% if doc.archivo %}
+                    <a href="{{ doc.archivo.url }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="Ver archivo">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                    {% endif %}
+                    {% if doc.tipo_documento.valida_escolares and doc.archivo and doc.estado != 'APROBADO' %}
+                    {% with esc_val=doc.validacion_escolares %}
+                    {% if not esc_val or esc_val.estado != 'APROBADO' %}
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalValidar{{ doc.pk }}">
+                        <i class="bi bi-check2-square me-1"></i>Validar
+                    </button>
+                    {% endif %}
+                    {% endwith %}
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Modal de validación para cada documento -->
+            {% if doc.tipo_documento.valida_escolares and doc.archivo and doc.estado != 'APROBADO' %}
+            <div class="modal fade" id="modalValidar{{ doc.pk }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h6 class="modal-title fw-bold">
+                                <i class="bi bi-file-earmark-check me-2"></i>Validar: {{ doc.tipo_documento.nombre }}
+                            </h6>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form method="post" action="{% url 'escolares:validar_documento' doc.pk %}">
+                            {% csrf_token %}
+                            <div class="modal-body">
+                                {% if doc.archivo %}
+                                <div class="alert alert-light small py-2 mb-3">
+                                    <i class="bi bi-paperclip me-1"></i>
+                                    <a href="{{ doc.archivo.url }}" target="_blank">Ver archivo cargado (v{{ doc.version }})</a>
+                                </div>
+                                {% endif %}
+                                <div class="alert alert-warning small py-2 mb-3">
+                                    <i class="bi bi-exclamation-triangle me-1"></i>
+                                    <strong>Nota:</strong> El documento requiere aprobación de ambos departamentos (División y Escolares) para ser aprobado.
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Observaciones</label>
+                                    <textarea name="observaciones" class="form-control form-control-sm" rows="3"
+                                              placeholder="Observaciones sobre el documento..."></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="submit" name="accion" value="APROBAR" class="btn btn-success btn-sm">
+                                    <i class="bi bi-check-circle me-1"></i>Aprobar
+                                </button>
+                                <button type="submit" name="accion" value="CORRECCION" class="btn btn-warning btn-sm">
+                                    <i class="bi bi-pencil me-1"></i>Corrección
+                                </button>
+                                <button type="submit" name="accion" value="RECHAZAR" class="btn btn-danger btn-sm">
+                                    <i class="bi bi-x-circle me-1"></i>Rechazar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% empty %}
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox" style="font-size:2rem; opacity:.3;"></i>
+                <p class="mt-2 mb-0">No hay documentos cargados en este expediente.</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Envío CDMX info -->
+        {% if envio_cdmx %}
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-2"><i class="bi bi-send"></i> Envío a CDMX</div>
+            <div class="row g-2 small">
+                <div class="col-md-4">
+                    <small class="text-muted fw-semibold d-block">N° Oficio</small>
+                    {{ envio_cdmx.numero_oficio|default:"—" }}
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted fw-semibold d-block">Fecha de envío</small>
+                    {{ envio_cdmx.fecha_envio|date:"d/m/Y"|default:"—" }}
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted fw-semibold d-block">Estado</small>
+                    <span class="badge bg-{% if envio_cdmx.estado == 'APROBADO' %}success{% elif envio_cdmx.estado == 'RECHAZADO' %}danger{% else %}info{% endif %}">
+                        {{ envio_cdmx.get_estado_display }}
+                    </span>
+                </div>
+                {% if envio_cdmx.numero_registro_titulo %}
+                <div class="col-12 mt-2">
+                    <small class="text-muted fw-semibold d-block">N° Registro de Título</small>
+                    <span class="fw-bold text-success">{{ envio_cdmx.numero_registro_titulo }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Observaciones de División -->
+        {% if expediente.observaciones_division %}
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-2"><i class="bi bi-chat-left-text"></i> Observaciones de División</div>
+            <div class="small">{{ expediente.observaciones_division }}</div>
+        </div>
+        {% endif %}
+
+        <!-- Historial reciente -->
+        {% if historial %}
+        <div class="content-card">
+            <div class="card-header-custom">
+                <i class="bi bi-clock-history"></i> Historial Reciente
+            </div>
+            <div class="p-3">
+                <div class="timeline">
+                    {% for h in historial %}
+                    <div class="timeline-item {% if forloop.first %}active{% else %}done{% endif %}">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="timeline-desc fw-semibold">{{ h.descripcion }}</div>
+                                <div class="timeline-by mt-1">
+                                    <i class="bi bi-person-circle me-1"></i>{{ h.realizado_por.get_full_name|default:"Sistema" }}
+                                </div>
+                            </div>
+                            <div class="text-end flex-shrink-0 ms-3">
+                                <div class="timeline-date">{{ h.fecha|date:"d/m/Y" }}</div>
+                                <div class="timeline-date">{{ h.fecha|date:"H:i" }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="mt-3">
+    <a href="{% url 'escolares:expedientes' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Volver a expedientes
+    </a>
+</div>
+
+{% if expediente.estado == 'LISTO_INTEGRACION' %}
+<!-- Modal de confirmación para integrar expediente -->
+<div class="modal fade" id="modalIntegrar" tabindex="-1" aria-labelledby="modalIntegrarLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, var(--ita-azul), var(--ita-azul-claro)); color: #fff;">
+                <h6 class="modal-title fw-bold" id="modalIntegrarLabel">
+                    <i class="bi bi-layers me-2"></i>Confirmar Integración
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <i class="bi bi-check-circle text-success" style="font-size: 3rem;"></i>
+                </div>
+                <p class="text-center fw-semibold mb-2">¿Confirmas la integración del expediente?</p>
+                <p class="small text-muted text-center mb-0">
+                    Esto marcará que todos los documentos están verificados y listos para envío a CDMX.
+                    Esta acción no se puede deshacer.
+                </p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                    <i class="bi bi-x me-1"></i>Cancelar
+                </button>
+                <form method="post" action="{% url 'escolares:integrar' expediente.pk %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-layers me-1"></i>Sí, Integrar Expediente
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if expediente.estado == 'INTEGRADO' %}
+<!-- Modal de registro de envío a CDMX -->
+<div class="modal fade" id="modalEnviarCDMX" tabindex="-1" aria-labelledby="modalEnviarCDMXLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, var(--ita-azul), var(--ita-azul-claro)); color: #fff;">
+                <h6 class="modal-title fw-bold" id="modalEnviarCDMXLabel">
+                    <i class="bi bi-send me-2"></i>Registrar Envío Externo (CDMX)
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form method="post" action="{% url 'escolares:enviar_cdmx' expediente.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-info small py-2 mb-3">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Registra los datos del envío físico del expediente a CDMX/TecNM para el registro del título
+                        y la expedición de la cédula profesional electrónica.
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="id_numero_oficio" class="form-label fw-semibold small">
+                                <i class="bi bi-hash me-1 text-primary"></i>Número de oficio
+                            </label>
+                            <input type="text" name="numero_oficio" id="id_numero_oficio"
+                                   class="form-control form-control-sm"
+                                   placeholder="Ej: DEP/2026/0045" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="id_fecha_envio" class="form-label fw-semibold small">
+                                <i class="bi bi-calendar-date me-1 text-primary"></i>Fecha de envío
+                            </label>
+                            <input type="date" name="fecha_envio" id="id_fecha_envio"
+                                   class="form-control form-control-sm" required>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="id_observaciones_envio" class="form-label fw-semibold small">
+                                <i class="bi bi-chat-left-text me-1 text-primary"></i>Observaciones <span class="text-muted">(opcional)</span>
+                            </label>
+                            <textarea name="observaciones_envio" id="id_observaciones_envio"
+                                      class="form-control form-control-sm"
+                                      rows="3" placeholder="Notas adicionales sobre el envío..."></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                        <i class="bi bi-x me-1"></i>Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-send me-1"></i>Registrar Envío
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const progressBar = document.getElementById('expediente-progress-bar');
+        if (progressBar) {
+            progressBar.style.width = '{{ expediente.porcentaje_progreso }}%';
+        }
+    });
+</script>
+{% endblock %}

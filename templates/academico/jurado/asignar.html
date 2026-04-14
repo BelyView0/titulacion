@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+{% block title %}Asignación de Jurado — División{% endblock %}
+{% block page_title %}Asignar Jurado{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+    <!-- Panel izquierdo: Info del expediente -->
+    <div class="col-lg-4">
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-3"><i class="bi bi-person-badge"></i> Datos del Alumno</div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Nombre completo</small>
+                <div class="fw-bold">{{ expediente.alumno.get_full_name|default:"Sin nombre" }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">N° Control</small>
+                <div>{{ expediente.alumno.username }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Carrera</small>
+                <div>{{ expediente.alumno.carrera.nombre|default:"No asignada" }}</div>
+            </div>
+        </div>
+
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-3"><i class="bi bi-info-circle"></i> Expediente</div>
+            <div class="text-center mb-3">
+                <span class="badge bg-{{ expediente.get_estado_display_color }} fs-6 px-3 py-2 w-100">
+                    {{ expediente.get_estado_display }}
+                </span>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Modalidad</small>
+                <div class="fw-bold">{{ expediente.modalidad.nombre|default:"—" }}</div>
+            </div>
+            {% if expediente.titulo_trabajo %}
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Título del trabajo</small>
+                <div>{{ expediente.titulo_trabajo }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Guía del proceso -->
+        <div class="content-card p-3" style="border-left: 3px solid #7c3aed;">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-lightbulb" style="color:#7c3aed;"></i>
+                <strong class="small" style="color:#7c3aed;">Guía de asignación</strong>
+            </div>
+            <p class="small text-muted mb-2">
+                Selecciona los integrantes del jurado que evaluarán al alumno en su acto protocolario.
+            </p>
+            <ul class="small text-muted mb-0" style="padding-left:1.2rem;">
+                <li><strong>Presidente:</strong> Dirige el acto y tiene voto de calidad</li>
+                <li><strong>Secretario:</strong> Levanta el acta del acto protocolario</li>
+                <li><strong>Vocal:</strong> Participa como evaluador</li>
+                <li>Se recomienda que al menos un miembro sea del área de especialidad</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Panel derecho: Formulario -->
+    <div class="col-lg-8">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <i class="bi bi-people"></i> Asignación de Jurado para Acto Protocolario
+            </div>
+            <div class="p-4">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    {% if form.errors %}
+                    <div class="alert alert-danger py-2 mb-4">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Corrige los siguientes errores:</strong>
+                        <ul class="mb-0 mt-1 small">
+                            {% for field in form %}
+                                {% for error in field.errors %}
+                                <li>{{ field.label }}: {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for error in form.non_field_errors %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <!-- Miembros del Jurado -->
+                    <h6 class="fw-bold mb-3">
+                        <i class="bi bi-person-lines-fill me-1" style="color:#7c3aed;"></i>
+                        Integrantes del Jurado
+                    </h6>
+
+                    <div class="row g-3 mb-4">
+                        <!-- Presidente -->
+                        <div class="col-md-12">
+                            <div class="p-3 rounded-3" style="background:#f8f5ff; border:1px solid #e9e0ff;">
+                                <label for="id_presidente" class="form-label fw-semibold">
+                                    <span class="badge bg-primary me-1" style="background:#7c3aed !important;">P</span>
+                                    Presidente del Jurado
+                                </label>
+                                <select name="presidente" id="id_presidente"
+                                        class="form-select {% if form.presidente.errors %}is-invalid{% endif %}">
+                                    <option value="">— Seleccionar presidente —</option>
+                                    {% for opt in form.presidente.field.queryset %}
+                                    <option value="{{ opt.pk }}" {% if form.presidente.value|stringformat:"s" == opt.pk|stringformat:"s" %}selected{% endif %}>
+                                        {{ opt.get_full_name }} ({{ opt.get_rol_display }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                {% if form.presidente.errors %}
+                                <div class="invalid-feedback">{{ form.presidente.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Secretario -->
+                        <div class="col-md-6">
+                            <div class="p-3 rounded-3" style="background:#f0f7ff; border:1px solid #d0e4ff;">
+                                <label for="id_secretario" class="form-label fw-semibold">
+                                    <span class="badge bg-primary me-1">S</span>
+                                    Secretario
+                                </label>
+                                <select name="secretario" id="id_secretario"
+                                        class="form-select {% if form.secretario.errors %}is-invalid{% endif %}">
+                                    <option value="">— Seleccionar secretario —</option>
+                                    {% for opt in form.secretario.field.queryset %}
+                                    <option value="{{ opt.pk }}" {% if form.secretario.value|stringformat:"s" == opt.pk|stringformat:"s" %}selected{% endif %}>
+                                        {{ opt.get_full_name }} ({{ opt.get_rol_display }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                {% if form.secretario.errors %}
+                                <div class="invalid-feedback">{{ form.secretario.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Vocal -->
+                        <div class="col-md-6">
+                            <div class="p-3 rounded-3" style="background:#f0fdf4; border:1px solid #bbf7d0;">
+                                <label for="id_vocal" class="form-label fw-semibold">
+                                    <span class="badge bg-success me-1">V</span>
+                                    Vocal
+                                </label>
+                                <select name="vocal" id="id_vocal"
+                                        class="form-select {% if form.vocal.errors %}is-invalid{% endif %}">
+                                    <option value="">— Seleccionar vocal —</option>
+                                    {% for opt in form.vocal.field.queryset %}
+                                    <option value="{{ opt.pk }}" {% if form.vocal.value|stringformat:"s" == opt.pk|stringformat:"s" %}selected{% endif %}>
+                                        {{ opt.get_full_name }} ({{ opt.get_rol_display }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                {% if form.vocal.errors %}
+                                <div class="invalid-feedback">{{ form.vocal.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Datos de la carta -->
+                    <h6 class="fw-bold mb-3 mt-4">
+                        <i class="bi bi-envelope-paper me-1 text-primary"></i>
+                        Datos de la Carta de Asignación
+                    </h6>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label for="id_fecha_carta" class="form-label fw-semibold">
+                                <i class="bi bi-calendar-date me-1 text-primary"></i>Fecha de la carta
+                            </label>
+                            <input type="date" name="fecha_carta" id="id_fecha_carta"
+                                   class="form-control {% if form.fecha_carta.errors %}is-invalid{% endif %}"
+                                   value="{{ form.fecha_carta.value|default_if_none:'' }}" required>
+                            {% if form.fecha_carta.errors %}
+                            <div class="invalid-feedback">{{ form.fecha_carta.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_notas" class="form-label fw-semibold">
+                            <i class="bi bi-chat-left-text me-1 text-primary"></i>Notas adicionales
+                        </label>
+                        <textarea name="notas" id="id_notas"
+                                  class="form-control {% if form.notas.errors %}is-invalid{% endif %}"
+                                  rows="3" placeholder="Notas sobre la asignación del jurado (opcional)...">{{ form.notas.value|default_if_none:'' }}</textarea>
+                        {% if form.notas.errors %}
+                        <div class="invalid-feedback">{{ form.notas.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'academico:expediente_detalle' expediente.pk %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-left me-1"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary" id="btn-asignar-jurado">
+                            <i class="bi bi-people me-1"></i>Asignar Jurado
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Validación para evitar seleccionar la misma persona en dos roles
+document.getElementById('btn-asignar-jurado').addEventListener('click', function(e) {
+    const pres = document.getElementById('id_presidente').value;
+    const sec = document.getElementById('id_secretario').value;
+    const voc = document.getElementById('id_vocal').value;
+
+    if (!pres || !sec || !voc) return; // let required validation handle it
+
+    const vals = [pres, sec, voc];
+    const unique = new Set(vals);
+    if (unique.size < vals.length) {
+        e.preventDefault();
+        alert('No puedes asignar la misma persona en más de un rol del jurado.');
+    }
+});
+</script>
+{% endblock %}

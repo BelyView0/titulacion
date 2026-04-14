@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block title %}Crear Expediente{% endblock %}
+{% block page_title %}Crear Expediente de Titulación{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="content-card p-4">
+            <div class="card-header-custom mb-4"><i class="bi bi-folder-plus"></i> Iniciar Expediente</div>
+
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>Importante:</strong> Selecciona correctamente tu modalidad y plan de estudios.
+                Una vez creado el expediente, el sistema generará automáticamente la lista de documentos que debes presentar.
+            </div>
+
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                {% for field in form %}
+                <div class="mb-3">
+                    <label for="{{ field.id_for_label }}" class="form-label fw-semibold">
+                        {{ field.label }}
+                        {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
+                    </label>
+                    {% if field.field.widget.input_type == 'select' %}
+                    <select name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+                            class="form-select {% if field.errors %}is-invalid{% endif %}"
+                            {% if field.field.required %}required{% endif %}>
+                        <option value="">— Selecciona —</option>
+                        {% for val, label in field.field.choices %}
+                        {% if val %}
+                        <option value="{{ val }}" {% if field.value == val|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                    {% elif field.field.widget.input_type == 'file' %}
+                    <input type="file" name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+                           class="form-control {% if field.errors %}is-invalid{% endif %}"
+                           accept="image/*">
+                    <div class="form-text">{{ field.help_text }}</div>
+                    {% else %}
+                    <input type="{{ field.field.widget.input_type|default:'text' }}"
+                           name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+                           value="{{ field.value|default:'' }}"
+                           class="form-control {% if field.errors %}is-invalid{% endif %}"
+                           {% if field.field.required %}required{% endif %}>
+                    {% endif %}
+                    {% if field.errors %}
+                    <div class="invalid-feedback">{{ field.errors.0 }}</div>
+                    {% endif %}
+                    {% if field.help_text and field.field.widget.input_type != 'file' %}
+                    <div class="form-text">{{ field.help_text }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-success px-4">
+                        <i class="bi bi-check-circle me-1"></i>Crear Expediente
+                    </button>
+                    <a href="{% url 'alumnos:dashboard' %}" class="btn btn-outline-secondary">
+                        Cancelar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

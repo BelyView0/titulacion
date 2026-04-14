@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% block title %}Panel División de Estudios{% endblock %}
+{% block page_title %}División de Estudios Profesionales{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#fff3cd; color:#dc6b02;"><i class="bi bi-clipboard-check"></i></div>
+                <div>
+                    <div class="stat-value" style="color:#dc6b02;">{{ expedientes_para_revision_inicial }}</div>
+                    <div class="stat-label">Revisión inicial pendiente</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#cff4fc; color:#0ea5e9;"><i class="bi bi-file-earmark-check"></i></div>
+                <div>
+                    <div class="stat-value" style="color:#0ea5e9;">{{ documentos_para_revisar }}</div>
+                    <div class="stat-label">Documentos por revisar</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#dcfce7; color:#16a34a;"><i class="bi bi-journal-bookmark"></i></div>
+                <div>
+                    <div class="stat-value" style="color:#16a34a;">{{ expedientes_empastado_pendiente }}</div>
+                    <div class="stat-label">Empastado pendiente</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#f3e8ff; color:#7c3aed;"><i class="bi bi-people"></i></div>
+                <div>
+                    <div class="stat-value" style="color:#7c3aed;">{{ expedientes_jurado_pendiente }}</div>
+                    <div class="stat-label">Asignación de jurado</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="content-card">
+    <div class="card-header-custom">
+        <i class="bi bi-table"></i> Expedientes Activos
+        <a href="{% url 'academico:expedientes' %}" class="ms-auto btn btn-sm btn-outline-primary">
+            Ver todos <i class="bi bi-arrow-right ms-1"></i>
+        </a>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Alumno</th>
+                    <th>Modalidad</th>
+                    <th>Estado</th>
+                    <th>Actualización</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for exp in expedientes_recientes %}
+                <tr>
+                    <td>
+                        <div class="fw-semibold">{{ exp.alumno.get_full_name }}</div>
+                        <small class="text-muted">{{ exp.alumno.carrera.nombre|default:"—" }}</small>
+                    </td>
+                    <td><small>{{ exp.modalidad.nombre|default:"—" }}</small></td>
+                    <td>
+                        <span class="badge bg-{{ exp.get_estado_display_color }} badge-estado">
+                            {{ exp.get_estado_display }}
+                        </span>
+                    </td>
+                    <td><small class="text-muted">{{ exp.fecha_ultima_actualizacion|date:"d/m/Y" }}</small></td>
+                    <td>
+                        <a href="{% url 'academico:expediente_detalle' exp.pk %}"
+                           class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-4">Sin expedientes activos.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

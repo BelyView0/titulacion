@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+{% block title %}Mi Panel — Alumno{% endblock %}
+{% block page_title %}Mi Panel de Titulación{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-4">
+
+    {% if not expediente %}
+    <!-- Sin expediente: CTA para crear -->
+    <div class="col-12">
+        <div class="content-card text-center py-5">
+            <div style="font-size:4rem; color:#dee2e6;"><i class="bi bi-folder-plus"></i></div>
+            <h4 class="mt-3 fw-bold">Inicia tu proceso de titulación</h4>
+            <p class="text-muted mb-4">Aún no tienes un expediente de titulación registrado en el sistema.<br>Crea tu expediente para comenzar el proceso.</p>
+            <a href="{% url 'alumnos:expediente_crear' %}" class="btn btn-primary btn-lg px-4">
+                <i class="bi bi-plus-circle me-2"></i>Crear mi Expediente
+            </a>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- Con expediente -->
+    <div class="col-12">
+        <div class="content-card p-4">
+            <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                <div>
+                    <h5 class="fw-bold mb-1">{{ expediente.modalidad.nombre }}</h5>
+                    <span class="text-muted small">Plan de Estudios {{ expediente.modalidad.plan_estudios.nombre }}</span>
+                </div>
+                <span class="badge badge-estado bg-{{ expediente.get_estado_display_color }} fs-6 px-3 py-2">
+                    {{ expediente.get_estado_display }}
+                </span>
+            </div>
+            <div class="proceso-progress">
+                <div class="d-flex justify-content-between mb-1">
+                    <small class="fw-semibold text-muted">Progreso del proceso</small>
+                    <small class="fw-bold" style="color:var(--ita-azul)">{{ expediente.porcentaje_progreso }}%</small>
+                </div>
+                <div class="progress">
+                    <div class="progress-bar bg-primary" role="progressbar"
+                         style="width: {{ expediente.porcentaje_progreso }}%"></div>
+                </div>
+            </div>
+            <!-- Acciones rápidas -->
+            <div class="d-flex gap-2 flex-wrap mt-3">
+                <a href="{% url 'alumnos:expediente' %}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-folder2-open me-1"></i>Ver Expediente
+                </a>
+                <a href="{% url 'alumnos:timeline' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-diagram-3 me-1"></i>Ver Timeline
+                </a>
+                {% if expediente.estado == 'BORRADOR' %}
+                <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalConfirmarRevisionDash">
+                    <i class="bi bi-send me-1"></i>Enviar a Revisión
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de confirmación del dashboard -->
+    {% if expediente.estado == 'BORRADOR' %}
+    <div class="modal fade" id="modalConfirmarRevisionDash" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success bg-opacity-10">
+                    <h6 class="modal-title fw-bold">
+                        <i class="bi bi-send me-2 text-success"></i>Confirmar envío a revisión
+                    </h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Deseas enviar tu expediente a revisión de División de Estudios?</p>
+                    <div class="alert alert-info small py-2 mb-0">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Una vez enviado, no podrás hacer cambios hasta que te lo devuelvan.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <form method="post" action="{% url 'alumnos:solicitar_revision' %}" class="m-0">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success btn-sm">
+                            <i class="bi bi-send me-1"></i>Sí, enviar
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Stats documentos -->
+    {% if expediente.documentos.count > 0 %}
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#e8f4ff; color:#0057B8;">
+                    <i class="bi bi-files"></i>
+                </div>
+                <div>
+                    <div class="stat-value">{{ expediente.documentos.count }}</div>
+                    <div class="stat-label">Documentos requeridos</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#f0fff4; color:#198754;">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+                <div>
+                    <div class="stat-value" style="color:#198754;">{{ expediente.documentos_aprobados }}</div>
+                    <div class="stat-label">Documentos aprobados</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#fff8e1; color:#f59e0b;">
+                    <i class="bi bi-hourglass-split"></i>
+                </div>
+                <div>
+                    <div class="stat-value" style="color:#f59e0b;">
+                        {{ expediente.documentos_pendientes }}
+                    </div>
+                    <div class="stat-label">Pendientes</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+
+</div>
+
+<!-- Notificaciones recientes -->
+{% if notificaciones_recientes %}
+<div class="content-card">
+    <div class="card-header-custom">
+        <i class="bi bi-bell"></i> Notificaciones Recientes
+        <a href="{% url 'alumnos:notificaciones' %}" class="ms-auto text-primary small fw-normal">Ver todas</a>
+    </div>
+    {% for notif in notificaciones_recientes %}
+    <div class="doc-item {% if not notif.leida %}bg-primary bg-opacity-10{% endif %}">
+        <div class="doc-icon" style="background: var(--bs-{{ notif.get_tipo_color }}-bg, #f0f4ff);">
+            <i class="{{ notif.get_tipo_icono }} text-{{ notif.get_tipo_color }}"></i>
+        </div>
+        <div class="flex-grow-1">
+            <div class="doc-name">{{ notif.titulo }}</div>
+            <div class="doc-instruccion">{{ notif.mensaje|truncatechars:80 }}</div>
+        </div>
+        <small class="text-muted">{{ notif.fecha|timesince }} ago</small>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

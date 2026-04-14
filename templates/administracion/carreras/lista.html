@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block title %}Carreras{% endblock %}
+{% block page_title %}Gestión de Carreras{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-end mb-3">
+    <a href="{% url 'administracion:carrera_crear' %}" class="btn btn-success btn-sm">
+        <i class="bi bi-plus-circle me-1"></i>Nueva Carrera
+    </a>
+</div>
+<div class="content-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr><th>Clave</th><th>Nombre</th><th>Estado</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for c in carreras %}
+                <tr>
+                    <td><span class="badge bg-secondary">{{ c.clave }}</span></td>
+                    <td class="fw-semibold">{{ c.nombre }}</td>
+                    <td>{% if c.activa %}<span class="badge bg-success-subtle text-success">Activa</span>{% else %}<span class="badge bg-secondary-subtle text-secondary">Inactiva</span>{% endif %}</td>
+                    <td><a href="{% url 'administracion:carrera_editar' c.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center text-muted py-4">Sin carreras registradas.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
