@@ -120,7 +120,7 @@ class ValidarDocumentoEscolaresView(EscolaresRequeridoMixin, View):
         validacion.save()
 
         # Actualizar estado del documento usando lógica compartida (requiere AMBOS departamentos)
-        actualizar_estado_documento(documento)
+        actualizar_estado_documento(documento, realizado_por=request.user)
 
         if accion == 'APROBAR':
             if documento.estado == EstadoDocumento.APROBADO:
@@ -371,3 +371,61 @@ class RespuestaCDMXView(EscolaresRequeridoMixin, UpdateView):
 
         messages.success(self.request, 'Respuesta de CDMX registrada.')
         return redirect('escolares:expediente_detalle', pk=expediente.pk)
+
+
+class MarcarFotografiaEntregadaView(EscolaresRequeridoMixin, View):
+    """Servicios Escolares marca la fotografía física como entregada."""
+    def post(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+        
+        # Solo permitir si el expediente ya pasó revisión en CDMX o está Integrado
+        estados_permitidos = [
+            EstadoExpediente.INTEGRADO,
+            EstadoExpediente.ENVIADO_CDMX,
+            EstadoExpediente.APROBADO_CDMX,
+            EstadoExpediente.EMPASTADO_PENDIENTE,
+            EstadoExpediente.EMPASTADO_RECIBIDO,
+            EstadoExpediente.JURADO_ASIGNADO,
+            EstadoExpediente.ACTO_PROGRAMADO,
+            EstadoExpediente.CONCLUIDO
+        ]
+        
+        if expediente.estado not in estados_permitidos:
+            messages.error(request, 'La fotografía física solo se recibe una vez que el expediente ha sido integrado.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        entregada = request.POST.get('entregada') == 'on'
+        expediente.fotografia_fisica_entregada = entregada
+        expediente.save(update_fields=['fotografia_fisica_entregada', 'fecha_ultima_actualizacion'])
+        
+        action_txt = 'ENTREGADA' if entregada else 'PENDIENTE'
+        messages.success(request, f'Fotografía física marcada como {action_txt}.')
+        
+        # Auditoría: Intentar registrar en el documento de fotografía, si no existe, en el expediente
+        from expediente.notifications import registrar_cambio_documento, registrar_cambio_estado, notificar_alumno
+        foto_doc = expediente.get_documento_fotografia
+        
+        if foto_doc:
+            registrar_cambio_documento(
+                documento=foto_doc,
+                accion=f'Fotografía física: {action_txt}',
+                realizado_por=request.user,
+                departamento='ESCOLARES'
+            )
+        else:
+            registrar_cambio_estado(
+                expediente=expediente,
+                estado_nuevo=expediente.estado,  # No cambia el estado real
+                realizado_por=request.user,
+                descripcion=f'Fotografía física marcada como {action_txt} por Servicios Escolares.'
+            )
+
+        # Notificar al alumno
+        notificar_alumno(
+            expediente=expediente,
+            tipo='INFO' if entregada else 'URGENTE',
+            titulo=f'Fotografía física {action_txt.lower()}',
+            mensaje=f'Servicios Escolares ha marcado tu fotografía física como {action_txt.lower()}.',
+        )
+        
+        return redirect('escolares:expediente_detalle', pk=pk)

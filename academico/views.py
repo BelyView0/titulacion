@@ -175,7 +175,7 @@ class ValidarDocumentoAcademicoView(AcademicoRequeridoMixin, View):
         validacion.save()
 
         # Actualizar estado del documento usando lógica compartida (requiere AMBOS departamentos)
-        actualizar_estado_documento(documento)
+        actualizar_estado_documento(documento, realizado_por=request.user)
 
         if accion == 'APROBAR':
             if documento.estado == EstadoDocumento.APROBADO:

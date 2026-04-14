@@ -54,16 +54,16 @@
                 <small class="fw-semibold text-muted">Fotografía óvalo</small>
             </div>
             <div class="d-flex gap-2 align-items-center mt-1">
-                {% if expediente.fotografia_digital %}
-                <span class="badge bg-success"><i class="bi bi-check me-1"></i>Digital cargada</span>
-                {% else %}
-                <span class="badge bg-warning text-dark"><i class="bi bi-x me-1"></i>Digital pendiente</span>
-                {% endif %}
-                {% if expediente.fotografia_fisica_entregada %}
-                <span class="badge bg-success"><i class="bi bi-check me-1"></i>Física entregada</span>
-                {% else %}
-                <span class="badge bg-secondary"><i class="bi bi-clock me-1"></i>Física pendiente</span>
-                {% endif %}
+                {% with foto_doc=expediente.get_documento_fotografia %}
+                <span class="badge bg-{% if foto_doc %}{{ foto_doc.get_estado_color }}{% else %}secondary{% endif %}">
+                    <i class="bi {% if foto_doc.estado == 'APROBADO' %}bi-check-circle{% else %}bi-camera{% endif %} me-1"></i>
+                    Fotografía óvalo ByN: {% if foto_doc %}{{ foto_doc.get_estado_display }}{% else %}Pendiente{% endif %}
+                </span>
+                {% endwith %}
+                <span class="badge bg-{% if expediente.fotografia_fisica_entregada %}success{% else %}secondary{% endif %}">
+                    <i class="bi {% if expediente.fotografia_fisica_entregada %}bi-check{% else %}bi-clock{% endif %} me-1"></i>
+                    Física: {% if expediente.fotografia_fisica_entregada %}Entregada{% else %}Pendiente{% endif %}
+                </span>
             </div>
 
             {% if expediente.observaciones_division %}
@@ -128,8 +128,17 @@
                 <i class="bi bi-exclamation-octagon me-1"></i>
                 Tu expediente fue rechazado por CDMX. Corrige los documentos marcados abajo y vuelve a enviarlos.
             </div>
-            {% else %}
-            <p class="small text-muted">Carga todos los documentos obligatorios y luego envíalos a revisión de Servicios Escolares y División de Estudios.</p>
+            {% elif expediente.estado == 'DOCUMENTOS_PENDIENTES' %}
+                {% if expediente.documentos_total > 0 and expediente.documentos_aprobados < expediente.documentos_total %}
+                    {% if expediente.historial.first.estado_anterior == 'EN_REVISION_DOCUMENTOS' %}
+                    <div class="alert alert-warning py-2 small mb-2">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        Tu expediente regresó a corrección. Revisa los documentos rechazados, corrígelos y vuelve a enviar a revisión.
+                    </div>
+                    {% else %}
+                    <p class="small text-muted">Carga todos los documentos obligatorios y luego envíalos a revisión de Servicios Escolares y División de Estudios.</p>
+                    {% endif %}
+                {% endif %}
             {% endif %}
 
             {% with docs_pendientes=expediente.documentos.all %}

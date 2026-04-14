@@ -35,12 +35,17 @@ def verificar_documento_aprobado(documento):
     return True
 
 
-def actualizar_estado_documento(documento):
+def actualizar_estado_documento(documento, realizado_por=None):
     """
     Actualiza el estado del documento basándose en las validaciones
     de AMBOS departamentos. Un documento solo se marca APROBADO cuando
     todos los departamentos que deben validarlo lo han aprobado.
+    Si un documento es rechazado, el expediente completo regresa a
+    carga de documentos para que el alumno corrija.
     """
+    estado_original = documento.estado
+    rechazo_detectado = False
+
     if verificar_documento_aprobado(documento):
         documento.estado = EstadoDocumento.APROBADO
     else:
@@ -48,41 +53,53 @@ def actualizar_estado_documento(documento):
         tipo = documento.tipo_documento
         alguno_aprobado = False
 
+        # Revisar División
         if tipo.valida_division:
             div_val = ValidacionDocumento.objects.filter(
                 documento=documento, departamento='DIVISION'
             ).first()
-            if div_val and div_val.estado == EstadoValidacion.APROBADO:
-                alguno_aprobado = True
-            elif div_val and div_val.estado == EstadoValidacion.RECHAZADO:
-                documento.estado = EstadoDocumento.RECHAZADO
-                documento.save()
-                return
-            elif div_val and div_val.estado == EstadoValidacion.REQUIERE_CORRECCION:
-                documento.estado = EstadoDocumento.REQUIERE_CORRECCION
-                documento.save()
-                return
+            if div_val:
+                if div_val.estado == EstadoValidacion.APROBADO:
+                    alguno_aprobado = True
+                elif div_val.estado in [EstadoValidacion.RECHAZADO, EstadoValidacion.REQUIERE_CORRECCION]:
+                    documento.estado = (EstadoDocumento.RECHAZADO 
+                                      if div_val.estado == EstadoValidacion.RECHAZADO 
+                                      else EstadoDocumento.REQUIERE_CORRECCION)
+                    rechazo_detectado = True
 
-        if tipo.valida_escolares:
+        # Revisar Escolares (si no se detectó rechazo crítico arriba o para complementar)
+        if tipo.valida_escolares and not rechazo_detectado:
             esc_val = ValidacionDocumento.objects.filter(
                 documento=documento, departamento='ESCOLARES'
             ).first()
-            if esc_val and esc_val.estado == EstadoValidacion.APROBADO:
-                alguno_aprobado = True
-            elif esc_val and esc_val.estado == EstadoValidacion.RECHAZADO:
-                documento.estado = EstadoDocumento.RECHAZADO
-                documento.save()
-                return
-            elif esc_val and esc_val.estado == EstadoValidacion.REQUIERE_CORRECCION:
-                documento.estado = EstadoDocumento.REQUIERE_CORRECCION
-                documento.save()
-                return
+            if esc_val:
+                if esc_val.estado == EstadoValidacion.APROBADO:
+                    alguno_aprobado = True
+                elif esc_val.estado in [EstadoValidacion.RECHAZADO, EstadoValidacion.REQUIERE_CORRECCION]:
+                    documento.estado = (EstadoDocumento.RECHAZADO 
+                                      if esc_val.estado == EstadoValidacion.RECHAZADO 
+                                      else EstadoDocumento.REQUIERE_CORRECCION)
+                    rechazo_detectado = True
 
-        if alguno_aprobado:
+        if not rechazo_detectado and alguno_aprobado:
             documento.estado = EstadoDocumento.EN_REVISION
-        # Si nadie ha revisado, queda como está
+        # Si nadie ha revisado o no hay cambios críticos, queda como está
 
     documento.save()
+
+    # Si hubo rechazo y tenemos al usuario que valida, regresamos el expediente completo
+    if rechazo_detectado and realizado_por:
+        expediente = documento.expediente
+        if expediente.estado != EstadoExpediente.DOCUMENTOS_PENDIENTES:
+            from expediente.notifications import registrar_cambio_estado, notificar_alumno
+            
+            # Cambiar estado del expediente
+            registrar_cambio_estado(
+                expediente=expediente,
+                estado_nuevo=EstadoExpediente.DOCUMENTOS_PENDIENTES,
+                realizado_por=realizado_por,
+                descripcion=f'Rechazo en documento "{documento.tipo_documento.nombre}". El expediente regresa a corrección.'
+            )
 
 
 def verificar_avance_expediente(expediente):

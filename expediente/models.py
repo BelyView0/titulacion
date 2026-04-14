@@ -246,6 +246,11 @@ class Expediente(models.Model):
             return False
         return all(d.estado == EstadoDocumento.APROBADO for d in docs)
 
+    @property
+    def get_documento_fotografia(self):
+        """Retorna el objeto documento que es de tipo fotografía."""
+        return self.documentos.filter(tipo_documento__es_fotografia=True).first()
+
 
 # ─────────────────────────────────────────────────────────────
 # DOCUMENTOS

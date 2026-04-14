@@ -18,6 +18,7 @@ from expediente.models import (
 )
 from expediente.notifications import registrar_cambio_estado
 from alumnos.models import PerfilAlumno, Notificacion
+from .forms import ExpedienteForm
 
 
 class DashboardAlumnoView(AlumnoRequeridoMixin, TemplateView):
@@ -41,19 +42,14 @@ class DashboardAlumnoView(AlumnoRequeridoMixin, TemplateView):
 class ExpedienteCreateView(AlumnoRequeridoMixin, CreateView):
     """El alumno crea su expediente inicial seleccionando modalidad."""
     model = Expediente
+    form_class = ExpedienteForm
     template_name = 'alumnos/expediente/crear.html'
-    fields = ['modalidad', 'titulo_trabajo', 'nombre_empresa', 'fotografia_digital']
 
     def dispatch(self, request, *args, **kwargs):
         # Si ya tiene expediente, redirigir al detalle
         if hasattr(request.user, 'expediente'):
             return redirect('alumnos:expediente')
         return super().dispatch(request, *args, **kwargs)
-
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
-        form.fields['modalidad'].queryset = Modalidad.objects.filter(activa=True).select_related('plan_estudios')
-        return form
 
     def form_valid(self, form):
         expediente = form.save(commit=False)

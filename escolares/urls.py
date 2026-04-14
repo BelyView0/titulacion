@@ -12,4 +12,5 @@ urlpatterns = [
     path('expedientes/<int:pk>/enviar-cdmx/', views.EnviarCDMXView.as_view(), name='enviar_cdmx'),
     path('documentos/<int:pk>/validar/', views.ValidarDocumentoEscolaresView.as_view(), name='validar_documento'),
     path('envios/<int:pk>/respuesta/', views.RespuestaCDMXView.as_view(), name='respuesta_cdmx'),
+    path('expedientes/<int:pk>/foto-fisica/', views.MarcarFotografiaEntregadaView.as_view(), name='marcar_foto_fisica'),
 ]
