@@ -15,5 +15,8 @@ class ExpedienteForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Filtrar modalidades activas
         self.fields['modalidad'].queryset = Modalidad.objects.filter(activa=True).select_related('plan_estudios')
-        # Hacer campos obligatorios si es necesario (ya viene del modelo, pero aseguramos)
+        # Hacer campos obligatorios
         self.fields['modalidad'].empty_label = "— Selecciona una modalidad —"
+        self.fields['modalidad'].required = True
+        self.fields['titulo_trabajo'].required = True
+        self.fields['nombre_empresa'].required = True

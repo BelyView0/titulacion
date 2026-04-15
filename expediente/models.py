@@ -165,9 +165,14 @@ class Expediente(models.Model):
         null=True, blank=True,
         verbose_name='Fotografía óvalo (digital)'
     )
-    fotografia_fisica_entregada = models.BooleanField(
+    # Fotografía física (entrega independiente por departamento)
+    foto_fisica_division = models.BooleanField(
         default=False,
-        verbose_name='¿Fotografía física entregada?'
+        verbose_name='¿Foto física entregada en División?'
+    )
+    foto_fisica_escolares = models.BooleanField(
+        default=False,
+        verbose_name='¿Foto física entregada en Escolares?'
     )
     # Fechas clave
     fecha_apertura = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de apertura')
@@ -318,6 +323,20 @@ class Documento(models.Model):
 
     def validacion_escolares(self):
         return self.validaciones.filter(departamento='ESCOLARES').first()
+
+    def puede_escolares_validar(self):
+        """
+        Determina si Servicios Escolares puede validar este documento.
+        Debe requerir validación de Escolares y, si requiere División, ésta debe estar APROBADA.
+        """
+        if not self.tipo_documento.valida_escolares:
+            return False
+            
+        if self.tipo_documento.valida_division:
+            val_div = self.validacion_division()
+            if not val_div or val_div.estado != 'APROBADO':
+                return False
+        return True
 
 
 class ValidacionDocumento(models.Model):

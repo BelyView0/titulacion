@@ -155,18 +155,40 @@
 
         <!-- Fotografía -->
         <div class="content-card p-3">
-            <div class="card-header-custom mb-2"><i class="bi bi-camera"></i> Fotografía</div>
-            <div class="d-flex gap-2 align-items-center">
-                {% if expediente.fotografia_digital %}
-                <span class="badge bg-success"><i class="bi bi-check me-1"></i>Digital cargada</span>
-                {% else %}
-                <span class="badge bg-warning text-dark"><i class="bi bi-x me-1"></i>Digital pendiente</span>
-                {% endif %}
-                {% if expediente.fotografia_fisica_entregada %}
-                <span class="badge bg-success"><i class="bi bi-check me-1"></i>Física entregada</span>
-                {% else %}
-                <span class="badge bg-secondary"><i class="bi bi-clock me-1"></i>Física pendiente</span>
-                {% endif %}
+            <div class="card-header-custom mb-2"><i class="bi bi-camera"></i> Fotografía óvalo</div>
+            <div class="mb-3">
+                <div class="d-flex gap-2 align-items-center mb-2">
+                    <span class="badge bg-{% if expediente.fotografia_digital %}success{% else %}secondary{% endif %}">
+                        <i class="bi {% if expediente.fotografia_digital %}bi-check-circle{% else %}bi-camera{% endif %} me-1"></i>
+                        Digital: {% if expediente.fotografia_digital %}Cargada{% else %}Pendiente{% endif %}
+                    </span>
+                </div>
+                <div class="small mb-1 text-muted fw-bold">Entregas físicas:</div>
+                <div class="d-flex flex-column gap-1">
+                    <span class="badge bg-{% if expediente.foto_fisica_division %}success{% else %}secondary{% endif %} text-start py-2">
+                        <i class="bi {% if expediente.foto_fisica_division %}bi-check-circle{% else %}bi-clock{% endif %} me-1"></i>
+                        En División: {% if expediente.foto_fisica_division %}Entregada{% else %}Pendiente{% endif %}
+                    </span>
+                    <span class="badge bg-{% if expediente.foto_fisica_escolares %}success{% else %}secondary{% endif %} text-start py-2">
+                        <i class="bi {% if expediente.foto_fisica_escolares %}bi-check-circle{% else %}bi-clock{% endif %} me-1"></i>
+                        En Escolares: {% if expediente.foto_fisica_escolares %}Entregada{% else %}Pendiente{% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <div class="p-2 border rounded bg-light">
+                <form method="post" action="{% url 'academico:marcar_fotografia' expediente.pk %}" id="form-foto-division">
+                    {% csrf_token %}
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input" type="checkbox" name="entregada" id="switchFotoDiv" 
+                               style="cursor: pointer;"
+                               {% if expediente.foto_fisica_division %}checked{% endif %}
+                               onchange="this.form.submit()">
+                        <label class="form-check-label small fw-semibold" for="switchFotoDiv" style="cursor: pointer;">
+                            Marcar como recibida en División
+                        </label>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

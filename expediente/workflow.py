@@ -35,6 +35,26 @@ def verificar_documento_aprobado(documento):
     return True
 
 
+def puede_escolares_validar(documento):
+    """
+    Determina si Servicios Escolares puede validar un documento.
+    Si el documento requiere validación de División de Estudios, 
+    ésta debe estar APROBADA primero.
+    """
+    tipo = documento.tipo_documento
+    if not tipo.valida_escolares:
+        return False
+        
+    if tipo.valida_division:
+        div_val = ValidacionDocumento.objects.filter(
+            documento=documento, departamento='DIVISION'
+        ).first()
+        if not div_val or div_val.estado != EstadoValidacion.APROBADO:
+            return False
+            
+    return True
+
+
 def actualizar_estado_documento(documento, realizado_por=None):
     """
     Actualiza el estado del documento basándose en las validaciones

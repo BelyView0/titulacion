@@ -37,16 +37,8 @@ class DashboardAcademicoView(AcademicoRequeridoMixin, TemplateView):
         ctx['expedientes_jurado_pendiente'] = Expediente.objects.filter(
             estado=EstadoExpediente.EMPASTADO_RECIBIDO
         ).count()
-        ctx['expedientes_recientes'] = Expediente.objects.filter(
-            estado__in=[
-                EstadoExpediente.EN_REVISION_ACADEMICO,
-                EstadoExpediente.DOCUMENTOS_PENDIENTES,
-                EstadoExpediente.EN_REVISION_DOCUMENTOS,
-                EstadoExpediente.EMPASTADO_PENDIENTE,
-                EstadoExpediente.EMPASTADO_RECIBIDO,
-                EstadoExpediente.JURADO_ASIGNADO,
-                EstadoExpediente.ACTO_PROGRAMADO,
-            ]
+        ctx['expedientes_recientes'] = Expediente.objects.exclude(
+            estado=EstadoExpediente.CANCELADO
         ).select_related('alumno', 'modalidad').order_by('-fecha_ultima_actualizacion')[:10]
         return ctx
 
@@ -104,6 +96,11 @@ class ValidarExpedienteInicialView(AcademicoRequeridoMixin, View):
         observaciones = request.POST.get('observaciones', '').strip()
 
         if accion == 'APROBAR':
+            # Validación de seguridad: no aprobar si faltan datos críticos
+            if not expediente.titulo_trabajo or not expediente.nombre_empresa or not expediente.modalidad:
+                messages.error(request, 'No se puede aprobar: El expediente tiene datos incompletos (título, empresa o modalidad).')
+                return redirect('academico:expediente_detalle', pk=pk)
+
             expediente.observaciones_division = observaciones
             registrar_cambio_estado(
                 expediente=expediente,
@@ -183,7 +180,7 @@ class ValidarDocumentoAcademicoView(AcademicoRequeridoMixin, View):
                 msg_alumno = f'El documento "{documento.tipo_documento.nombre}" ha sido aprobado por todos los departamentos.'
             else:
                 tipo_notif = 'INFO'
-                msg_alumno = f'División de Estudios aprobó el documento "{documento.tipo_documento.nombre}". Pendiente revisión de Servicios Escolares.'
+                msg_alumno = f'División de Estudios aprobó the documento "{documento.tipo_documento.nombre}". Pendiente revisión de Servicios Escolares.'
         elif accion == 'RECHAZAR':
             tipo_notif = 'RECHAZADO'
             msg_alumno = f'División de Estudios rechazó el documento "{documento.tipo_documento.nombre}". {observaciones}'
@@ -208,7 +205,13 @@ class ValidarDocumentoAcademicoView(AcademicoRequeridoMixin, View):
         # Verificar si el expediente puede avanzar (todos los docs aprobados por ambos)
         verificar_avance_expediente(documento.expediente)
 
-        messages.success(request, f'Documento {accion.lower()}do.')
+        participio = {
+            'APROBAR': 'aprobado',
+            'RECHAZAR': 'rechazado',
+            'CORRECCION': 'marcado para corrección'
+        }.get(accion, accion.lower())
+
+        messages.success(request, f'Documento {participio}.')
         return redirect('academico:expediente_detalle', pk=documento.expediente.pk)
 
 
@@ -216,6 +219,11 @@ class RecepcionEmpastadoView(AcademicoRequeridoMixin, CreateView):
     model = RecepcionEmpastado
     template_name = 'academico/empastado/recibir.html'
     fields = ['fecha_recepcion', 'estado', 'observaciones']
+
+    def get_initial(self):
+        initial = super().get_initial()
+        initial['fecha_recepcion'] = timezone.now().date()
+        return initial
 
     def get_expediente(self):
         return get_object_or_404(Expediente, pk=self.kwargs['pk'],
@@ -254,6 +262,11 @@ class ActoProtocolarioView(AcademicoRequeridoMixin, CreateView):
     model = ActoProtocolario
     template_name = 'academico/acto/programar.html'
     fields = ['fecha_acto', 'lugar', 'observaciones']
+
+    def get_initial(self):
+        initial = super().get_initial()
+        initial['fecha_acto'] = timezone.now().date()
+        return initial
 
     def get_expediente(self):
         return get_object_or_404(Expediente, pk=self.kwargs['pk'],
@@ -314,3 +327,33 @@ class RegistrarResultadoActoView(AcademicoRequeridoMixin, UpdateView):
             )
         messages.success(self.request, f'Resultado registrado: {acto.get_resultado_display()}')
         return redirect('academico:expediente_detalle', pk=expediente.pk)
+
+
+class MarcarFotografiaAcademicoView(AcademicoRequeridoMixin, View):
+    """División de Estudios marca la fotografía física como entregada."""
+    def post(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+        
+        entregada = request.POST.get('entregada') == 'on'
+        expediente.foto_fisica_division = entregada
+        expediente.save(update_fields=['foto_fisica_division', 'fecha_ultima_actualizacion'])
+        
+        status_txt = 'RECIBIDA' if entregada else 'PENDIENTE'
+        messages.success(request, f'Fotografía física marcada como {status_txt} en División.')
+        
+        # Auditoría
+        registrar_cambio_estado(
+            expediente=expediente,
+            estado_nuevo=expediente.estado,
+            realizado_por=request.user,
+            descripcion=f'Fotografía física marcada como {status_txt} por División de Estudios.'
+        )
+        
+        notificar_alumno(
+            expediente=expediente,
+            tipo='INFO',
+            titulo=f'Fotografía física en División: {status_txt.lower()}',
+            mensaje=f'División de Estudios ha marcado tu fotografía física como {status_txt.lower()}.',
+        )
+        
+        return redirect('academico:expediente_detalle', pk=pk)

@@ -108,6 +108,11 @@ class ValidarDocumentoEscolaresView(EscolaresRequeridoMixin, View):
             messages.error(request, 'Acción no válida.')
             return redirect('escolares:expediente_detalle', pk=documento.expediente.pk)
 
+        # Enforce sequential validation (DEP -> SE)
+        if not documento.puede_escolares_validar():
+            messages.error(request, 'Este documento no puede ser validado por Escolares aún. Requiere visto bueno de División de Estudios.')
+            return redirect('escolares:expediente_detalle', pk=documento.expediente.pk)
+
         validacion, _ = ValidacionDocumento.objects.get_or_create(
             documento=documento,
             departamento='ESCOLARES',
@@ -136,6 +141,12 @@ class ValidarDocumentoEscolaresView(EscolaresRequeridoMixin, View):
             tipo_notif = 'CORRECCION'
             msg_alumno = f'El documento "{documento.tipo_documento.nombre}" requiere correcciones. Observaciones: {observaciones}'
 
+        participio = {
+            'APROBAR': 'aprobado',
+            'RECHAZAR': 'rechazado',
+            'CORRECCION': 'marcado para corrección'
+        }.get(accion, accion.lower())
+
         registrar_cambio_documento(
             documento=documento,
             accion=f'Servicios Escolares: {accion}',
@@ -147,14 +158,14 @@ class ValidarDocumentoEscolaresView(EscolaresRequeridoMixin, View):
         notificar_alumno(
             expediente=documento.expediente,
             tipo=tipo_notif,
-            titulo=f'Documento {accion.lower()}do por Servicios Escolares',
+            titulo=f'Documento {participio} por Servicios Escolares',
             mensaje=msg_alumno,
         )
 
         # Verificar si el expediente puede avanzar (todos los docs aprobados por ambos)
         verificar_avance_expediente(documento.expediente)
 
-        messages.success(request, f'Documento actualizado: {accion}')
+        messages.success(request, f'Documento {participio}.')
         return redirect('escolares:expediente_detalle', pk=documento.expediente.pk)
 
 
@@ -165,7 +176,12 @@ class IntegrarExpedienteView(EscolaresRequeridoMixin, View):
         expediente = get_object_or_404(Expediente, pk=pk)
 
         if not expediente.todos_documentos_aprobados():
-            messages.error(request, 'No todos los documentos están aprobados.')
+            messages.error(request, 'No todos los documentos digitales están aprobados.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        # Verificar entrega física de fotografías
+        if not expediente.foto_fisica_division or not expediente.foto_fisica_escolares:
+            messages.error(request, 'No se puede integrar el expediente: Falta confirmar la entrega física de la fotografía en todos los departamentos.')
             return redirect('escolares:expediente_detalle', pk=pk)
 
         registrar_cambio_estado(
@@ -202,10 +218,11 @@ class DescargarExpedienteView(EscolaresRequeridoMixin, View):
                     try:
                         archivo_path = doc.archivo.path
                         if os.path.exists(archivo_path):
-                            # Nombre limpio para el archivo dentro del ZIP
-                            ext = os.path.splitext(doc.archivo.name)[1]
-                            nombre_limpio = doc.tipo_documento.nombre.replace(' ', '_').replace('/', '-')
-                            nombre_archivo = f"{doc.tipo_documento.orden:02d}_{nombre_limpio}_v{doc.version}{ext}"
+                            # Nombre ASCII-safe para el archivo dentro del ZIP
+                            ext = os.path.splitext(doc.archivo.name)[1].lower()
+                            # Quitamos acentos y caracteres raros del nombre del documento
+                            nombre_safe = slugify(doc.tipo_documento.nombre)
+                            nombre_archivo = f"{doc.tipo_documento.orden:02d}_{nombre_safe}_v{doc.version}{ext}"
                             zf.write(archivo_path, nombre_archivo)
                     except Exception:
                         continue
@@ -215,8 +232,8 @@ class DescargarExpedienteView(EscolaresRequeridoMixin, View):
                 try:
                     foto_path = expediente.fotografia_digital.path
                     if os.path.exists(foto_path):
-                        ext = os.path.splitext(expediente.fotografia_digital.name)[1]
-                        zf.write(foto_path, f"Fotografia_Digital{ext}")
+                        ext = os.path.splitext(expediente.fotografia_digital.name)[1].lower()
+                        zf.write(foto_path, f"fotografia-digital{ext}")
                 except Exception:
                     pass
 
@@ -226,7 +243,7 @@ class DescargarExpedienteView(EscolaresRequeridoMixin, View):
 
 Alumno: {expediente.alumno.get_full_name()}
 N° Control: {ncontrol}
-Carrera: {getattr(expediente.alumno, 'carrera', 'N/A')}
+Carrera: {getattr(expediente.alumno.carrera, 'nombre', 'N/A')}
 Modalidad: {expediente.modalidad.nombre if expediente.modalidad else 'N/A'}
 Plan de Estudios: {expediente.modalidad.plan_estudios.nombre if expediente.modalidad else 'N/A'}
 Título del trabajo: {expediente.titulo_trabajo or 'N/A'}
@@ -245,13 +262,19 @@ DOCUMENTOS INCLUIDOS
             resumen += f"\n\nGenerado el: {timezone.now().strftime('%d/%m/%Y %H:%M:%S')}\n"
             zf.writestr("_RESUMEN_EXPEDIENTE.txt", resumen)
 
-        # Preparar respuesta
+        # Preparar respuesta "Triple Layer"
+        buffer.seek(0)
         alumno_slug = slugify(expediente.alumno.get_full_name())
         filename = f"Expediente_{ncontrol}_{alumno_slug}.zip"
 
-        response = HttpResponse(buffer.getvalue(), content_type='application/zip')
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        response['Content-Length'] = len(response.content)
+        # Usamos octet-stream para que el navegador NO intente previsualizar nada
+        # y respete el nombre del archivo adjunto.
+        response = FileResponse(
+            buffer,
+            as_attachment=True,
+            filename=filename,
+            content_type='application/octet-stream'
+        )
         return response
 
 
@@ -298,6 +321,13 @@ class RespuestaCDMXView(EscolaresRequeridoMixin, UpdateView):
     model = EnvioCDMX
     template_name = 'escolares/cdmx/respuesta.html'
     fields = ['estado', 'fecha_respuesta', 'observaciones_cdmx', 'numero_registro_titulo']
+
+    def get_initial(self):
+        initial = super().get_initial()
+        # Si aún no tiene fecha de respuesta registrada, poner hoy por default
+        if not self.object.fecha_respuesta:
+            initial['fecha_respuesta'] = timezone.now().date()
+        return initial
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -378,28 +408,15 @@ class MarcarFotografiaEntregadaView(EscolaresRequeridoMixin, View):
     def post(self, request, pk):
         expediente = get_object_or_404(Expediente, pk=pk)
         
-        # Solo permitir si el expediente ya pasó revisión en CDMX o está Integrado
-        estados_permitidos = [
-            EstadoExpediente.INTEGRADO,
-            EstadoExpediente.ENVIADO_CDMX,
-            EstadoExpediente.APROBADO_CDMX,
-            EstadoExpediente.EMPASTADO_PENDIENTE,
-            EstadoExpediente.EMPASTADO_RECIBIDO,
-            EstadoExpediente.JURADO_ASIGNADO,
-            EstadoExpediente.ACTO_PROGRAMADO,
-            EstadoExpediente.CONCLUIDO
-        ]
+        # Permitir marcar fotografía física en cualquier estado a partir de revisión inicial
+        # (Quitamos la restricción restrictiva de INTEGRADO)
         
-        if expediente.estado not in estados_permitidos:
-            messages.error(request, 'La fotografía física solo se recibe una vez que el expediente ha sido integrado.')
-            return redirect('escolares:expediente_detalle', pk=pk)
-
         entregada = request.POST.get('entregada') == 'on'
-        expediente.fotografia_fisica_entregada = entregada
-        expediente.save(update_fields=['fotografia_fisica_entregada', 'fecha_ultima_actualizacion'])
+        expediente.foto_fisica_escolares = entregada
+        expediente.save(update_fields=['foto_fisica_escolares', 'fecha_ultima_actualizacion'])
         
         action_txt = 'ENTREGADA' if entregada else 'PENDIENTE'
-        messages.success(request, f'Fotografía física marcada como {action_txt}.')
+        messages.success(request, f'Fotografía física marcada como {action_txt} en Servicios Escolares.')
         
         # Auditoría: Intentar registrar en el documento de fotografía, si no existe, en el expediente
         from expediente.notifications import registrar_cambio_documento, registrar_cambio_estado, notificar_alumno

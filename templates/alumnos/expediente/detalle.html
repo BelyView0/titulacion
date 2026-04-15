@@ -43,27 +43,44 @@
                 <div class="fw-bold">{{ expediente.nombre_empresa }}</div>
             </div>
             {% endif %}
-            <div class="mb-2">
+            <div class="mb-3">
                 <small class="text-muted fw-semibold">Fecha de apertura</small>
                 <div>{{ expediente.fecha_apertura|date:"d/m/Y" }}</div>
             </div>
+
+            {% if expediente.estado == 'BORRADOR' or expediente.estado == 'EN_CORRECCION' or expediente.estado == 'RECHAZADO_ACADEMICO' %}
+            <div class="mt-3">
+                <a href="{% url 'alumnos:expediente_editar' expediente.pk %}" class="btn btn-outline-primary btn-sm w-100">
+                    <i class="bi bi-pencil-square me-1"></i>Editar Datos Iniciales
+                </a>
+            </div>
+            {% endif %}
 
             <!-- Fotografía -->
             <hr>
             <div class="mb-1">
                 <small class="fw-semibold text-muted">Fotografía óvalo</small>
             </div>
-            <div class="d-flex gap-2 align-items-center mt-1">
+            <div class="d-flex flex-column gap-2 mt-2">
                 {% with foto_doc=expediente.get_documento_fotografia %}
-                <span class="badge bg-{% if foto_doc %}{{ foto_doc.get_estado_color }}{% else %}secondary{% endif %}">
-                    <i class="bi {% if foto_doc.estado == 'APROBADO' %}bi-check-circle{% else %}bi-camera{% endif %} me-1"></i>
-                    Fotografía óvalo ByN: {% if foto_doc %}{{ foto_doc.get_estado_display }}{% else %}Pendiente{% endif %}
-                </span>
+                <div>
+                    <span class="badge bg-{% if foto_doc %}{{ foto_doc.get_estado_color }}{% else %}secondary{% endif %} w-100 text-start py-2">
+                        <i class="bi {% if foto_doc.estado == 'APROBADO' %}bi-check-circle{% else %}bi-camera{% endif %} me-1"></i>
+                        Digital: {% if foto_doc %}{{ foto_doc.get_estado_display }}{% else %}Pendiente{% endif %}
+                    </span>
+                </div>
                 {% endwith %}
-                <span class="badge bg-{% if expediente.fotografia_fisica_entregada %}success{% else %}secondary{% endif %}">
-                    <i class="bi {% if expediente.fotografia_fisica_entregada %}bi-check{% else %}bi-clock{% endif %} me-1"></i>
-                    Física: {% if expediente.fotografia_fisica_entregada %}Entregada{% else %}Pendiente{% endif %}
-                </span>
+                <div class="small text-muted fw-bold">Entregas físicas:</div>
+                <div class="d-flex gap-2">
+                    <span class="badge bg-{% if expediente.foto_fisica_division %}success{% else %}secondary{% endif %} flex-fill py-2">
+                        <i class="bi {% if expediente.foto_fisica_division %}bi-check{% else %}bi-clock{% endif %} me-1"></i>
+                        División
+                    </span>
+                    <span class="badge bg-{% if expediente.foto_fisica_escolares %}success{% else %}secondary{% endif %} flex-fill py-2">
+                        <i class="bi {% if expediente.foto_fisica_escolares %}bi-check{% else %}bi-clock{% endif %} me-1"></i>
+                        Escolares
+                    </span>
+                </div>
             </div>
 
             {% if expediente.observaciones_division %}

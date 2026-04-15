@@ -86,6 +86,24 @@ class ExpedienteCreateView(AlumnoRequeridoMixin, CreateView):
         return redirect('alumnos:expediente')
 
 
+class ExpedienteUpdateView(ExpedientePropioMixin, UpdateView):
+    """El alumno edita sus datos iniciales mientras esté en borrador o corrección."""
+    model = Expediente
+    form_class = ExpedienteForm
+    template_name = 'alumnos/expediente/crear.html'  # Reutilizamos el mismo template
+    success_url = reverse_lazy('alumnos:expediente')
+
+    def get_queryset(self):
+        # Solo permitir editar en estados iniciales
+        return super().get_queryset().filter(
+            estado__in=[EstadoExpediente.BORRADOR, EstadoExpediente.EN_CORRECCION, EstadoExpediente.RECHAZADO_ACADEMICO]
+        )
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Datos de expediente actualizados.')
+        return super().form_valid(form)
+
+
 class ExpedienteDetalleView(ExpedientePropioMixin, TemplateView):
     template_name = 'alumnos/expediente/detalle.html'
 
@@ -110,6 +128,11 @@ class SolicitarRevisionView(ExpedientePropioMixin, View):
         if not expediente:
             messages.error(request, 'No tienes expediente activo.')
             return redirect('alumnos:dashboard')
+
+        # Verificación de datos completos
+        if not all([expediente.modalidad, expediente.titulo_trabajo, expediente.nombre_empresa]):
+            messages.error(request, 'Debes completar todos los datos iniciales (modalidad, título y empresa) antes de solicitar revisión.')
+            return redirect('alumnos:expediente')
 
         if expediente.estado != EstadoExpediente.BORRADOR:
             messages.error(request, 'Tu expediente no está en estado Borrador.')
