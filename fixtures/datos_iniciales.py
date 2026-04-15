@@ -16,7 +16,7 @@ from administracion.models import Carrera
 
 print("=== Iniciando carga de datos del ITA ===\n")
 
-# ─── CARRERAS ─────────────────────────────────────────────────────────────────
+# --- CARRERAS -----------------------------------------------------------------
 carreras_data = [
     ('ICI', 'Ingeniería Civil'),
     ('IEM', 'Ingeniería Electromecánica'),
@@ -39,11 +39,11 @@ carreras_data = [
 for clave, nombre in carreras_data:
     carrera, created = Carrera.objects.get_or_create(clave=clave, defaults={'nombre': nombre})
     if created:
-        print(f"  ✓ Carrera: {nombre}")
+        print(f"  [OK] Carrera: {nombre}")
 
-print(f"\n  → {Carrera.objects.count()} carreras cargadas.\n")
+print(f"\n  -> {Carrera.objects.count()} carreras cargadas.\n")
 
-# ─── PLANES DE ESTUDIO ────────────────────────────────────────────────────────
+# --- PLANES DE ESTUDIO --------------------------------------------------------
 planes_data = [
     ('2009-2010', 'Plan vigente para nuevas generaciones (2009-2010)'),
     ('2004', 'Plan 2004'),
@@ -58,9 +58,9 @@ for nombre, desc in planes_data:
     )
     planes[nombre] = plan
     if created:
-        print(f"  ✓ Plan de Estudios: {nombre}")
+        print(f"  [OK] Plan de Estudios: {nombre}")
 
-# ─── MODALIDADES ─────────────────────────────────────────────────────────────
+# --- MODALIDADES --------------------------------------------------------------
 modalidades_data = [
     # Plan 2009-2010
     ('2009-2010', 'RESIDENCIA', 'Titulación Integral — Informe de Residencia Profesional'),
@@ -95,41 +95,64 @@ for plan_nombre, clave, nombre in modalidades_data:
     )
     modalidades[clave] = modal
     if created:
-        print(f"  ✓ Modalidad: {nombre}")
+        print(f"  [OK] Modalidad: {nombre}")
 
-# ─── TIPOS DE DOCUMENTOS — Plan 2009-2010 ─────────────────────────────────────
+# --- TIPOS DE DOCUMENTOS --- Plan 2009-2010 -----------------------------------
 # Documentos para Residencia Profesional (Plan 2009-2010)
+# Orden, Nombre, Descripción, Obligatorio, ValidaDiv, ValidaEsc, EsFoto
 docs_residencia = [
-    (1, 'Solicitud del Estudiante',
-     'Descargar del sitio oficial, llenar en computadora con tinta negra. Nombre: NúmControl_solicitud_estudiante.pdf',
-     True, True, True, False),
+    (1, 'Solicitud del Estudiante 2009-2010',
+     'Descargar del sitio oficial (https://www.apizaco.tecnm.mx/proceso-titulacion/), llenar en computadora. Nombre: NúmControl_solicitud_estudiante.pdf',
+     True, True, False, False),
     (2, 'Solicitud de Acto de Recepción Profesional',
      'Descargar del sitio oficial, llenar en computadora. Nombre: NúmControl_solicitud_acto.pdf',
      True, True, True, False),
-    (3, 'Constancia de No Inconveniencia',
-     'Emitida por la empresa/organismo donde realizó la residencia. En papel membretado, firmada y sellada, dirigida al Director del ITA. '
-     'Debe incluir: nombre completo, N° control, carrera, nombre del proyecto y período. Nombre: NúmControl_no_inconveniencia.pdf',
+    (3, 'Solicitud de Opción de Titulación',
+     'Formato para Servicios Escolares. Llenar en computadora con datos correctos. Nombre: NúmControl_solicitud_opcion.pdf',
      True, True, True, False),
-    (4, 'Oficio de Liberación de Proyecto para Titulación Integral',
-     'Emitido por el departamento académico correspondiente. Solicitar en División de Estudios Profesionales.',
+    (4, 'Acta de Nacimiento',
+     'Original escaneado por ambos lados. Vigencia: debe ser del mismo mes en el que se abre el expediente. Nombre: NúmControl_acta_nacimiento.pdf',
+     True, False, True, False),
+    (5, 'CURP',
+     'Descargada del portal oficial de internet (en el mes que se abre el expediente). Nombre: NúmControl_curp.pdf',
+     True, False, True, False),
+    (6, 'Certificado de Estudios de Bachillerato',
+     'Original escaneado por ambos lados. Nombre: NúmControl_certificado_bachillerato.pdf',
+     True, False, True, False),
+    (7, 'Certificado de Estudios de Licenciatura',
+     'Original escaneado por ambos lados. Nombre: NúmControl_certificado_licenciatura.pdf',
      True, True, True, False),
-    (5, 'Certificado de Estudios de Licenciatura',
-     'El certificado recibido con tu documentación oficial de egreso. Nombre: NúmControl_certificado_estudios.pdf',
+    (8, 'Liberación de Servicio Social',
+     'Original escaneado. Nombre: NúmControl_liberacion_servicio_social.pdf',
+     True, False, True, False),
+    (9, 'Liberación de Residencia Profesional',
+     'Emitido por la División de Estudios Profesionales al concluir tu residencia aprobada. Nombre: NúmControl_liberacion_residencia.pdf',
      True, True, True, False),
-    (6, 'Liberación de Residencia Profesional',
-     'Emitido por la División de Estudios Profesionales al concluir tu residencia aprobada.',
-     True, True, False, False),
-    (7, 'Acreditación del Idioma Inglés',
+    (10, 'Acreditación del Idioma Inglés',
      'Emitido por la Coordinación de Lenguas Extranjeras del ITA. Nombre: NúmControl_acreditacion_ingles.pdf',
      True, True, True, False),
-    (8, 'Fotografía óvalo en blanco y negro con adhesivo',
-     'Fotograf\u00eda \u00f3valo en blanco y negro con pega. Se entrega físicamente en División de Estudios. '
-     'Cargar aquí la fotografía digital en formato JPG/PNG.',
-     True, True, False, True),
+    (11, 'Equivalencia, Revalidación o Convalidación',
+     'Original escaneado (solo en caso de que aplique). Nombre: NúmControl_equivalencia.pdf',
+     False, False, True, False),
+    (12, 'Constancia de No Adeudos',
+     'Original escaneado, solicitado en División de Estudios Profesionales. Nombre: NúmControl_no_adeudos.pdf',
+     True, False, True, False),
+    (13, 'Constancia de No Inconveniencia (Empresa)',
+     'Emitida por la empresa/organismo. En papel membretado, firmada y sellada, dirigida al Director del ITA. Nombre: NúmControl_no_inconveniencia.pdf',
+     True, True, True, False),
+    (14, 'Oficio de Autorización de Publicación',
+     'Documento entregado por División de Estudios Profesionales. Nombre: NúmControl_autorizacion_publicacion.pdf',
+     True, False, True, False),
+    (15, 'Oficio de Liberación de Proyecto para Titulación Integral',
+     'Emitido por el departamento académico correspondiente. Nombre: NúmControl_liberacion_proyecto.pdf',
+     True, True, True, False),
+    (16, 'Fotografía óvalo en blanco y negro con adhesivo',
+     'Fotografía óvalo en blanco y negro con pega. Se entrega físicamente en División de Estudios y Servicios Escolares. Cargar aquí versión digital.',
+     True, True, True, True),
 ]
 
 for orden, nombre, desc, obligatorio, val_div, val_esc, es_foto in docs_residencia:
-    TipoDocumento.objects.get_or_create(
+    TipoDocumento.objects.update_or_create(
         modalidad=modalidades['RESIDENCIA'],
         nombre=nombre,
         defaults={
@@ -141,31 +164,19 @@ for orden, nombre, desc, obligatorio, val_div, val_esc, es_foto in docs_residenc
             'es_fotografia': es_foto,
         }
     )
-print(f"  ✓ Documentos para Residencia Profesional 2009-2010 cargados.")
+print(f"  [OK] 16 Documentos para Residencia Profesional 2009-2010 actualizados.")
 
-# Documentos para Tesis (Plan 2009-2010)
-docs_tesis = [
-    (1, 'Solicitud del Estudiante', docs_residencia[0][2], True, True, True, False),
-    (2, 'Solicitud de Acto de Recepción Profesional', docs_residencia[1][2], True, True, True, False),
-    (3, 'Contenido del Proyecto de Tesis',
-     'Debe incluir: portada, índice detallado, introducción, justificación y bibliografía. '
-     'En formato PDF. Nombre: NúmControl_contenido_proyecto.pdf',
-     True, True, False, False),
-    (4, 'Certificado de Estudios de Licenciatura', docs_residencia[4][2], True, True, True, False),
-    (5, 'Liberación de Residencia Profesional', docs_residencia[5][2], True, True, False, False),
-    (6, 'Acreditación del Idioma Inglés', docs_residencia[6][2], True, True, True, False),
-    (7, 'Liberación de Proyecto para Titulación Integral (Tesis)',
-     'Emitido por el departamento académico una vez que la tesis esté concluida y aprobada.',
-     True, True, False, False),
-    (8, 'Fotografía óvalo en blanco y negro con adhesivo', docs_residencia[7][2], True, True, False, True),
-]
+for orden, nombre, desc, obligatorio, val_div, val_esc, es_foto in docs_residencia:
+    nombre_final = nombre
+    desc_final = desc
+    if nombre == 'Oficio de Liberación de Proyecto para Titulación Integral':
+        desc_final = 'Emitido por el departamento académico una vez que la tesis esté concluida y aprobada.'
 
-for orden, nombre, desc, obligatorio, val_div, val_esc, es_foto in docs_tesis:
-    TipoDocumento.objects.get_or_create(
+    TipoDocumento.objects.update_or_create(
         modalidad=modalidades['TESIS'],
-        nombre=nombre,
+        nombre=nombre_final,
         defaults={
-            'descripcion_ayuda': desc,
+            'descripcion_ayuda': desc_final,
             'es_obligatorio': obligatorio,
             'orden': orden,
             'valida_division': val_div,
@@ -173,10 +184,10 @@ for orden, nombre, desc, obligatorio, val_div, val_esc, es_foto in docs_tesis:
             'es_fotografia': es_foto,
         }
     )
-print(f"  ✓ Documentos para Tesis 2009-2010 cargados.")
+print(f"  [OK] 16 Documentos para Tesis 2009-2010 actualizados.")
 
 print(f"\n=== Carga completada ===")
-print(f"  • Carreras: {Carrera.objects.count()}")
-print(f"  • Planes de estudio: {PlanEstudios.objects.count()}")
-print(f"  • Modalidades: {Modalidad.objects.count()}")
-print(f"  • Tipos de documentos: {TipoDocumento.objects.count()}")
+print(f"  * Carreras: {Carrera.objects.count()}")
+print(f"  * Planes de estudio: {PlanEstudios.objects.count()}")
+print(f"  * Modalidades: {Modalidad.objects.count()}")
+print(f"  * Tipos de documentos: {TipoDocumento.objects.count()}")
