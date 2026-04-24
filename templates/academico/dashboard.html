@@ -3,7 +3,8 @@
 {% block page_title %}División de Estudios Profesionales{% endblock %}
 
 {% block content %}
-<div class="row g-3 mb-4">
+<!-- Fila 1: Acciones pendientes -->
+<div class="row g-3 mb-3">
     <div class="col-md-3">
         <div class="stat-card">
             <div class="d-flex align-items-center gap-3">
@@ -50,6 +51,36 @@
     </div>
 </div>
 
+<!-- Separador -->
+<hr class="my-2 opacity-25">
+
+<!-- Fila 2: Resumen general -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#fef9c3; color:#ca8a04;"><i class="bi bi-folder2-open"></i></div>
+                <div>
+                    <div class="stat-value" style="color:#ca8a04;">{{ expedientes_activos }}</div>
+                    <div class="stat-label">Expedientes activos</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#dcfce7; color:#16a34a;"><i class="bi bi-check-circle-fill"></i></div>
+                <div>
+                    <div class="stat-value" style="color:#16a34a;">{{ expedientes_concluidos }}</div>
+                    <div class="stat-label">Procesos concluidos</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de expedientes recientes -->
 <div class="content-card">
     <div class="card-header-custom">
         <i class="bi bi-table"></i> Expedientes Activos
@@ -62,6 +93,7 @@
             <thead class="table-light">
                 <tr>
                     <th>Alumno</th>
+                    <th>Carrera</th>
                     <th>Modalidad</th>
                     <th>Estado</th>
                     <th>Actualización</th>
@@ -73,9 +105,10 @@
                 <tr>
                     <td>
                         <div class="fw-semibold">{{ exp.alumno.get_full_name }}</div>
-                        <small class="text-muted">{{ exp.alumno.carrera.nombre|default:"—" }}</small>
+                        <small class="text-muted">{{ exp.alumno.username }}</small>
                     </td>
-                    <td><small>{{ exp.modalidad.nombre|default:"—" }}</small></td>
+                    <td><small class="text-muted">{{ exp.alumno.carrera.nombre|default:"—"|truncatechars:25 }}</small></td>
+                    <td><small>{{ exp.modalidad.nombre|default:"—"|truncatechars:30 }}</small></td>
                     <td>
                         <span class="badge bg-{{ exp.get_estado_display_color }} badge-estado">
                             {{ exp.get_estado_display }}
@@ -90,7 +123,7 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="5" class="text-center text-muted py-4">Sin expedientes activos.</td></tr>
+                <tr><td colspan="6" class="text-center text-muted py-4">Sin expedientes activos.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

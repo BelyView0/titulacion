@@ -64,8 +64,12 @@ WSGI_APPLICATION = 'titulacion.wsgi.application'
 # ─── BASE DE DATOS ────────────────────────────────────────────────────────────
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'titulacion_2026',
+        'USER': 'belyview',
+        'PASSWORD': '241203',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
 

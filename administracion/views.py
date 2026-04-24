@@ -16,7 +16,8 @@ from django.shortcuts import redirect, get_object_or_404
 from django.utils import timezone
 
 from expediente.mixins import AdminRequeridoMixin, JefeProyectoRequeridoMixin
-from administracion.models import Carrera, Departamento
+from administracion.models import Carrera, Departamento, Usuario, Rol, ConfiguracionInstitucional, JefeDepartamento
+from administracion.forms import UsuarioCreateForm, UsuarioUpdateForm, ConfiguracionInstitucionalForm, JefeDepartamentoForm
 from expediente.models import (
     Expediente, Documento, AsignacionJurado,
     EstadoExpediente, EstadoDocumento
@@ -25,6 +26,57 @@ from expediente.notifications import notificar_alumno, registrar_cambio_estado
 
 Usuario = get_user_model()
 
+
+class ConfiguracionUpdateView(AdminRequeridoMixin, UpdateView):
+    model = ConfiguracionInstitucional
+    form_class = ConfiguracionInstitucionalForm
+    template_name = 'administracion/configuracion.html'
+    success_url = reverse_lazy('administracion:configuracion')
+
+    def get_object(self, queryset=None):
+        obj, created = ConfiguracionInstitucional.objects.get_or_create(id=1)
+        return obj
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Membretes institucionales actualizados correctamente.')
+        return super().form_valid(form)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# VISTAS PARA JEFES DE DEPARTAMENTO
+# ═══════════════════════════════════════════════════════════════════════════════
+class JefeDepartamentoListView(AdminRequeridoMixin, ListView):
+    model = JefeDepartamento
+    template_name = 'administracion/jefe_departamento_list.html'
+    context_object_name = 'jefes'
+
+class JefeDepartamentoCreateView(AdminRequeridoMixin, CreateView):
+    model = JefeDepartamento
+    form_class = JefeDepartamentoForm
+    template_name = 'administracion/jefe_departamento_form.html'
+    success_url = reverse_lazy('administracion:jefes')
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Jefe de Departamento creado correctamente.')
+        return super().form_valid(form)
+
+class JefeDepartamentoUpdateView(AdminRequeridoMixin, UpdateView):
+    model = JefeDepartamento
+    form_class = JefeDepartamentoForm
+    template_name = 'administracion/jefe_departamento_form.html'
+    success_url = reverse_lazy('administracion:jefes')
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Jefe de Departamento actualizado correctamente.')
+        return super().form_valid(form)
+
+class JefeDepartamentoDeleteView(AdminRequeridoMixin, DeleteView):
+    model = JefeDepartamento
+    success_url = reverse_lazy('administracion:jefes')
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, 'Jefe de Departamento eliminado.')
+        return super().delete(request, *args, **kwargs)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # VISTAS PARA ROL: ADMIN (gestión de sistema)
@@ -85,11 +137,8 @@ class UsuarioListView(AdminRequeridoMixin, ListView):
 
 class UsuarioCreateView(AdminRequeridoMixin, CreateView):
     model = Usuario
+    form_class = UsuarioCreateForm
     template_name = 'administracion/usuarios/form.html'
-    fields = [
-        'username', 'first_name', 'last_name', 'email', 'password',
-        'rol', 'carrera', 'numero_empleado', 'telefono', 'genero', 'generacion'
-    ]
     success_url = reverse_lazy('administracion:usuarios')
 
     def form_valid(self, form):
@@ -97,21 +146,19 @@ class UsuarioCreateView(AdminRequeridoMixin, CreateView):
         usuario.set_password(form.cleaned_data['password'])
         usuario.save()
         messages.success(self.request, f'Usuario {usuario.get_full_name()} creado exitosamente.')
-        return super().form_valid(form)
+        return redirect(self.success_url)
 
 
 class UsuarioUpdateView(AdminRequeridoMixin, UpdateView):
     model = Usuario
+    form_class = UsuarioUpdateForm
     template_name = 'administracion/usuarios/form.html'
-    fields = [
-        'first_name', 'last_name', 'email',
-        'rol', 'carrera', 'numero_empleado', 'telefono', 'genero', 'generacion', 'is_active'
-    ]
     success_url = reverse_lazy('administracion:usuarios')
 
     def form_valid(self, form):
+        form.save()
         messages.success(self.request, 'Usuario actualizado exitosamente.')
-        return super().form_valid(form)
+        return redirect(self.success_url)
 
 
 # ─── CARRERAS ────────────────────────────────────────────────
@@ -153,25 +200,35 @@ class DashboardJefeProyectoView(JefeProyectoRequeridoMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        carrera = self.request.user.carrera
+        user = self.request.user
+        departamento = user.departamento
 
-        # Expedientes de la carrera del jefe de proyecto
-        expedientes_carrera = Expediente.objects.filter(
-            alumno__carrera=carrera
-        ).select_related('alumno', 'modalidad')
+        # Expedientes de las carreras pertenecientes al departamento del jefe
+        if departamento:
+            expedientes_dept = Expediente.objects.filter(
+                alumno__carrera__departamento=departamento
+            )
+        else:
+            # Fallback a carrera si no hay departamento (compatibilidad)
+            expedientes_dept = Expediente.objects.filter(
+                alumno__carrera=user.carrera
+            )
+        
+        expedientes_dept = expedientes_dept.select_related('alumno', 'modalidad')
 
-        ctx['carrera'] = carrera
-        ctx['total_expedientes'] = expedientes_carrera.count()
-        ctx['expedientes_activos'] = expedientes_carrera.exclude(
+        ctx['departamento'] = departamento
+        ctx['carrera'] = user.carrera # Mantenemos carrera por compatibilidad en template
+        ctx['total_expedientes'] = expedientes_dept.count()
+        ctx['expedientes_activos'] = expedientes_dept.exclude(
             estado__in=[EstadoExpediente.CONCLUIDO, EstadoExpediente.CANCELADO]
         ).count()
-        ctx['expedientes_concluidos'] = expedientes_carrera.filter(
+        ctx['expedientes_concluidos'] = expedientes_dept.filter(
             estado=EstadoExpediente.CONCLUIDO
         ).count()
-        ctx['pendientes_jurado'] = expedientes_carrera.filter(
+        ctx['pendientes_jurado'] = expedientes_dept.filter(
             estado=EstadoExpediente.EMPASTADO_RECIBIDO
         ).count()
-        ctx['expedientes_recientes'] = expedientes_carrera.order_by(
+        ctx['expedientes_recientes'] = expedientes_dept.order_by(
             '-fecha_ultima_actualizacion'
         )[:10]
         return ctx
@@ -184,10 +241,13 @@ class ExpedienteListaJefeView(JefeProyectoRequeridoMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        carrera = self.request.user.carrera
-        qs = Expediente.objects.filter(
-            alumno__carrera=carrera
-        ).select_related('alumno', 'modalidad').order_by('-fecha_ultima_actualizacion')
+        user = self.request.user
+        if user.departamento:
+            qs = Expediente.objects.filter(alumno__carrera__departamento=user.departamento)
+        else:
+            qs = Expediente.objects.filter(alumno__carrera=user.carrera)
+
+        qs = qs.select_related('alumno', 'modalidad').order_by('-fecha_ultima_actualizacion')
 
         estado = self.request.GET.get('estado')
         if estado:
@@ -209,9 +269,14 @@ class ExpedienteDetalleJefeView(JefeProyectoRequeridoMixin, DetailView):
     context_object_name = 'expediente'
 
     def get_queryset(self):
-        # Solo puede ver expedientes de su carrera
+        # Solo puede ver expedientes de su departamento
+        user = self.request.user
+        if user.departamento:
+            return Expediente.objects.filter(
+                alumno__carrera__departamento=user.departamento
+            ).select_related('alumno', 'modalidad')
         return Expediente.objects.filter(
-            alumno__carrera=self.request.user.carrera
+            alumno__carrera=user.carrera
         ).select_related('alumno', 'modalidad')
 
     def get_context_data(self, **kwargs):
@@ -221,7 +286,7 @@ class ExpedienteDetalleJefeView(JefeProyectoRequeridoMixin, DetailView):
         ).prefetch_related('validaciones').order_by('tipo_documento__orden')
         ctx['jurado'] = AsignacionJurado.objects.filter(
             expediente=self.object
-        ).select_related('presidente', 'secretario', 'vocal').first()
+        ).select_related('presidente', 'secretario', 'vocal_propietario', 'vocal_suplente').first()
         return ctx
 
 
@@ -232,15 +297,18 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
     """
 
     def get(self, request, pk):
-        expediente = get_object_or_404(
-            Expediente, pk=pk, alumno__carrera=request.user.carrera
-        )
+        user = request.user
+        if user.departamento:
+            filter_q = Q(alumno__carrera__departamento=user.departamento)
+        else:
+            filter_q = Q(alumno__carrera=user.carrera)
+
+        expediente = get_object_or_404(Expediente, Q(pk=pk) & filter_q)
         jurado = AsignacionJurado.objects.filter(expediente=expediente).first()
-        # Obtener posibles sinodales (profesores de la misma carrera + académicos)
-        sinodales = Usuario.objects.filter(
-            Q(carrera=request.user.carrera) | Q(rol='ACADEMICO'),
-            is_active=True
-        ).exclude(rol='ALUMNO').order_by('last_name', 'first_name')
+
+        # Obtener posibles sinodales desde el catálogo Profesor
+        from administracion.models import Profesor
+        sinodales = Profesor.objects.filter(activo=True).order_by('last_name', 'first_name')
 
         from django.template.loader import render_to_string
         from django.http import HttpResponse
@@ -254,20 +322,29 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
         ))
 
     def post(self, request, pk):
-        expediente = get_object_or_404(
-            Expediente, pk=pk, alumno__carrera=request.user.carrera
-        )
+        user = request.user
+        if user.departamento:
+            filter_q = Q(alumno__carrera__departamento=user.departamento)
+        else:
+            filter_q = Q(alumno__carrera=user.carrera)
+
+        expediente = get_object_or_404(Expediente, Q(pk=pk) & filter_q)
 
         presidente_id = request.POST.get('presidente')
         secretario_id = request.POST.get('secretario')
         vocal_id = request.POST.get('vocal')
+        suplente_id = request.POST.get('suplente')
+        
+        numero_oficio = request.POST.get('numero_oficio')
+        fecha_acto = request.POST.get('fecha_acto')
+        lugar_acto = request.POST.get('lugar_acto')
 
-        if not all([presidente_id, secretario_id, vocal_id]):
-            messages.error(request, 'Debes asignar los tres miembros del jurado.')
+        if not all([presidente_id, secretario_id, vocal_id, suplente_id, numero_oficio, fecha_acto, lugar_acto]):
+            messages.error(request, 'Debes llenar todos los campos (roles, oficio, fecha y lugar).')
             return redirect('administracion:jefe_jurado', pk=pk)
 
-        if len({presidente_id, secretario_id, vocal_id}) < 3:
-            messages.error(request, 'Los tres miembros del jurado deben ser personas diferentes.')
+        if len({presidente_id, secretario_id, vocal_id, suplente_id}) < 4:
+            messages.error(request, 'Los cuatro miembros del jurado deben ser personas diferentes.')
             return redirect('administracion:jefe_jurado', pk=pk)
 
         jurado, created = AsignacionJurado.objects.get_or_create(
@@ -275,17 +352,25 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
             defaults={
                 'presidente_id': presidente_id,
                 'secretario_id': secretario_id,
-                'vocal_id': vocal_id,
+                'vocal_propietario_id': vocal_id,
+                'vocal_suplente_id': suplente_id,
+                'numero_oficio': numero_oficio,
+                'fecha_acto': fecha_acto,
+                'lugar_acto': lugar_acto,
+                'fecha_oficio': timezone.now().date(),
                 'asignado_por': request.user,
-                'fecha_carta': timezone.now().date(),
             }
         )
         if not created:
             jurado.presidente_id = presidente_id
             jurado.secretario_id = secretario_id
-            jurado.vocal_id = vocal_id
+            jurado.vocal_propietario_id = vocal_id
+            jurado.vocal_suplente_id = suplente_id
+            jurado.numero_oficio = numero_oficio
+            jurado.fecha_acto = fecha_acto
+            jurado.lugar_acto = lugar_acto
+            jurado.fecha_oficio = timezone.now().date()
             jurado.asignado_por = request.user
-            jurado.fecha_carta = timezone.now().date()
             jurado.save()
 
         messages.success(request, 'Asignación de jurado registrada exitosamente.')
@@ -295,96 +380,201 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
             expediente=expediente,
             estado_nuevo=EstadoExpediente.JURADO_ASIGNADO,
             realizado_por=request.user,
-            descripcion=f'Jurado asignado por Jefe de Proyecto: Presidente {jurado.presidente}, Secretario {jurado.secretario}, Vocal {jurado.vocal}'
+            descripcion=f'Jurado asignado. Oficio {numero_oficio}. Acto: {fecha_acto} en {lugar_acto}'
         )
         notificar_alumno(
             expediente=expediente,
             tipo='AVANCE',
             titulo='Jurado asignado para tu examen profesional',
-            mensaje=f'Se ha asignado el jurado para tu acto protocolario. Presidente: {jurado.presidente.get_full_name()}.',
+            mensaje=f'Se ha asignado el jurado y fecha para tu acto protocolario. Fecha: {fecha_acto} en {lugar_acto}.',
         )
+
+        # Enviar correos
+        from django.core.mail import send_mail
+        from django.conf import settings
+        
+        correos_destinos = [
+            jurado.presidente.email,
+            jurado.secretario.email,
+            jurado.vocal_propietario.email,
+            jurado.vocal_suplente.email,
+            expediente.alumno.email
+        ]
+        correos_destinos = [c for c in correos_destinos if c]
+        
+        if correos_destinos:
+            cuerpo = f'''Estimados Profesores y Alumno(a),
+
+Se notifica que han sido designados como jurado para el acto de recepción profesional del alumno(a) {expediente.alumno.get_full_name()} ({expediente.alumno.carrera}).
+
+Lugar: {lugar_acto}
+Fecha y hora: {fecha_acto}
+
+Jurado:
+- Presidente: {jurado.presidente.get_nombre_con_titulo()}
+- Secretario/a: {jurado.secretario.get_nombre_con_titulo()}
+- Vocal Propietario/a: {jurado.vocal_propietario.get_nombre_con_titulo()}
+- Vocal Suplente: {jurado.vocal_suplente.get_nombre_con_titulo()}
+
+Instituto Tecnológico de Apizaco
+'''
+            send_mail(
+                subject=f'{settings.EMAIL_SUBJECT_PREFIX}Oficio Asignación Jurado - {expediente.alumno.get_full_name()}',
+                message=cuerpo,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=correos_destinos,
+                fail_silently=True,
+            )
 
         return redirect('administracion:jefe_detalle', pk=pk)
 
 
+class DescargarOficioJuradoJefeView(JefeProyectoRequeridoMixin, View):
+    """Descarga el PDF del Oficio de Asignación de Jurado."""
+    def get(self, request, pk):
+        user = request.user
+        if user.departamento:
+            filter_q = Q(alumno__carrera__departamento=user.departamento)
+        else:
+            filter_q = Q(alumno__carrera=user.carrera)
+
+        expediente = get_object_or_404(Expediente, Q(pk=pk) & filter_q)
+        asignacion = get_object_or_404(AsignacionJurado, expediente=expediente)
+
+        from administracion.pdf_oficio import generar_oficio_jurado_pdf
+        from django.http import HttpResponse
+
+        pdf_bytes = generar_oficio_jurado_pdf(asignacion)
+        
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        filename = f'Oficio_Jurado_{expediente.alumno.username}.pdf'
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+
 class EstadisticasJefeView(JefeProyectoRequeridoMixin, TemplateView):
     """
-    Estadísticas de titulación para el Jefe de Proyecto:
-    - Titulados por género (hombres, mujeres)
-    - Titulados por generación
-    - Porcentaje de titulados vs expedientes abiertos
+    Estadísticas de titulación para el Jefe de Proyecto (RE-01 a RE-07).
+    Filtra por departamento del usuario.
     """
     template_name = 'administracion/jefe/estadisticas.html'
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        carrera = self.request.user.carrera
+        user = self.request.user
+        departamento = user.departamento
 
-        # Todos los expedientes de la carrera
-        expedientes_carrera = Expediente.objects.filter(
-            alumno__carrera=carrera
-        ).select_related('alumno')
+        # ─── Base queryset por departamento ───────────────────────
+        if departamento:
+            qs_base = Expediente.objects.filter(
+                alumno__carrera__departamento=departamento
+            )
+        else:
+            qs_base = Expediente.objects.filter(
+                alumno__carrera=user.carrera
+            )
 
-        total_expedientes = expedientes_carrera.count()
-        expedientes_concluidos = expedientes_carrera.filter(
-            estado=EstadoExpediente.CONCLUIDO
-        )
-        total_concluidos = expedientes_concluidos.count()
-        expedientes_activos = expedientes_carrera.exclude(
-            estado__in=[EstadoExpediente.CONCLUIDO, EstadoExpediente.CANCELADO]
+        qs = qs_base.select_related('alumno', 'modalidad')
+
+        # ─── RE-01: Estudiantes que iniciaron proceso ──────────────
+        total_expedientes = qs.count()
+
+        # ─── RE-02: Estudiantes que concluyeron ────────────────────
+        qs_concluidos = qs.filter(estado=EstadoExpediente.CONCLUIDO)
+        total_concluidos = qs_concluidos.count()
+        expedientes_activos = qs.exclude(
+            estado__in=[EstadoExpediente.CONCLUIDO, EstadoExpediente.CANCELADO,
+                        EstadoExpediente.BORRADOR]
         ).count()
-        expedientes_cancelados = expedientes_carrera.filter(
-            estado=EstadoExpediente.CANCELADO
-        ).count()
+        expedientes_cancelados = qs.filter(estado=EstadoExpediente.CANCELADO).count()
 
-        # Porcentaje de titulados
         porcentaje_titulados = round(
             (total_concluidos / total_expedientes * 100) if total_expedientes > 0 else 0, 1
         )
 
-        # Titulados por género
-        titulados_hombres = expedientes_concluidos.filter(alumno__genero='M').count()
-        titulados_mujeres = expedientes_concluidos.filter(alumno__genero='F').count()
-        titulados_otro = total_concluidos - titulados_hombres - titulados_mujeres
+        # ─── RE-03: Estadísticas por género ───────────────────────
+        # De todos los que iniciaron proceso
+        iniciados_hombres = qs.filter(alumno__genero='M').count()
+        iniciados_mujeres = qs.filter(alumno__genero='F').count()
+        iniciados_sin_dato = total_expedientes - iniciados_hombres - iniciados_mujeres
 
-        # Titulados por generación
-        titulados_por_generacion = (
-            expedientes_concluidos
-            .filter(alumno__generacion__isnull=False)
+        # De los titulados
+        titulados_hombres = qs_concluidos.filter(alumno__genero='M').count()
+        titulados_mujeres = qs_concluidos.filter(alumno__genero='F').count()
+        titulados_sin_dato = total_concluidos - titulados_hombres - titulados_mujeres
+
+        # ─── RE-04: Estadísticas por generación ───────────────────
+        por_generacion = (
+            qs.filter(alumno__generacion__isnull=False)
             .values('alumno__generacion')
-            .annotate(total=Count('id'))
+            .annotate(
+                total=Count('id'),
+                concluidos=Count('id', filter=Q(estado=EstadoExpediente.CONCLUIDO))
+            )
             .order_by('-alumno__generacion')
         )
 
-        # Expedientes por estado (para gráfica)
-        expedientes_por_estado = (
-            expedientes_carrera
-            .values('estado')
-            .annotate(total=Count('id'))
-            .order_by('estado')
+        # ─── RE-05: Por tipo de opción de titulación (modalidad) ──
+        por_modalidad = (
+            qs.filter(modalidad__isnull=False)
+            .values('modalidad__nombre')
+            .annotate(
+                total=Count('id'),
+                concluidos=Count('id', filter=Q(estado=EstadoExpediente.CONCLUIDO))
+            )
+            .order_by('-total')
         )
-        # Convertir a display
+
+        # ─── RE-06: Por carrera ────────────────────────────────────
+        por_carrera = (
+            qs.values('alumno__carrera__nombre')
+            .annotate(
+                total=Count('id'),
+                concluidos=Count('id', filter=Q(estado=EstadoExpediente.CONCLUIDO)),
+                hombres=Count('id', filter=Q(alumno__genero='M')),
+                mujeres=Count('id', filter=Q(alumno__genero='F')),
+            )
+            .order_by('-total')
+        )
+
+        # ─── Distribución por estado (RE-07 apoyo decisiones) ─────
         estado_display = dict(EstadoExpediente.choices)
-        expedientes_por_estado_display = [
+        expedientes_por_estado = [
             {
                 'estado': estado_display.get(item['estado'], item['estado']),
                 'total': item['total'],
                 'clave': item['estado'],
             }
-            for item in expedientes_por_estado
+            for item in (
+                qs.values('estado')
+                .annotate(total=Count('id'))
+                .order_by('-total')
+            )
         ]
 
         ctx.update({
-            'carrera': carrera,
+            'departamento': departamento,
+            # RE-01
             'total_expedientes': total_expedientes,
+            # RE-02
             'total_concluidos': total_concluidos,
             'expedientes_activos': expedientes_activos,
             'expedientes_cancelados': expedientes_cancelados,
             'porcentaje_titulados': porcentaje_titulados,
+            # RE-03 género
+            'iniciados_hombres': iniciados_hombres,
+            'iniciados_mujeres': iniciados_mujeres,
+            'iniciados_sin_dato': iniciados_sin_dato,
             'titulados_hombres': titulados_hombres,
             'titulados_mujeres': titulados_mujeres,
-            'titulados_otro': titulados_otro,
-            'titulados_por_generacion': titulados_por_generacion,
-            'expedientes_por_estado': expedientes_por_estado_display,
+            'titulados_sin_dato': titulados_sin_dato,
+            # RE-04 generación
+            'por_generacion': por_generacion,
+            # RE-05 modalidad
+            'por_modalidad': por_modalidad,
+            # RE-06 carrera
+            'por_carrera': por_carrera,
+            # RE-07 distribución
+            'expedientes_por_estado': expedientes_por_estado,
         })
         return ctx

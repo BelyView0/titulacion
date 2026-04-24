@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block title %}{% if object %}Editar Jefe{% else %}Nuevo Jefe{% endif %} — Administración{% endblock %}
+{% block page_title %}{% if object %}Editar Jefe de Departamento{% else %}Nuevo Jefe de Departamento{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <i class="bi bi-person-badge me-2"></i> Datos del Jefe de Departamento
+            </div>
+            
+            <div class="p-4">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    
+                    {% if form.errors %}
+                    <div class="alert alert-danger py-2 mb-4">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Corrige los siguientes errores:</strong>
+                        <ul class="mb-0 mt-1 small">
+                            {% for field in form %}
+                                {% for error in field.errors %}
+                                <li>{{ field.label }}: {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <div class="row g-3">
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label fw-bold text-primary">{{ form.departamento.label }} *</label>
+                            {{ form.departamento }}
+                            <div class="form-text">Selecciona a qué departamento será asignado.</div>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold">{{ form.titulo_academico.label }} *</label>
+                            {{ form.titulo_academico }}
+                        </div>
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label fw-bold">{{ form.nombre.label }} *</label>
+                            {{ form.nombre }}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">{{ form.apellido_paterno.label }} *</label>
+                            {{ form.apellido_paterno }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">{{ form.apellido_materno.label }}</label>
+                            {{ form.apellido_materno }}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">{{ form.genero.label }} *</label>
+                            {{ form.genero }}
+                            <div class="form-text">Define si en la firma oficial dirá "JEFA" o "JEFE".</div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'administracion:jefes' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle me-1"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-1"></i>Guardar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

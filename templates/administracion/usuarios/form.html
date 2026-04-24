@@ -4,45 +4,130 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-lg-6">
+    <div class="col-lg-7">
         <div class="content-card p-4">
             <div class="card-header-custom mb-4">
                 <i class="bi bi-person-{% if object %}gear{% else %}plus{% endif %}"></i>
                 {% if object %}Editar Usuario{% else %}Crear Nuevo Usuario{% endif %}
             </div>
-            <form method="post">
+            <form method="post" id="form-usuario">
                 {% csrf_token %}
-                {% for field in form %}
-                <div class="mb-3">
-                    <label for="{{ field.id_for_label }}" class="form-label fw-semibold">
-                        {{ field.label }}{% if field.field.required %}<span class="text-danger ms-1">*</span>{% endif %}
-                    </label>
-                    {% if field.field.widget.input_type == 'select' %}
-                        <select name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="form-select {% if field.errors %}is-invalid{% endif %}">
-                            {% for val, lbl in field.field.choices %}
-                            <option value="{{ val }}" {% if field.value|stringformat:"s" == val|stringformat:"s" %}selected{% endif %}>{{ lbl }}</option>
-                            {% endfor %}
-                        </select>
-                    {% elif field.field.widget.input_type == 'checkbox' %}
-                        <div class="form-check">
-                            <input type="checkbox" name="{{ field.html_name }}" id="{{ field.id_for_label }}"
-                                   class="form-check-input" {% if field.value %}checked{% endif %}>
-                            <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                        </div>
-                    {% else %}
-                        <input type="{{ field.field.widget.input_type|default:'text' }}"
-                               name="{{ field.html_name }}" id="{{ field.id_for_label }}"
-                               value="{{ field.value|default:'' }}"
-                               class="form-control {% if field.errors %}is-invalid{% endif %}"
-                               {% if field.field.required %}required{% endif %}>
-                    {% endif %}
-                    {% if field.errors %}<div class="invalid-feedback">{{ field.errors.0 }}</div>{% endif %}
-                    {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                        <div>{{ error }}</div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
+                {% endif %}
+
+                <!-- Sección: Datos personales -->
+                <p class="text-muted fw-semibold small mb-2 text-uppercase" style="letter-spacing:.08em">
+                    <i class="bi bi-person me-1"></i> Datos personales
+                </p>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        {% include '_field.html' with field=form.first_name %}
+                    </div>
+                    <div class="col-md-4">
+                        {% include '_field.html' with field=form.last_name %}
+                    </div>
+                    <div class="col-md-4">
+                        {% include '_field.html' with field=form.apellido_materno %}
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        {% include '_field.html' with field=form.email %}
+                    </div>
+                    <div class="col-md-6">
+                        {% include '_field.html' with field=form.telefono %}
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        {% include '_field.html' with field=form.genero %}
+                    </div>
+                    <div class="col-md-6">
+                        {% include '_field.html' with field=form.generacion %}
+                    </div>
+                </div>
+
+                <hr class="my-3 opacity-25">
+
+                <!-- Sección: Cuenta y rol -->
+                <p class="text-muted fw-semibold small mb-2 text-uppercase" style="letter-spacing:.08em">
+                    <i class="bi bi-shield-lock me-1"></i> Cuenta y acceso
+                </p>
+
+                {% if not object %}
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        {% include '_field.html' with field=form.username %}
+                    </div>
+                    <div class="col-md-6">
+                        {% include '_field.html' with field=form.numero_control %}
+                    </div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        {% include '_field.html' with field=form.password %}
+                    </div>
+                    <div class="col-md-6">
+                        {% include '_field.html' with field=form.password_confirm %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Nombre de usuario</label>
+                            <input type="text" class="form-control" value="{{ object.username }}" disabled>
+                            <div class="form-text">El nombre de usuario no se puede cambiar.</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        {% include '_field.html' with field=form.numero_control %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        {% include '_field.html' with field=form.rol %}
+                    </div>
+                    {% if object %}
+                    <div class="col-md-6">
+                        {% include '_field.html' with field=form.is_active %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Campo Carrera (visible solo para ALUMNO) -->
+                <div id="campo-carrera" class="mb-3" style="display:none;">
+                    <hr class="my-3 opacity-25">
+                    <p class="text-muted fw-semibold small mb-2 text-uppercase" style="letter-spacing:.08em">
+                        <i class="bi bi-mortarboard me-1"></i> Datos académicos
+                    </p>
+                    {% include '_field.html' with field=form.carrera %}
+                </div>
+
+                <!-- Campo Departamento (visible solo para JEFE_PROYECTO) -->
+                <div id="campo-departamento" class="mb-3" style="display:none;">
+                    <hr class="my-3 opacity-25">
+                    <p class="text-muted fw-semibold small mb-2 text-uppercase" style="letter-spacing:.08em">
+                        <i class="bi bi-building me-1"></i> Departamento
+                    </p>
+                    {% include '_field.html' with field=form.departamento %}
+                </div>
+
                 <div class="d-flex gap-2 mt-4">
                     <button type="submit" class="btn btn-success px-4">
-                        <i class="bi bi-check-circle me-1"></i>{% if object %}Guardar Cambios{% else %}Crear Usuario{% endif %}
+                        <i class="bi bi-check-circle me-1"></i>
+                        {% if object %}Guardar Cambios{% else %}Crear Usuario{% endif %}
                     </button>
                     <a href="{% url 'administracion:usuarios' %}" class="btn btn-outline-secondary">Cancelar</a>
                 </div>
@@ -50,4 +135,62 @@
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    const rolSelect = document.getElementById('id_rol');
+    const campoCarrera = document.getElementById('campo-carrera');
+    const campoDepartamento = document.getElementById('campo-departamento');
+    const inputCarrera = document.getElementById('id_carrera');
+    const inputDepartamento = document.getElementById('id_departamento');
+
+    // Referencias a los labels para agregar/quitar asterisco
+    const labelCarrera = campoCarrera ? campoCarrera.querySelector('label') : null;
+    const labelDepartamento = campoDepartamento ? campoDepartamento.querySelector('label') : null;
+
+    function setRequired(input, label, requerido) {
+        if (!input) return;
+        if (requerido) {
+            input.required = true;
+            // Agregar asterisco si no existe
+            if (label && !label.querySelector('.req-star')) {
+                const star = document.createElement('span');
+                star.className = 'text-danger ms-1 req-star';
+                star.textContent = '*';
+                label.appendChild(star);
+            }
+        } else {
+            input.required = false;
+            // Quitar asterisco
+            if (label) {
+                const star = label.querySelector('.req-star');
+                if (star) star.remove();
+            }
+        }
+    }
+
+    function actualizarCampos() {
+        const rol = rolSelect ? rolSelect.value : '';
+
+        // Ocultar ambos y quitar required
+        campoCarrera.style.display = 'none';
+        campoDepartamento.style.display = 'none';
+        setRequired(inputCarrera, labelCarrera, false);
+        setRequired(inputDepartamento, labelDepartamento, false);
+
+        if (rol === 'ALUMNO') {
+            campoCarrera.style.display = '';
+            setRequired(inputCarrera, labelCarrera, true);
+        } else if (rol === 'JEFE_PROYECTO') {
+            campoDepartamento.style.display = '';
+            setRequired(inputDepartamento, labelDepartamento, true);
+        }
+    }
+
+    if (rolSelect) {
+        rolSelect.addEventListener('change', actualizarCampos);
+        actualizarCampos(); // Ejecutar al cargar para preservar valor al editar
+    }
+})();
+</script>
 {% endblock %}

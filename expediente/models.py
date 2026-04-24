@@ -495,34 +495,66 @@ class RecepcionEmpastado(models.Model):
 
 class AsignacionJurado(models.Model):
     """
-    Carta de asignación del jurado para el acto protocolario.
+    Oficio de asignación del jurado para el acto protocolario.
+    Los miembros del jurado son instancias de Profesor (catálogo institucional).
     """
+    from administracion.models import Profesor
+
     expediente = models.OneToOneField(
         Expediente, on_delete=models.CASCADE,
         related_name='jurado',
         verbose_name='Expediente'
     )
+    # ── Miembros del jurado ──────────────────────────────────────
     presidente = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        'administracion.Profesor',
         on_delete=models.PROTECT,
         related_name='jurado_presidente',
         verbose_name='Presidente del jurado'
     )
     secretario = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        'administracion.Profesor',
         on_delete=models.PROTECT,
         related_name='jurado_secretario',
-        verbose_name='Secretario del jurado'
+        verbose_name='Secretario/a del jurado'
     )
-    vocal = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+    vocal_propietario = models.ForeignKey(
+        'administracion.Profesor',
         on_delete=models.PROTECT,
-        related_name='jurado_vocal',
-        verbose_name='Vocal del jurado'
+        null=True, blank=True,
+        related_name='jurado_vocal_prop',
+        verbose_name='Vocal Propietario/a'
     )
-    fecha_carta = models.DateField(verbose_name='Fecha de carta de asignación')
+    vocal_suplente = models.ForeignKey(
+        'administracion.Profesor',
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='jurado_vocal_sup',
+        verbose_name='Vocal Suplente'
+    )
+    # ── Datos del oficio ─────────────────────────────────────────
+    numero_oficio = models.CharField(
+        max_length=50, blank=True,
+        verbose_name='Número de oficio',
+        help_text='Ej: S.C./OPV/0099/2026'
+    )
+    fecha_oficio = models.DateField(
+        null=True, blank=True,
+        verbose_name='Fecha del oficio'
+    )
+    # ── Acto protocolario ────────────────────────────────────────
+    fecha_acto = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Fecha y hora del acto protocolario'
+    )
+    lugar_acto = models.CharField(
+        max_length=300, blank=True,
+        verbose_name='Lugar del acto',
+        help_text='Ej: SALA MAGNA (edificio T)'
+    )
+    # ── Auditoría ────────────────────────────────────────────────
     asignado_por = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        'administracion.Usuario',
         on_delete=models.SET_NULL, null=True,
         related_name='jurados_asignados',
         verbose_name='Asignado por'

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="es"><body style="font-family:Arial,sans-serif;font-size:13px;color:#222;">
+<p>Estimado/a <strong>{{ profesor.get_full_name }}</strong>,</p>
+<p>Por medio del presente, se le notifica que ha sido designado/a como <strong>{{ rol_jurado }}</strong>
+del jurado para el acto de recepción profesional de:</p>
+<table style="border-collapse:collapse;width:100%;margin:12px 0;">
+  <tr><td style="padding:4px 10px;font-weight:bold;">Sustentante:</td><td>{{ alumno.get_full_name }}</td></tr>
+  <tr><td style="padding:4px 10px;font-weight:bold;">No. Control:</td><td>{{ alumno.numero_control }}</td></tr>
+  <tr><td style="padding:4px 10px;font-weight:bold;">Carrera:</td><td>{{ expediente.alumno.carrera }}</td></tr>
+  <tr><td style="padding:4px 10px;font-weight:bold;">Modalidad:</td><td>{{ expediente.modalidad }}</td></tr>
+  <tr><td style="padding:4px 10px;font-weight:bold;">Tema:</td><td>{{ expediente.titulo_trabajo }}</td></tr>
+  <tr><td style="padding:4px 10px;font-weight:bold;">Fecha del acto:</td>
+      <td>{% if asignacion.fecha_acto %}{{ asignacion.fecha_acto|date:"d/m/Y" }} a las {{ asignacion.fecha_acto|time:"H:i" }} hrs{% else %}Por confirmar{% endif %}</td></tr>
+  <tr><td style="padding:4px 10px;font-weight:bold;">Lugar:</td><td>{{ asignacion.lugar_acto|default:"Por confirmar" }}</td></tr>
+  <tr><td style="padding:4px 10px;font-weight:bold;">No. Oficio:</td><td>{{ asignacion.numero_oficio|default:"---" }}</td></tr>
+</table>
+<p>Adjunto encontrará el oficio oficial de designación. Se agradece su puntual asistencia.</p>
+<p>Atentamente,<br><strong>Sistema de Titulación — Instituto Tecnológico de Apizaco</strong></p>
+</body></html>

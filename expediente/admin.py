@@ -86,7 +86,8 @@ class RecepcionEmpastadoAdmin(admin.ModelAdmin):
 
 @admin.register(AsignacionJurado)
 class AsignacionJuradoAdmin(admin.ModelAdmin):
-    list_display = ('expediente', 'presidente', 'secretario', 'vocal', 'fecha_carta')
+    list_display = ('expediente', 'presidente', 'secretario', 'vocal_propietario', 'vocal_suplente', 'fecha_oficio')
+    list_filter = ('fecha_oficio',)
 
 
 @admin.register(ActoProtocolario)

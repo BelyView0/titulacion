@@ -1,248 +1,366 @@
 {% extends 'base.html' %}
-{% block title %}Estadísticas de Titulación — Administración{% endblock %}
-{% block page_title %}Estadísticas de Titulación — {{ carrera.nombre }}{% endblock %}
+{% block title %}Estadísticas de Titulación{% endblock %}
+{% block page_title %}Estadísticas — {{ departamento.nombre|default:"Mi Departamento" }}{% endblock %}
 
 {% block content %}
 <div class="fade-in">
 
-    <!-- Resumen general -->
-    <div class="row g-3 mb-4">
-        <div class="col-sm-6 col-lg-3">
-            <div class="stat-card">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="stat-icon" style="background:rgba(0,59,115,.1); color:var(--ita-azul);">
-                        <i class="bi bi-folder2-open"></i>
-                    </div>
-                    <div>
-                        <div class="stat-value">{{ total_expedientes }}</div>
-                        <div class="stat-label">Expedientes Abiertos</div>
-                    </div>
+<!-- ── RE-01 / RE-02: Resumen general ─────────────────────────────── -->
+<div class="row g-3 mb-3">
+    <div class="col-sm-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:rgba(0,59,115,.1); color:var(--ita-azul);">
+                    <i class="bi bi-folder2-open"></i>
+                </div>
+                <div>
+                    <div class="stat-value">{{ total_expedientes }}</div>
+                    <div class="stat-label">Iniciaron proceso <small class="text-muted">(RE-01)</small></div>
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-lg-3">
-            <div class="stat-card">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="stat-icon" style="background:rgba(25,135,84,.1); color:#198754;">
-                        <i class="bi bi-trophy"></i>
-                    </div>
-                    <div>
-                        <div class="stat-value">{{ total_concluidos }}</div>
-                        <div class="stat-label">Titulados</div>
-                    </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:rgba(25,135,84,.1); color:#198754;">
+                    <i class="bi bi-trophy"></i>
+                </div>
+                <div>
+                    <div class="stat-value" style="color:#198754;">{{ total_concluidos }}</div>
+                    <div class="stat-label">Titulados <small class="text-muted">(RE-02)</small></div>
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-lg-3">
-            <div class="stat-card">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="stat-icon" style="background:rgba(255,193,7,.1); color:#997404;">
-                        <i class="bi bi-hourglass-split"></i>
-                    </div>
-                    <div>
-                        <div class="stat-value">{{ expedientes_activos }}</div>
-                        <div class="stat-label">En Proceso</div>
-                    </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:rgba(255,193,7,.1); color:#997404;">
+                    <i class="bi bi-hourglass-split"></i>
+                </div>
+                <div>
+                    <div class="stat-value" style="color:#997404;">{{ expedientes_activos }}</div>
+                    <div class="stat-label">En proceso</div>
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-lg-3">
-            <div class="stat-card">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="stat-icon" style="background:rgba(0,87,184,.1); color:var(--ita-azul-claro);">
-                        <i class="bi bi-percent"></i>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:rgba(0,87,184,.1); color:var(--ita-azul-claro);">
+                    <i class="bi bi-percent"></i>
+                </div>
+                <div>
+                    <div class="stat-value" style="color:var(--ita-azul-claro);">{{ porcentaje_titulados }}%</div>
+                    <div class="stat-label">Tasa de titulación</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="my-2 opacity-25">
+
+<!-- ── RE-03: Género ──────────────────────────────────────────────── -->
+<div class="row g-3 mb-3">
+    <div class="col-lg-6">
+        <div class="content-card h-100">
+            <div class="card-header-custom">
+                <i class="bi bi-people"></i> Estadísticas por Género
+                <span class="ms-auto badge bg-secondary fw-normal" style="font-size:.68rem;">RE-03</span>
+            </div>
+            <div class="p-3">
+                {% if total_expedientes > 0 %}
+                <!-- Iniciaron proceso -->
+                <p class="small fw-semibold text-muted mb-2 text-uppercase" style="font-size:.7rem; letter-spacing:.06em;">Iniciaron proceso</p>
+                <div class="row g-2 mb-3">
+                    <div class="col-4 text-center">
+                        <div style="font-size:1.8rem; font-weight:800; color:#0057B8;">{{ iniciados_hombres }}</div>
+                        <div class="small text-muted"><i class="bi bi-gender-male me-1"></i>Hombres</div>
+                        <div class="small text-muted">{% if total_expedientes %}{% widthratio iniciados_hombres total_expedientes 100 %}%{% endif %}</div>
                     </div>
-                    <div>
-                        <div class="stat-value">{{ porcentaje_titulados }}%</div>
-                        <div class="stat-label">Tasa de Titulación</div>
+                    <div class="col-4 text-center">
+                        <div style="font-size:1.8rem; font-weight:800; color:#CC0000;">{{ iniciados_mujeres }}</div>
+                        <div class="small text-muted"><i class="bi bi-gender-female me-1"></i>Mujeres</div>
+                        <div class="small text-muted">{% if total_expedientes %}{% widthratio iniciados_mujeres total_expedientes 100 %}%{% endif %}</div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <div style="font-size:1.8rem; font-weight:800; color:#6c757d;">{{ iniciados_sin_dato }}</div>
+                        <div class="small text-muted"><i class="bi bi-dash-circle me-1"></i>Sin dato</div>
+                        <div class="small text-muted">{% if total_expedientes %}{% widthratio iniciados_sin_dato total_expedientes 100 %}%{% endif %}</div>
+                    </div>
+                </div>
+                <div class="progress mb-3" style="height:20px; border-radius:10px;">
+                    {% if iniciados_hombres > 0 %}
+                    <div class="progress-bar" style="width:{% widthratio iniciados_hombres total_expedientes 100 %}%; background:#0057B8;" title="Hombres">
+                        <small class="fw-bold">H</small>
+                    </div>
+                    {% endif %}
+                    {% if iniciados_mujeres > 0 %}
+                    <div class="progress-bar" style="width:{% widthratio iniciados_mujeres total_expedientes 100 %}%; background:#CC0000;" title="Mujeres">
+                        <small class="fw-bold">M</small>
+                    </div>
+                    {% endif %}
+                    {% if iniciados_sin_dato > 0 %}
+                    <div class="progress-bar bg-secondary" style="width:{% widthratio iniciados_sin_dato total_expedientes 100 %}%;"></div>
+                    {% endif %}
+                </div>
+
+                <!-- Titulados -->
+                {% if total_concluidos > 0 %}
+                <p class="small fw-semibold text-muted mb-2 text-uppercase" style="font-size:.7rem; letter-spacing:.06em;">Titulados</p>
+                <div class="row g-2 mb-2">
+                    <div class="col-4 text-center">
+                        <div class="fw-bold" style="color:#0057B8;">{{ titulados_hombres }}</div>
+                        <div class="small text-muted">Hombres</div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <div class="fw-bold" style="color:#CC0000;">{{ titulados_mujeres }}</div>
+                        <div class="small text-muted">Mujeres</div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <div class="fw-bold text-secondary">{{ titulados_sin_dato }}</div>
+                        <div class="small text-muted">Sin dato</div>
+                    </div>
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="text-center py-3 text-muted">
+                    <i class="bi bi-bar-chart" style="font-size:2rem; opacity:.3;"></i>
+                    <p class="mt-2 mb-0 small">Sin expedientes registrados.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ── RE-07: Tasa de titulación (gráfica circular) ── -->
+    <div class="col-lg-6">
+        <div class="content-card h-100">
+            <div class="card-header-custom">
+                <i class="bi bi-graph-up-arrow"></i> Tasa de Titulación
+                <span class="ms-auto badge bg-secondary fw-normal" style="font-size:.68rem;">RE-07</span>
+            </div>
+            <div class="p-3 text-center">
+                <div style="position:relative; display:inline-block; width:170px; height:170px;">
+                    <svg viewBox="0 0 36 36" style="transform:rotate(-90deg); width:100%; height:100%;">
+                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e9ecef" stroke-width="3"></circle>
+                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#198754" stroke-width="3"
+                                stroke-dasharray="{{ porcentaje_titulados }}, 100"
+                                stroke-linecap="round"></circle>
+                    </svg>
+                    <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center;">
+                        <div style="font-size:1.8rem; font-weight:800; color:var(--ita-azul);">{{ porcentaje_titulados }}%</div>
+                        <div style="font-size:.7rem; color:#6c757d;">Titulados</div>
+                    </div>
+                </div>
+                <div class="mt-3 d-flex justify-content-center gap-4">
+                    <div class="text-center">
+                        <div class="small fw-bold text-success">{{ total_concluidos }}</div>
+                        <div class="small text-muted" style="font-size:.72rem;">Concluidos</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="small fw-bold text-warning">{{ expedientes_activos }}</div>
+                        <div class="small text-muted" style="font-size:.72rem;">En proceso</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="small fw-bold text-danger">{{ expedientes_cancelados }}</div>
+                        <div class="small text-muted" style="font-size:.72rem;">Cancelados</div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <div class="row g-3">
-        <!-- Titulados por Género -->
-        <div class="col-lg-6">
-            <div class="content-card">
-                <div class="card-header-custom">
-                    <i class="bi bi-people"></i> Titulados por Género
-                </div>
-                <div class="p-3">
-                    {% if total_concluidos > 0 %}
-                    <div class="row g-3 mb-3">
-                        <div class="col-4 text-center">
-                            <div style="font-size:2rem; font-weight:800; color:#0057B8;">{{ titulados_hombres }}</div>
-                            <div class="small text-muted fw-semibold"><i class="bi bi-gender-male me-1"></i>Hombres</div>
-                            <div class="small text-muted">
-                                {% widthratio titulados_hombres total_concluidos 100 %}%
-                            </div>
-                        </div>
-                        <div class="col-4 text-center">
-                            <div style="font-size:2rem; font-weight:800; color:#CC0000;">{{ titulados_mujeres }}</div>
-                            <div class="small text-muted fw-semibold"><i class="bi bi-gender-female me-1"></i>Mujeres</div>
-                            <div class="small text-muted">
-                                {% widthratio titulados_mujeres total_concluidos 100 %}%
-                            </div>
-                        </div>
-                        <div class="col-4 text-center">
-                            <div style="font-size:2rem; font-weight:800; color:#6c757d;">{{ titulados_otro }}</div>
-                            <div class="small text-muted fw-semibold"><i class="bi bi-dash-circle me-1"></i>Sin dato</div>
-                            <div class="small text-muted">
-                                {% widthratio titulados_otro total_concluidos 100 %}%
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Barras visuales -->
-                    <div class="progress" style="height:24px; border-radius:12px;">
-                        {% if titulados_hombres > 0 %}
-                        <div class="progress-bar" style="width:{% widthratio titulados_hombres total_concluidos 100 %}%; background:#0057B8;"
-                             title="Hombres: {{ titulados_hombres }}">
-                            <small class="fw-bold">H: {{ titulados_hombres }}</small>
-                        </div>
-                        {% endif %}
-                        {% if titulados_mujeres > 0 %}
-                        <div class="progress-bar" style="width:{% widthratio titulados_mujeres total_concluidos 100 %}%; background:#CC0000;"
-                             title="Mujeres: {{ titulados_mujeres }}">
-                            <small class="fw-bold">M: {{ titulados_mujeres }}</small>
-                        </div>
-                        {% endif %}
-                        {% if titulados_otro > 0 %}
-                        <div class="progress-bar bg-secondary" style="width:{% widthratio titulados_otro total_concluidos 100 %}%"
-                             title="Sin dato: {{ titulados_otro }}">
-                            <small class="fw-bold">?</small>
-                        </div>
-                        {% endif %}
-                    </div>
-                    {% else %}
-                    <div class="text-center py-3 text-muted">
-                        <i class="bi bi-bar-chart" style="font-size:2rem; opacity:.3;"></i>
-                        <p class="mt-2 mb-0 small">Aún no hay alumnos titulados en esta carrera.</p>
-                    </div>
-                    {% endif %}
-                </div>
+<hr class="my-2 opacity-25">
+
+<!-- ── RE-04: Generación + RE-05: Modalidad ───────────────────────── -->
+<div class="row g-3 mb-3">
+
+    <!-- RE-04: Por generación -->
+    <div class="col-lg-6">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <i class="bi bi-calendar-range"></i> Por Generación (año de ingreso)
+                <span class="ms-auto badge bg-secondary fw-normal" style="font-size:.68rem;">RE-04</span>
             </div>
-        </div>
-
-        <!-- Tasa de Titulación -->
-        <div class="col-lg-6">
-            <div class="content-card">
-                <div class="card-header-custom">
-                    <i class="bi bi-graph-up-arrow"></i> Tasa de Titulación
-                </div>
-                <div class="p-3 text-center">
-                    <div style="position:relative; display:inline-block; width:180px; height:180px;">
-                        <svg viewBox="0 0 36 36" style="transform:rotate(-90deg); width:100%; height:100%;">
-                            <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e9ecef" stroke-width="3"></circle>
-                            <circle cx="18" cy="18" r="15.9" fill="none" stroke="#198754" stroke-width="3"
-                                    stroke-dasharray="{{ porcentaje_titulados }}, 100"
-                                    stroke-linecap="round"></circle>
-                        </svg>
-                        <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center;">
-                            <div style="font-size:1.8rem; font-weight:800; color:var(--ita-azul);">{{ porcentaje_titulados }}%</div>
-                            <div style="font-size:.7rem; color:#6c757d;">Titulados</div>
-                        </div>
-                    </div>
-                    <div class="mt-3 d-flex justify-content-center gap-4">
-                        <div class="text-center">
-                            <div class="small fw-bold text-success">{{ total_concluidos }}</div>
-                            <div class="small text-muted" style="font-size:.72rem;">Concluidos</div>
-                        </div>
-                        <div class="text-center">
-                            <div class="small fw-bold text-warning">{{ expedientes_activos }}</div>
-                            <div class="small text-muted" style="font-size:.72rem;">En proceso</div>
-                        </div>
-                        <div class="text-center">
-                            <div class="small fw-bold text-danger">{{ expedientes_cancelados }}</div>
-                            <div class="small text-muted" style="font-size:.72rem;">Cancelados</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Titulados por Generación -->
-        <div class="col-lg-6">
-            <div class="content-card">
-                <div class="card-header-custom">
-                    <i class="bi bi-calendar-range"></i> Titulados por Generación
-                </div>
-                <div class="p-3">
-                    {% if titulados_por_generacion %}
-                    <table class="table table-sm table-hover mb-0" style="font-size:.85rem;">
-                        <thead>
-                            <tr>
-                                <th>Generación</th>
-                                <th class="text-center">Titulados</th>
-                                <th style="width:50%">Proporción</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for gen in titulados_por_generacion %}
-                            <tr>
-                                <td class="fw-bold">{{ gen.alumno__generacion }}</td>
-                                <td class="text-center">
-                                    <span class="badge bg-primary rounded-pill">{{ gen.total }}</span>
-                                </td>
-                                <td>
-                                    <div class="progress" style="height:14px; border-radius:7px;">
-                                        <div class="progress-bar bg-primary" style="width:{% widthratio gen.total total_concluidos 100 %}%">
-                                        </div>
+            <div class="p-3">
+                {% if por_generacion %}
+                <table class="table table-sm table-hover mb-0" style="font-size:.85rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Generación</th>
+                            <th class="text-center">Iniciaron</th>
+                            <th class="text-center">Titulados</th>
+                            <th style="width:35%">Tasa</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for gen in por_generacion %}
+                        <tr>
+                            <td class="fw-bold">{{ gen.alumno__generacion }}</td>
+                            <td class="text-center"><span class="badge bg-primary rounded-pill">{{ gen.total }}</span></td>
+                            <td class="text-center"><span class="badge bg-success rounded-pill">{{ gen.concluidos }}</span></td>
+                            <td>
+                                <div class="progress" style="height:12px; border-radius:6px;">
+                                    {% if gen.total > 0 %}
+                                    <div class="progress-bar bg-success"
+                                         style="width:{% widthratio gen.concluidos gen.total 100 %}%">
                                     </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                    {% else %}
-                    <div class="text-center py-3 text-muted">
-                        <i class="bi bi-calendar3" style="font-size:2rem; opacity:.3;"></i>
-                        <p class="mt-2 mb-0 small">No hay datos de generación registrados.</p>
-                        <p class="mb-0 small">Asegúrate de que los alumnos tengan su año de ingreso asignado.</p>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <!-- Expedientes por Estado -->
-        <div class="col-lg-6">
-            <div class="content-card">
-                <div class="card-header-custom">
-                    <i class="bi bi-pie-chart"></i> Distribución por Estado
-                </div>
-                <div class="p-3">
-                    {% if expedientes_por_estado %}
-                    {% for item in expedientes_por_estado %}
-                    <div class="d-flex align-items-center gap-2 mb-2">
-                        <div class="flex-grow-1">
-                            <div class="d-flex justify-content-between mb-1">
-                                <small class="fw-semibold text-truncate" style="max-width:200px;">{{ item.estado }}</small>
-                                <small class="fw-bold text-muted">{{ item.total }}</small>
-                            </div>
-                            <div class="progress" style="height:6px; border-radius:3px;">
-                                <div class="progress-bar
-                                    {% if item.clave == 'CONCLUIDO' %}bg-success
-                                    {% elif item.clave == 'CANCELADO' %}bg-dark
-                                    {% elif 'RECHAZADO' in item.clave %}bg-danger
-                                    {% elif 'REVISION' in item.clave %}bg-info
-                                    {% elif 'PENDIENTE' in item.clave %}bg-warning
-                                    {% else %}bg-primary{% endif %}"
-                                     style="width:{% widthratio item.total total_expedientes 100 %}%">
+                                    {% endif %}
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                    {% else %}
-                    <div class="text-center py-3 text-muted">
-                        <p class="mb-0 small">No hay expedientes registrados.</p>
-                    </div>
-                    {% endif %}
+                                <small class="text-muted">{% if gen.total > 0 %}{% widthratio gen.concluidos gen.total 100 %}%{% else %}—{% endif %}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="text-center py-3 text-muted">
+                    <i class="bi bi-calendar3" style="font-size:2rem; opacity:.3;"></i>
+                    <p class="mt-2 mb-0 small">Sin datos de generación registrados.</p>
                 </div>
+                {% endif %}
             </div>
         </div>
     </div>
+
+    <!-- RE-05: Por tipo de opción / modalidad -->
+    <div class="col-lg-6">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <i class="bi bi-diagram-3"></i> Por Opción de Titulación
+                <span class="ms-auto badge bg-secondary fw-normal" style="font-size:.68rem;">RE-05</span>
+            </div>
+            <div class="p-3">
+                {% if por_modalidad %}
+                {% for item in por_modalidad %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <small class="fw-semibold">{{ item.modalidad__nombre|truncatechars:40 }}</small>
+                        <small class="text-muted">{{ item.concluidos }}/{{ item.total }}</small>
+                    </div>
+                    <div class="progress" style="height:14px; border-radius:7px;">
+                        {% if item.total > 0 %}
+                        <div class="progress-bar bg-primary"
+                             style="width:{% widthratio item.total total_expedientes 100 %}%"
+                             title="{{ item.total }} expedientes">
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">{{ item.total }} expediente{% if item.total != 1 %}s{% endif %}</small>
+                        <small class="text-success fw-semibold">{{ item.concluidos }} titulado{% if item.concluidos != 1 %}s{% endif %}</small>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="text-center py-3 text-muted">
+                    <i class="bi bi-diagram-3" style="font-size:2rem; opacity:.3;"></i>
+                    <p class="mt-2 mb-0 small">Sin modalidades registradas.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="my-2 opacity-25">
+
+<!-- ── RE-06: Por carrera ──────────────────────────────────────────── -->
+<div class="content-card mb-3">
+    <div class="card-header-custom">
+        <i class="bi bi-mortarboard"></i> Estadísticas por Carrera
+        <span class="ms-auto badge bg-secondary fw-normal" style="font-size:.68rem;">RE-06</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" style="font-size:.87rem;">
+            <thead class="table-light">
+                <tr>
+                    <th>Carrera</th>
+                    <th class="text-center">Iniciaron</th>
+                    <th class="text-center">Titulados</th>
+                    <th class="text-center"><i class="bi bi-gender-male text-primary"></i> H</th>
+                    <th class="text-center"><i class="bi bi-gender-female text-danger"></i> M</th>
+                    <th>Tasa titulación</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in por_carrera %}
+                <tr>
+                    <td class="fw-semibold">{{ c.alumno__carrera__nombre|default:"—"|truncatechars:40 }}</td>
+                    <td class="text-center"><span class="badge bg-primary rounded-pill">{{ c.total }}</span></td>
+                    <td class="text-center"><span class="badge bg-success rounded-pill">{{ c.concluidos }}</span></td>
+                    <td class="text-center"><span class="badge rounded-pill" style="background:#0057B8;">{{ c.hombres }}</span></td>
+                    <td class="text-center"><span class="badge rounded-pill" style="background:#CC0000;">{{ c.mujeres }}</span></td>
+                    <td style="min-width:140px;">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="progress flex-grow-1" style="height:10px; border-radius:5px;">
+                                {% if c.total > 0 %}
+                                <div class="progress-bar bg-success"
+                                     style="width:{% widthratio c.concluidos c.total 100 %}%">
+                                </div>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted fw-semibold" style="min-width:32px;">
+                                {% if c.total > 0 %}{% widthratio c.concluidos c.total 100 %}%{% else %}—{% endif %}
+                            </small>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center text-muted py-3">Sin datos de carreras.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── RE-07: Distribución por estado (apoyo toma de decisiones) ──── -->
+<div class="content-card mb-3">
+    <div class="card-header-custom">
+        <i class="bi bi-pie-chart"></i> Distribución por Estado del Expediente
+        <span class="ms-auto badge bg-secondary fw-normal" style="font-size:.68rem;">RE-07</span>
+    </div>
+    <div class="p-3">
+        {% if expedientes_por_estado %}
+        <div class="row g-2">
+            {% for item in expedientes_por_estado %}
+            <div class="col-md-6">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between mb-1">
+                            <small class="fw-semibold">{{ item.estado }}</small>
+                            <small class="fw-bold text-muted">{{ item.total }}</small>
+                        </div>
+                        <div class="progress" style="height:8px; border-radius:4px;">
+                            {% if total_expedientes > 0 %}
+                            <div class="progress-bar
+                                {% if item.clave == 'CONCLUIDO' %}bg-success
+                                {% elif item.clave == 'CANCELADO' %}bg-dark
+                                {% elif 'RECHAZADO' in item.clave %}bg-danger
+                                {% elif 'REVISION' in item.clave %}bg-info
+                                {% elif 'PENDIENTE' in item.clave %}bg-warning
+                                {% elif item.clave == 'BORRADOR' %}bg-secondary
+                                {% else %}bg-primary{% endif %}"
+                                 style="width:{% widthratio item.total total_expedientes 100 %}%">
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted text-center mb-0">Sin expedientes registrados.</p>
+        {% endif %}
+    </div>
+</div>
+
 </div>
 
 <div class="mt-3">

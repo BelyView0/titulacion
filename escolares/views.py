@@ -37,6 +37,15 @@ class DashboardEscolaresView(EscolaresRequeridoMixin, TemplateView):
         ctx['expedientes_enviados_cdmx'] = Expediente.objects.filter(
             estado=EstadoExpediente.ENVIADO_CDMX
         ).count()
+        ctx['expedientes_activos'] = Expediente.objects.exclude(
+            estado__in=[EstadoExpediente.BORRADOR, EstadoExpediente.CONCLUIDO, EstadoExpediente.CANCELADO]
+        ).count()
+        ctx['expedientes_integrados'] = Expediente.objects.filter(
+            estado=EstadoExpediente.INTEGRADO
+        ).count()
+        ctx['expedientes_concluidos'] = Expediente.objects.filter(
+            estado=EstadoExpediente.CONCLUIDO
+        ).count()
         ctx['expedientes_recientes'] = Expediente.objects.exclude(
             estado__in=[EstadoExpediente.BORRADOR, EstadoExpediente.CANCELADO]
         ).select_related('alumno', 'modalidad').order_by('-fecha_ultima_actualizacion')[:10]
@@ -50,7 +59,9 @@ class ExpedienteListaEscolaresView(EscolaresRequeridoMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = Expediente.objects.select_related(
+        qs = Expediente.objects.exclude(
+            estado=EstadoExpediente.BORRADOR
+        ).select_related(
             'alumno', 'modalidad', 'alumno__carrera'
         ).order_by('-fecha_ultima_actualizacion')
         estado = self.request.GET.get('estado')

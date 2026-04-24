@@ -89,6 +89,24 @@
                     {% csrf_token %}
 
                     <div class="row g-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Número de Oficio</label>
+                            <input type="text" name="numero_oficio" class="form-control" value="{{ jurado.numero_oficio|default:'' }}" required placeholder="ej: S.C./OPV/0099/2026">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Fecha y Hora del Acto</label>
+                            <input type="datetime-local" name="fecha_acto" class="form-control" value="{{ jurado.fecha_acto|date:'Y-m-d\TH:i' }}" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Lugar del Acto</label>
+                            <input type="text" name="lugar_acto" class="form-control" value="{{ jurado.lugar_acto|default:'' }}" required placeholder="ej: SALA MAGNA (edificio T)">
+                        </div>
+
+                        <div class="col-12 mt-4">
+                            <hr>
+                            <h6 class="fw-bold mb-3"><i class="bi bi-people"></i> Integrantes del Jurado</h6>
+                        </div>
+
                         <div class="col-12">
                             <label class="form-label fw-semibold">
                                 <span class="badge bg-primary me-1">P</span> Presidente
@@ -99,7 +117,7 @@
                                     {% for s in sinodales %}
                                     <option value="{{ s.pk }}"
                                             {% if jurado and jurado.presidente_id == s.pk %}selected{% endif %}>
-                                        {{ s.get_full_name }} ({{ s.get_rol_display }})
+                                        {{ s.get_full_name }} ({{ s.departamento|default:'Sin Depto.' }})
                                     </option>
                                     {% endfor %}
                                 </select>
@@ -116,7 +134,7 @@
                                     {% for s in sinodales %}
                                     <option value="{{ s.pk }}"
                                             {% if jurado and jurado.secretario_id == s.pk %}selected{% endif %}>
-                                        {{ s.get_full_name }} ({{ s.get_rol_display }})
+                                        {{ s.get_full_name }} ({{ s.departamento|default:'Sin Depto.' }})
                                     </option>
                                     {% endfor %}
                                 </select>
@@ -125,15 +143,32 @@
 
                         <div class="col-12">
                             <label class="form-label fw-semibold">
-                                <span class="badge bg-secondary me-1">V</span> Vocal
+                                <span class="badge bg-secondary me-1">V1</span> Vocal Propietario/a
                             </label>
                             <div class="sinodal-select">
                                 <select name="vocal" class="form-select" required id="sel-vocal">
-                                    <option value="">— Seleccionar vocal —</option>
+                                    <option value="">— Seleccionar vocal propietario/a —</option>
                                     {% for s in sinodales %}
                                     <option value="{{ s.pk }}"
-                                            {% if jurado and jurado.vocal_id == s.pk %}selected{% endif %}>
-                                        {{ s.get_full_name }} ({{ s.get_rol_display }})
+                                            {% if jurado and jurado.vocal_propietario_id == s.pk %}selected{% endif %}>
+                                        {{ s.get_full_name }} ({{ s.departamento|default:'Sin Depto.' }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">
+                                <span class="badge bg-dark me-1">V2</span> Vocal Suplente
+                            </label>
+                            <div class="sinodal-select">
+                                <select name="suplente" class="form-select" required id="sel-suplente">
+                                    <option value="">— Seleccionar vocal suplente —</option>
+                                    {% for s in sinodales %}
+                                    <option value="{{ s.pk }}"
+                                            {% if jurado and jurado.vocal_suplente_id == s.pk %}selected{% endif %}>
+                                        {{ s.get_full_name }} ({{ s.departamento|default:'Sin Depto.' }})
                                     </option>
                                     {% endfor %}
                                 </select>
@@ -147,7 +182,7 @@
                         <a href="{% url 'administracion:jefe_detalle' expediente.pk %}" class="btn btn-outline-secondary btn-sm">
                             <i class="bi bi-arrow-left me-1"></i>Cancelar
                         </a>
-                        <button type="submit" class="btn btn-primary" id="btn-asignar">
+                        <button type="button" class="btn btn-primary" id="btn-asignar">
                             <i class="bi bi-check-circle me-1"></i>{% if jurado %}Actualizar{% else %}Asignar{% endif %} Jurado
                         </button>
                     </div>
@@ -156,31 +191,80 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de Confirmación -->
+<div class="modal fade" id="modalConfirmarJurado" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center pt-0 pb-4 px-4">
+                <i class="bi bi-people text-primary mb-3" style="font-size:3.5rem;"></i>
+                <h5 class="fw-bold mb-3">¿Confirmas la asignación del jurado?</h5>
+                <p class="text-muted small mb-4">Se enviarán correos de notificación a los miembros del jurado y al alumno con los detalles del acto protocolario.</p>
+                <div class="d-flex gap-2 justify-content-center">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary px-4" id="btn-confirm-submit">Sí, asignar jurado</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Error -->
+<div class="modal fade" id="modalErrorJurado" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-body text-center py-4 px-4">
+                <i class="bi bi-exclamation-circle text-danger mb-3" style="font-size:3rem;"></i>
+                <h6 class="fw-bold mb-2">Error de validación</h6>
+                <p class="text-muted small mb-4" id="error-message"></p>
+                <button type="button" class="btn btn-secondary btn-sm px-4" data-bs-dismiss="modal">Entendido</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-document.getElementById('formJurado').addEventListener('submit', function(e) {
+document.getElementById('btn-asignar').addEventListener('click', function(e) {
+    const form = document.getElementById('formJurado');
+    
+    // Primero, forzamos la validación HTML5 nativa
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
     const p = document.getElementById('sel-presidente').value;
     const s = document.getElementById('sel-secretario').value;
     const v = document.getElementById('sel-vocal').value;
+    const su = document.getElementById('sel-suplente').value;
 
-    if (!p || !s || !v) {
-        e.preventDefault();
-        alert('Debes seleccionar los tres miembros del jurado.');
+    if (!p || !s || !v || !su) {
+        document.getElementById('error-message').innerText = 'Debes seleccionar los cuatro miembros del jurado.';
+        new bootstrap.Modal(document.getElementById('modalErrorJurado')).show();
         return;
     }
 
-    const vals = [p, s, v];
-    if (new Set(vals).size < 3) {
-        e.preventDefault();
-        alert('Los tres miembros del jurado deben ser personas diferentes.');
+    const vals = [p, s, v, su];
+    if (new Set(vals).size < 4) {
+        document.getElementById('error-message').innerText = 'Los cuatro miembros del jurado deben ser personas diferentes.';
+        new bootstrap.Modal(document.getElementById('modalErrorJurado')).show();
         return;
     }
 
-    if (!confirm('¿Confirmas la asignación de jurado?')) {
-        e.preventDefault();
-    }
+    // Mostrar modal de confirmación en lugar del confirm nativo
+    new bootstrap.Modal(document.getElementById('modalConfirmarJurado')).show();
+});
+
+document.getElementById('btn-confirm-submit').addEventListener('click', function() {
+    // Cambiar estado del botón para evitar doble envío
+    this.disabled = true;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Procesando...';
+    document.getElementById('formJurado').submit();
 });
 </script>
 {% endblock %}

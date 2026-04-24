@@ -37,8 +37,14 @@ class DashboardAcademicoView(AcademicoRequeridoMixin, TemplateView):
         ctx['expedientes_jurado_pendiente'] = Expediente.objects.filter(
             estado=EstadoExpediente.EMPASTADO_RECIBIDO
         ).count()
+        ctx['expedientes_activos'] = Expediente.objects.exclude(
+            estado__in=[EstadoExpediente.BORRADOR, EstadoExpediente.CONCLUIDO, EstadoExpediente.CANCELADO]
+        ).count()
+        ctx['expedientes_concluidos'] = Expediente.objects.filter(
+            estado=EstadoExpediente.CONCLUIDO
+        ).count()
         ctx['expedientes_recientes'] = Expediente.objects.exclude(
-            estado=EstadoExpediente.CANCELADO
+            estado__in=[EstadoExpediente.BORRADOR, EstadoExpediente.CANCELADO]
         ).select_related('alumno', 'modalidad').order_by('-fecha_ultima_actualizacion')[:10]
         return ctx
 
@@ -50,7 +56,9 @@ class ExpedienteListaAcademicoView(AcademicoRequeridoMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = Expediente.objects.select_related(
+        qs = Expediente.objects.exclude(
+            estado=EstadoExpediente.BORRADOR
+        ).select_related(
             'alumno', 'modalidad', 'alumno__carrera'
         ).order_by('-fecha_ultima_actualizacion')
         estado = self.request.GET.get('estado')
@@ -226,34 +234,56 @@ class RecepcionEmpastadoView(AcademicoRequeridoMixin, CreateView):
         return initial
 
     def get_expediente(self):
-        return get_object_or_404(Expediente, pk=self.kwargs['pk'],
-                                  estado=EstadoExpediente.EMPASTADO_PENDIENTE)
+        return get_object_or_404(
+            Expediente, pk=self.kwargs['pk'],
+            estado__in=[
+                EstadoExpediente.EMPASTADO_PENDIENTE,
+                EstadoExpediente.EMPASTADO_RECIBIDO,
+            ]
+        )
 
     def form_valid(self, form):
         expediente = self.get_expediente()
-        recepcion = form.save(commit=False)
-        recepcion.expediente = expediente
-        recepcion.recibido_por = self.request.user
-        recepcion.save()
 
-        registrar_cambio_estado(
+        # Usar update_or_create para evitar IntegrityError si ya existe un registro
+        recepcion, created = RecepcionEmpastado.objects.update_or_create(
             expediente=expediente,
-            estado_nuevo=EstadoExpediente.EMPASTADO_RECIBIDO,
-            realizado_por=self.request.user,
-            descripcion=f'División recibió el empastado. Estado: {recepcion.get_estado_display()}'
+            defaults={
+                'fecha_recepcion': form.cleaned_data['fecha_recepcion'],
+                'estado': form.cleaned_data['estado'],
+                'observaciones': form.cleaned_data.get('observaciones', ''),
+                'recibido_por': self.request.user,
+            }
         )
-        notificar_alumno(
-            expediente=expediente,
-            tipo='AVANCE',
-            titulo='Empastado recibido por División de Estudios',
-            mensaje='División de Estudios ha recibido y revisado tu trabajo empastado. El siguiente paso es la asignación de jurado.',
-        )
-        messages.success(self.request, 'Recepción de empastado registrada.')
+
+        # Solo registrar cambio de estado si aún no estaba en EMPASTADO_RECIBIDO
+        if expediente.estado != EstadoExpediente.EMPASTADO_RECIBIDO:
+            registrar_cambio_estado(
+                expediente=expediente,
+                estado_nuevo=EstadoExpediente.EMPASTADO_RECIBIDO,
+                realizado_por=self.request.user,
+                descripcion=f'División recibió el empastado. Estado: {recepcion.get_estado_display()}'
+            )
+            notificar_alumno(
+                expediente=expediente,
+                tipo='AVANCE',
+                titulo='Empastado recibido por División de Estudios',
+                mensaje='División de Estudios ha recibido y revisado tu trabajo empastado. El siguiente paso es la asignación de jurado.',
+            )
+
+        accion = 'registrada' if created else 'actualizada'
+        messages.success(self.request, f'Recepción de empastado {accion} correctamente.')
         return redirect('academico:expediente_detalle', pk=expediente.pk)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['expediente'] = self.get_expediente()
+        expediente = self.get_expediente()
+        ctx['expediente'] = expediente
+        # Pre-cargar datos existentes si ya hay recepción registrada
+        try:
+            ctx['recepcion_existente'] = RecepcionEmpastado.objects.get(expediente=expediente)
+        except RecepcionEmpastado.DoesNotExist:
+            ctx['recepcion_existente'] = None
         return ctx
 
 

@@ -12,36 +12,69 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'titulacion.settings')
 django.setup()
 
 from expediente.models import PlanEstudios, Modalidad, TipoDocumento
-from administracion.models import Carrera
+from administracion.models import Carrera, Departamento
 
 print("=== Iniciando carga de datos del ITA ===\n")
-
-# --- CARRERAS -----------------------------------------------------------------
-carreras_data = [
-    ('ICI', 'Ingeniería Civil'),
-    ('IEM', 'Ingeniería Electromecánica'),
-    ('IEL', 'Ingeniería Electrónica'),
-    ('IAD', 'Ingeniería en Administración'),
-    ('IGE', 'Ingeniería en Gestión Empresarial'),
-    ('IIN', 'Ingeniería Informática'),
-    ('ITC', 'Ingeniería en Tecnologías de la Información y Comunicaciones'),
-    ('IID', 'Ingeniería Industrial'),
-    ('IME', 'Ingeniería Mecatrónica'),
-    ('ISA', 'Ingeniería en Sistemas Automotrices'),
-    ('IIA', 'Ingeniería en Inteligencia Artificial'),
-    ('ISC', 'Ingeniería en Semiconductores'),
-    ('MIA', 'Maestría en Ingeniería Administrativa'),
-    ('MSC', 'Maestría en Sistemas Computacionales'),
-    ('MIM', 'Maestría en Ingeniería Mecatrónica'),
-    ('DCI', 'Doctorado en Ciencias de la Ingeniería'),
+departamentos_data = [
+    ('CIERRA', 'Ciencias de la Tierra'),
+    ('METAL', 'Metal Mecánica'),
+    ('ECON_ADM', 'Ciencias Económico-Administrativas'),
+    ('INDUSTRIAL', 'Ingeniería Industrial'),
+    ('ELEC_ELEC', 'Ingeniería Eléctrica y Electrónica'),
+    ('SISTEMAS', 'Sistemas y Computación'),
 ]
 
-for clave, nombre in carreras_data:
-    carrera, created = Carrera.objects.get_or_create(clave=clave, defaults={'nombre': nombre})
+departamentos = {}
+for clave, nombre in departamentos_data:
+    dept, created = Departamento.objects.get_or_create(clave=clave, defaults={'nombre': nombre})
+    departamentos[clave] = dept
+    if created:
+        print(f"  [OK] Departamento: {nombre}")
+
+# --- CARRERAS -----------------------------------------------------------------
+# (Clave, Nombre, Clave_Departamento)
+carreras_data = [
+    # Ciencias de la Tierra
+    ('ICI', 'Ingeniera Civil', 'CIERRA'),
+    
+    # Metal Mecánica
+    ('IEM', 'Ingenieria Electromecanica', 'METAL'),
+    ('IME', 'Ingenieria Mecatronica', 'METAL'),
+    ('MIM', 'Maestria en Ingenieria Mecatronica', 'METAL'),
+    
+    # Ciencias Económico-Administrativas
+    ('IAD', 'Ingenieria en Administracion', 'ECON_ADM'),
+    ('IGE', 'Ingenieria en Gestion Empresarial', 'ECON_ADM'),
+    ('MIA', 'Maestria en Ingenieria Administrativa', 'ECON_ADM'),
+    
+    # Ingeniería Industrial
+    ('IID', 'Ingenieria Industrial', 'INDUSTRIAL'),
+    
+    # Ingeniería Eléctrica y Electrónica
+    ('IEL', 'Ingenieria Electronica', 'ELEC_ELEC'),
+    ('ISC', 'Ingenieria en Semiconductores', 'ELEC_ELEC'),
+    ('ISA', 'Ingenieria en Sistemas Automotrices', 'ELEC_ELEC'),
+    
+    # Sistemas y Computación
+    ('IIN', 'Ingenieria Informatica', 'SISTEMAS'),
+    ('ITC', 'Ingenieria en Tecnologias de la Informacion y Comunicaciones', 'SISTEMAS'),
+    ('IIA', 'Ingenieria en Inteligencia Artificial', 'SISTEMAS'),
+    ('MSC', 'Maestria en Sistemas Computacionales', 'SISTEMAS'),
+    ('DCI', 'Doctorado en Ciencias de la Ingenieria', 'SISTEMAS'),
+]
+
+for clave, nombre, dept_clave in carreras_data:
+    carrera, created = Carrera.objects.update_or_create(
+        clave=clave, 
+        defaults={
+            'nombre': nombre,
+            'departamento': departamentos[dept_clave]
+        }
+    )
     if created:
         print(f"  [OK] Carrera: {nombre}")
 
-print(f"\n  -> {Carrera.objects.count()} carreras cargadas.\n")
+print(f"\n  -> {Carrera.objects.count()} carreras vinculadas a {Departamento.objects.count()} departamentos.\n")
 
 # --- PLANES DE ESTUDIO --------------------------------------------------------
 planes_data = [
