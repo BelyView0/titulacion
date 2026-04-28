@@ -11,6 +11,7 @@ from django.views import View
 from django.urls import reverse_lazy
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.shortcuts import redirect, get_object_or_404
 from django.utils import timezone
@@ -95,9 +96,27 @@ class DashboardAdminView(AdminRequeridoMixin, TemplateView):
         ctx['expedientes_concluidos'] = Expediente.objects.filter(
             estado=EstadoExpediente.CONCLUIDO
         ).count()
-        ctx['expedientes_recientes'] = Expediente.objects.select_related(
-            'alumno', 'modalidad'
-        ).order_by('-fecha_apertura')[:10]
+
+        # Expedientes con búsqueda y paginación
+        qs = Expediente.objects.select_related(
+            'alumno', 'modalidad', 'alumno__carrera'
+        ).order_by('-fecha_apertura')
+        busqueda = self.request.GET.get('q', '').strip()
+        if busqueda:
+            qs = qs.filter(
+                Q(alumno__first_name__icontains=busqueda) |
+                Q(alumno__last_name__icontains=busqueda) |
+                Q(alumno__username__icontains=busqueda) |
+                Q(alumno__numero_control__icontains=busqueda)
+            )
+        ctx['busqueda'] = busqueda
+        paginator = Paginator(qs, 20)
+        page_number = self.request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        ctx['expedientes_recientes'] = page_obj
+        ctx['page_obj'] = page_obj
+        ctx['is_paginated'] = page_obj.has_other_pages()
+
         ctx['carreras'] = Carrera.objects.filter(activa=True).annotate(
             num_expedientes=Count('usuario__expediente')
         )
@@ -214,7 +233,7 @@ class DashboardJefeProyectoView(JefeProyectoRequeridoMixin, TemplateView):
                 alumno__carrera=user.carrera
             )
         
-        expedientes_dept = expedientes_dept.select_related('alumno', 'modalidad')
+        expedientes_dept = expedientes_dept.select_related('alumno', 'modalidad', 'alumno__carrera')
 
         ctx['departamento'] = departamento
         ctx['carrera'] = user.carrera # Mantenemos carrera por compatibilidad en template
@@ -228,9 +247,24 @@ class DashboardJefeProyectoView(JefeProyectoRequeridoMixin, TemplateView):
         ctx['pendientes_jurado'] = expedientes_dept.filter(
             estado=EstadoExpediente.EMPASTADO_RECIBIDO
         ).count()
-        ctx['expedientes_recientes'] = expedientes_dept.order_by(
-            '-fecha_ultima_actualizacion'
-        )[:10]
+
+        # Búsqueda y paginación
+        qs = expedientes_dept.order_by('-fecha_ultima_actualizacion')
+        busqueda = self.request.GET.get('q', '').strip()
+        if busqueda:
+            qs = qs.filter(
+                Q(alumno__first_name__icontains=busqueda) |
+                Q(alumno__last_name__icontains=busqueda) |
+                Q(alumno__username__icontains=busqueda) |
+                Q(alumno__numero_control__icontains=busqueda)
+            )
+        ctx['busqueda'] = busqueda
+        paginator = Paginator(qs, 20)
+        page_number = self.request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        ctx['expedientes_recientes'] = page_obj
+        ctx['page_obj'] = page_obj
+        ctx['is_paginated'] = page_obj.has_other_pages()
         return ctx
 
 
@@ -252,12 +286,21 @@ class ExpedienteListaJefeView(JefeProyectoRequeridoMixin, ListView):
         estado = self.request.GET.get('estado')
         if estado:
             qs = qs.filter(estado=estado)
+        busqueda = self.request.GET.get('q', '').strip()
+        if busqueda:
+            qs = qs.filter(
+                Q(alumno__first_name__icontains=busqueda) |
+                Q(alumno__last_name__icontains=busqueda) |
+                Q(alumno__username__icontains=busqueda) |
+                Q(alumno__numero_control__icontains=busqueda)
+            )
         return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['carrera'] = self.request.user.carrera
         ctx['estado_filtro'] = self.request.GET.get('estado', '')
+        ctx['busqueda'] = self.request.GET.get('q', '')
         ctx['estados'] = EstadoExpediente.choices
         return ctx
 

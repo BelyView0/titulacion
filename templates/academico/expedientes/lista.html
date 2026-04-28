@@ -15,10 +15,20 @@
                 {% endfor %}
             </select>
         </div>
+        <div class="col-md-4">
+            <label class="form-label small fw-semibold">Buscar alumno</label>
+            <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" name="q" class="form-control" placeholder="Nombre o N° de control…" value="{{ busqueda }}">
+            </div>
+        </div>
         <div class="col-auto">
-            {% if estado_filtro %}
+            <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
+        </div>
+        <div class="col-auto">
+            {% if estado_filtro or busqueda %}
             <a href="{% url 'academico:expedientes' %}" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-x me-1"></i>Limpiar filtro
+                <i class="bi bi-x me-1"></i>Limpiar
             </a>
             {% endif %}
         </div>
@@ -31,6 +41,7 @@
         <i class="bi bi-folder2-open"></i> Expedientes
         <span class="ms-auto badge bg-secondary rounded-pill">{{ expedientes|length }} resultado{{ expedientes|length|pluralize:"s" }}</span>
     </div>
+    <div class="search-results">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
@@ -78,25 +89,7 @@
         </table>
     </div>
 
-    <!-- Paginación -->
-    {% if is_paginated %}
-    <div class="p-3 d-flex justify-content-center">
-        <nav>
-            <ul class="pagination pagination-sm mb-0">
-                {% if page_obj.has_previous %}
-                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}"><i class="bi bi-chevron-left"></i></a></li>
-                {% endif %}
-                {% for num in page_obj.paginator.page_range %}
-                <li class="page-item {% if page_obj.number == num %}active{% endif %}">
-                    <a class="page-link" href="?page={{ num }}{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}">{{ num }}</a>
-                </li>
-                {% endfor %}
-                {% if page_obj.has_next %}
-                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}"><i class="bi bi-chevron-right"></i></a></li>
-                {% endif %}
-            </ul>
-        </nav>
+    {% include 'includes/pagination.html' %}
     </div>
-    {% endif %}
 </div>
 {% endblock %}

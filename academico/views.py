@@ -4,6 +4,8 @@ Revisión inicial de expediente, validación de documentos, empastado, jurado, a
 """
 from django.views.generic import TemplateView, ListView, View, CreateView, UpdateView, DetailView
 from django.contrib import messages
+from django.core.paginator import Paginator
+from django.db.models import Q
 from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -43,9 +45,26 @@ class DashboardAcademicoView(AcademicoRequeridoMixin, TemplateView):
         ctx['expedientes_concluidos'] = Expediente.objects.filter(
             estado=EstadoExpediente.CONCLUIDO
         ).count()
-        ctx['expedientes_recientes'] = Expediente.objects.exclude(
+
+        # Búsqueda y paginación
+        qs = Expediente.objects.exclude(
             estado__in=[EstadoExpediente.BORRADOR, EstadoExpediente.CANCELADO]
-        ).select_related('alumno', 'modalidad').order_by('-fecha_ultima_actualizacion')[:10]
+        ).select_related('alumno', 'modalidad', 'alumno__carrera').order_by('-fecha_ultima_actualizacion')
+        busqueda = self.request.GET.get('q', '').strip()
+        if busqueda:
+            qs = qs.filter(
+                Q(alumno__first_name__icontains=busqueda) |
+                Q(alumno__last_name__icontains=busqueda) |
+                Q(alumno__username__icontains=busqueda) |
+                Q(alumno__numero_control__icontains=busqueda)
+            )
+        ctx['busqueda'] = busqueda
+        paginator = Paginator(qs, 20)
+        page_number = self.request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        ctx['expedientes_recientes'] = page_obj
+        ctx['page_obj'] = page_obj
+        ctx['is_paginated'] = page_obj.has_other_pages()
         return ctx
 
 
@@ -64,11 +83,20 @@ class ExpedienteListaAcademicoView(AcademicoRequeridoMixin, ListView):
         estado = self.request.GET.get('estado')
         if estado:
             qs = qs.filter(estado=estado)
+        busqueda = self.request.GET.get('q', '').strip()
+        if busqueda:
+            qs = qs.filter(
+                Q(alumno__first_name__icontains=busqueda) |
+                Q(alumno__last_name__icontains=busqueda) |
+                Q(alumno__username__icontains=busqueda) |
+                Q(alumno__numero_control__icontains=busqueda)
+            )
         return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['estado_filtro'] = self.request.GET.get('estado', '')
+        ctx['busqueda'] = self.request.GET.get('q', '')
         ctx['estados'] = EstadoExpediente.choices
         return ctx
 

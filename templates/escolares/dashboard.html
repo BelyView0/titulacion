@@ -80,7 +80,7 @@
     </div>
 </div>
 
-<!-- Tabla de expedientes recientes -->
+<!-- Tabla de expedientes con búsqueda -->
 <div class="content-card">
     <div class="card-header-custom">
         <i class="bi bi-table"></i> Expedientes Recientes
@@ -88,6 +88,25 @@
             Ver todos <i class="bi bi-arrow-right ms-1"></i>
         </a>
     </div>
+    <!-- Buscador -->
+    <div class="p-3 border-bottom">
+        <form method="get" class="d-flex gap-2">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" name="q" class="form-control" placeholder="Buscar por nombre o N° de control…" value="{{ busqueda }}">
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
+            {% if busqueda %}
+            <a href="{% url 'escolares:dashboard' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x"></i></a>
+            {% endif %}
+        </form>
+        {% if busqueda %}
+        <small class="text-muted mt-1 d-block">
+            Mostrando resultados para "<strong>{{ busqueda }}</strong>" — {{ page_obj.paginator.count }} encontrado{{ page_obj.paginator.count|pluralize:"s" }}
+        </small>
+        {% endif %}
+    </div>
+    <div class="search-results">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
@@ -123,10 +142,15 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="text-center text-muted py-4">Sin expedientes registrados.</td></tr>
+                <tr><td colspan="6" class="text-center text-muted py-4">
+                    <i class="bi bi-inbox" style="font-size:1.5rem; opacity:.3;"></i>
+                    <p class="mb-0 mt-1">{% if busqueda %}No se encontraron expedientes para "{{ busqueda }}".{% else %}Sin expedientes registrados.{% endif %}</p>
+                </td></tr>
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+    {% include 'includes/pagination.html' %}
     </div>
 </div>
 {% endblock %}
