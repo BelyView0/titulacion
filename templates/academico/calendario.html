@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block title %}Calendario de Titulaciones — División{% endblock %}
+{% block page_title %}Calendario de Actos Protocolarios{% endblock %}
+
+{% block content %}
+{% with api_url="/api/calendario/eventos/" mostrar_filtros=True detalle_url_base="/academico/expedientes/" %}
+{% include 'includes/calendario.html' %}
+{% endwith %}
+{% endblock %}

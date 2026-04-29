@@ -298,3 +298,47 @@ class TimelineView(ExpedientePropioMixin, TemplateView):
                 ctx['estados_completados'] = []
         return ctx
 
+
+class ConfirmarAsistenciaAlumnoView(AlumnoRequeridoMixin, View):
+    """POST — El alumno confirma su propia asistencia al acto protocolario."""
+
+    def post(self, request):
+        from expediente.models import ConfirmacionActo
+        from expediente.views_confirmacion import (
+            _enviar_correo_confirmacion_recibida,
+            _enviar_correo_acto_confirmado,
+        )
+
+        try:
+            expediente = request.user.expediente
+        except Expediente.DoesNotExist:
+            messages.error(request, 'No tienes un expediente registrado.')
+            return redirect('alumnos:dashboard')
+
+        acto = getattr(expediente, 'acto_protocolario', None)
+        if not acto:
+            messages.error(request, 'No hay un acto protocolario programado.')
+            return redirect('alumnos:dashboard')
+
+        confirmacion = ConfirmacionActo.objects.filter(acto=acto, rol='ALUMNO').first()
+        if not confirmacion:
+            messages.error(request, 'No se encontró tu confirmación.')
+            return redirect('alumnos:dashboard')
+
+        if confirmacion.confirmado:
+            messages.info(request, 'Ya confirmaste tu asistencia anteriormente.')
+            return redirect('alumnos:dashboard')
+
+        confirmacion.confirmado = True
+        confirmacion.fecha_confirmacion = timezone.now()
+        confirmacion.save()
+
+        # Enviar correo de recibo
+        _enviar_correo_confirmacion_recibida(confirmacion, acto)
+        messages.success(request, '¡Tu asistencia ha sido confirmada exitosamente! Se te envió un correo de confirmación.')
+
+        # Si con esta se completan todas → correo final
+        if acto.confirmaciones_completas():
+            _enviar_correo_acto_confirmado(acto)
+
+        return redirect('alumnos:dashboard')

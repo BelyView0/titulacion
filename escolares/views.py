@@ -24,6 +24,17 @@ from expediente.models import (
 from expediente.notifications import notificar_alumno, registrar_cambio_estado, registrar_cambio_documento
 from expediente.workflow import actualizar_estado_documento, verificar_avance_expediente
 
+from administracion.models import Carrera
+
+
+class CalendarioEscolaresView(EscolaresRequeridoMixin, TemplateView):
+    template_name = 'escolares/calendario.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['carreras'] = Carrera.objects.filter(activa=True).order_by('nombre')
+        return ctx
+
 
 class DashboardEscolaresView(EscolaresRequeridoMixin, TemplateView):
     template_name = 'escolares/dashboard.html'

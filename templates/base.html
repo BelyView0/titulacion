@@ -532,6 +532,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'jefe_calendario' %}active{% endif %}" href="{% url 'administracion:jefe_calendario' %}">
+                        <i class="bi bi-calendar3"></i> Calendario
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link {% if request.resolver_match.url_name == 'jefe_estadisticas' %}active{% endif %}" href="{% url 'administracion:jefe_estadisticas' %}">
                         <i class="bi bi-bar-chart-line"></i> Estadísticas
                     </a>
@@ -577,6 +582,11 @@
                         <i class="bi bi-folder2-open"></i> Expedientes
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if 'calendario' in request.path and 'escolares' in request.path %}active{% endif %}" href="{% url 'escolares:calendario' %}">
+                        <i class="bi bi-calendar3"></i> Calendario
+                    </a>
+                </li>
                 {% endif %}
 
                 {% if user.es_academico %}
@@ -589,6 +599,11 @@
                 <li class="nav-item">
                     <a class="nav-link {% if 'expedientes' in request.path and 'academico' in request.path %}active{% endif %}" href="{% url 'academico:expedientes' %}">
                         <i class="bi bi-folder2-open"></i> Expedientes
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if 'calendario' in request.path and 'academico' in request.path %}active{% endif %}" href="{% url 'academico:calendario' %}">
+                        <i class="bi bi-calendar3"></i> Calendario
                     </a>
                 </li>
                 {% endif %}

@@ -13,4 +13,5 @@ urlpatterns = [
     path('expediente/timeline/', views.TimelineView.as_view(), name='timeline'),
     path('documentos/<int:pk>/cargar/', views.DocumentoCargarView.as_view(), name='documento_cargar'),
     path('notificaciones/', views.NotificacionListView.as_view(), name='notificaciones'),
+    path('confirmar-asistencia/', views.ConfirmarAsistenciaAlumnoView.as_view(), name='confirmar_asistencia'),
 ]

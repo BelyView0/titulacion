@@ -39,6 +39,16 @@ urlpatterns = [
     path('escolares/', include('escolares.urls')),
     path('academico/', include('academico.urls')),
 
+    # Confirmación de asistencia (pública, token-based)
+    path('confirmar/<str:token>/',
+        __import__('expediente.views_confirmacion', fromlist=['confirmar_asistencia']).confirmar_asistencia,
+        name='confirmar_asistencia'),
+
+    # API (calendario)
+    path('api/calendario/eventos/', login_required(
+        __import__('expediente.api_calendario', fromlist=['eventos_calendario']).eventos_calendario
+    ), name='api_calendario_eventos'),
+
     # Home → login si no autenticado
     path('', lambda req: redirect('login'), name='home'),
 ]

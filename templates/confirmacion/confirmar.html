@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmación de Asistencia — ITA Titulación</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans', sans-serif;
+            background: linear-gradient(135deg, #0057B8 0%, #1a1a2e 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        .confirm-card {
+            background: #fff;
+            border-radius: 1rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,.2);
+            max-width: 520px;
+            width: 100%;
+            overflow: hidden;
+            animation: slideUp .4s ease-out;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .confirm-header {
+            padding: 1.5rem 2rem;
+            color: #fff;
+            text-align: center;
+        }
+        .confirm-header.success { background: linear-gradient(135deg, #16a34a, #15803d); }
+        .confirm-header.warning { background: linear-gradient(135deg, #d97706, #b45309); }
+        .confirm-header.info { background: linear-gradient(135deg, #0057B8, #003d82); }
+        .confirm-header.complete { background: linear-gradient(135deg, #7c3aed, #5b21b6); }
+        .confirm-header h4 { margin: 0; font-weight: 700; }
+        .confirm-header p { margin: .5rem 0 0; opacity: .85; font-size: .85rem; }
+        .confirm-body { padding: 2rem; }
+        .info-row {
+            display: flex;
+            gap: .75rem;
+            margin-bottom: .6rem;
+            align-items: flex-start;
+        }
+        .info-label {
+            font-weight: 700;
+            font-size: .78rem;
+            color: #6c757d;
+            min-width: 85px;
+            flex-shrink: 0;
+        }
+        .info-value { font-size: .88rem; color: #1a1a2e; }
+        .confirmaciones-list {
+            list-style: none;
+            padding: 0;
+            margin: 1rem 0 0;
+        }
+        .confirmaciones-list li {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            padding: .5rem 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: .85rem;
+        }
+        .confirmaciones-list li:last-child { border-bottom: none; }
+        .footer-note {
+            text-align: center;
+            padding: 1rem 2rem;
+            background: #fafbfc;
+            font-size: .72rem;
+            color: #6c757d;
+            border-top: 1px solid #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="confirm-card">
+
+        {% if expirado %}
+        <div class="confirm-header warning">
+            <i class="bi bi-clock-history" style="font-size:2.5rem;"></i>
+            <h4 class="mt-2">Enlace expirado</h4>
+            <p>La fecha del acto protocolario ya pasó</p>
+        </div>
+        <div class="confirm-body text-center">
+            <p class="text-muted">Este enlace de confirmación ya no es válido porque la fecha del acto ha pasado.</p>
+        </div>
+
+        {% elif recien_confirmado and completas %}
+        <div class="confirm-header complete">
+            <i class="bi bi-stars" style="font-size:2.5rem;"></i>
+            <h4 class="mt-2">¡Acto Protocolario Confirmado!</h4>
+            <p>Todas las asistencias han sido registradas</p>
+        </div>
+        <div class="confirm-body">
+            <div class="text-center mb-3">
+                <p class="text-muted small">Tu confirmación como <strong>{{ confirmacion.get_rol_display }}</strong> completó las asistencias requeridas. Se envió un correo a todos los participantes con los detalles completos del jurado.</p>
+            </div>
+
+        {% elif recien_confirmado %}
+        <div class="confirm-header success">
+            <i class="bi bi-check-circle-fill" style="font-size:2.5rem;"></i>
+            <h4 class="mt-2">¡Asistencia Confirmada!</h4>
+            <p>Tu confirmación ha sido registrada</p>
+        </div>
+        <div class="confirm-body">
+            <div class="text-center mb-3">
+                <p class="text-muted small">Tu asistencia como <strong>{{ confirmacion.get_rol_display }}</strong> ha sido registrada exitosamente. Se te envió un correo de confirmación.</p>
+            </div>
+
+        {% elif ya_confirmado %}
+        <div class="confirm-header info">
+            <i class="bi bi-info-circle-fill" style="font-size:2.5rem;"></i>
+            <h4 class="mt-2">Ya confirmaste</h4>
+            <p>Tu asistencia fue registrada anteriormente</p>
+        </div>
+        <div class="confirm-body">
+            <div class="text-center mb-3">
+                <p class="text-muted small">Tu asistencia como <strong>{{ confirmacion.get_rol_display }}</strong> ya fue registrada el {{ confirmacion.fecha_confirmacion|date:"d/m/Y H:i" }}.</p>
+            </div>
+        {% endif %}
+
+        {% if not expirado %}
+            <hr>
+            <div class="info-row"><span class="info-label">Participante</span><span class="info-value fw-bold">{{ confirmacion.nombre_participante }}</span></div>
+            <div class="info-row"><span class="info-label">Alumno</span><span class="info-value">{{ acto.expediente.alumno.get_full_name }}</span></div>
+            <div class="info-row"><span class="info-label">Fecha</span><span class="info-value fw-bold">{{ acto.fecha_acto|date:"d/m/Y H:i" }}</span></div>
+            <div class="info-row"><span class="info-label">Lugar</span><span class="info-value">{{ acto.lugar }}</span></div>
+
+            <hr>
+            <h6 class="fw-bold small text-muted mb-2"><i class="bi bi-people me-1"></i>Estado de confirmaciones:</h6>
+            <ul class="confirmaciones-list">
+                {% for c in todas %}
+                <li>
+                    {% if c.confirmado %}
+                    <i class="bi bi-check-circle-fill text-success"></i>
+                    {% else %}
+                    <i class="bi bi-clock text-warning"></i>
+                    {% endif %}
+                    <span>{{ c.get_rol_display }}</span>
+                    <span class="ms-auto text-muted small">{{ c.nombre_participante|truncatechars:30 }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+
+            {% if completas %}
+            <div class="alert alert-success py-2 small mt-3 mb-0">
+                <i class="bi bi-check-circle-fill me-1"></i>
+                <strong>¡Todas las confirmaciones completas!</strong> El acto se llevará a cabo según lo programado.
+            </div>
+            {% else %}
+            <div class="alert alert-warning py-2 small mt-3 mb-0">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                Faltan confirmaciones. Si no se completan, el protocolo podría ser reprogramado.
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="footer-note">
+            Este enlace es personal e intransferible.<br>
+            Sistema de Gestión de Titulación — TecNM / Instituto Tecnológico de Apizaco
+        </div>
+    </div>
+</body>
+</html>

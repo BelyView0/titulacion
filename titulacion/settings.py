@@ -103,15 +103,13 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ─── CORREO ELECTRÓNICO ──────────────────────────────────────────────────────
-# Para desarrollo: usar consola. Para producción, cambiar a SMTP institucional.
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = 'smtp.apizaco.tecnm.mx'
-# EMAIL_PORT = 587
-# EMAIL_USE_TLS = True
-# EMAIL_HOST_USER = 'titulacion@apizaco.tecnm.mx'
-# EMAIL_HOST_PASSWORD = 'tu_contraseña'
-DEFAULT_FROM_EMAIL = 'Sistema de Titulación ITA <titulacion@apizaco.tecnm.mx>'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'belyersua24@gmail.com'
+EMAIL_HOST_PASSWORD = 'fsvz jdpr rkhm xrnb'
+DEFAULT_FROM_EMAIL = 'Sistema de Titulación ITA <belyersua24@gmail.com>'
 EMAIL_SUBJECT_PREFIX = '[ITA Titulación] '
 
 # ─── TAMAÑO MÁXIMO ARCHIVOS ───────────────────────────────────────────────────

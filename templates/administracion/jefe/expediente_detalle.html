@@ -107,6 +107,60 @@
             </div>
             {% endif %}
         </div>
+
+        <!-- Panel de Confirmaciones de Asistencia (Jefe) -->
+        {% if expediente.estado == 'ACTO_PROGRAMADO' %}
+        {% with acto=expediente.acto_protocolario %}
+        {% if acto %}
+        <div class="content-card p-3 mb-3 animate__animated animate__fadeIn">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-check2-square"></i> Confirmaciones de Asistencia
+                {% if acto.confirmaciones_completas %}
+                <span class="badge bg-success ms-2">Completas</span>
+                {% else %}
+                <span class="badge bg-warning text-dark ms-2">Pendientes</span>
+                {% endif %}
+            </div>
+            {% for conf in acto.confirmaciones.all %}
+            <div class="d-flex align-items-center justify-content-between py-2 {% if not forloop.last %}border-bottom{% endif %}">
+                <div class="d-flex align-items-center gap-2">
+                    {% if conf.confirmado %}
+                    <i class="bi bi-check-circle-fill text-success" style="font-size:1.1rem;"></i>
+                    {% else %}
+                    <i class="bi bi-circle text-muted" style="font-size:1.1rem;"></i>
+                    {% endif %}
+                    <div>
+                        <div class="small fw-semibold">{{ conf.get_rol_display }}</div>
+                        <div class="small text-muted" style="font-size:.75rem;">{{ conf.nombre_participante|truncatechars:35 }}</div>
+                    </div>
+                </div>
+                <form method="post" action="{% url 'administracion:jefe_toggle_confirmacion' conf.pk %}" class="m-0">
+                    {% csrf_token %}
+                    {% if conf.confirmado %}
+                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Quitar confirmación">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                    {% else %}
+                    <button type="submit" class="btn btn-success btn-sm" title="Confirmar asistencia">
+                        <i class="bi bi-check-lg me-1"></i>Confirmar
+                    </button>
+                    {% endif %}
+                </form>
+            </div>
+            {% empty %}
+            <p class="text-muted small mb-0">No se han generado confirmaciones aún.</p>
+            {% endfor %}
+
+            {% if acto.confirmaciones_completas %}
+            <div class="alert alert-success py-2 small mt-3 mb-0">
+                <i class="bi bi-check-circle-fill me-1"></i>
+                <strong>Todas las asistencias confirmadas.</strong> El acto se llevará a cabo según lo programado.
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% endwith %}
+        {% endif %}
     </div>
 
     <!-- Panel derecho: Documentos (solo lectura) -->

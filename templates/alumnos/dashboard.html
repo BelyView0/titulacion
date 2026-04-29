@@ -136,6 +136,153 @@
     {% endif %}
     {% endif %}
 
+    {% if expediente %}
+    {% if expediente.estado == 'JURADO_ASIGNADO' or expediente.estado == 'ACTO_PROGRAMADO' or expediente.estado == 'CONCLUIDO' %}
+    <!-- Acto Protocolario -->
+    <div class="col-12">
+        <div class="content-card p-0 overflow-hidden" style="border-left: 4px solid #7c3aed;">
+            <div class="p-4">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #f3e8ff, #ede9fe); color: #7c3aed; width:50px; height:50px; font-size:1.3rem;">
+                        <i class="bi bi-mortarboard-fill"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold mb-0" style="color:#7c3aed;">Acto Protocolario</h6>
+                        <small class="text-muted">Examen profesional</small>
+                    </div>
+                </div>
+
+                {% if expediente.estado == 'JURADO_ASIGNADO' %}
+                <div class="alert alert-info py-2 small mb-0">
+                    <i class="bi bi-people-fill me-1"></i>
+                    <strong>¡Tu jurado ha sido asignado!</strong> División de Estudios programará la fecha de tu acto protocolario.
+                </div>
+
+                {% elif expediente.estado == 'ACTO_PROGRAMADO' %}
+                {% with acto=expediente.acto_protocolario %}
+                {% if acto %}
+                <!-- Fecha y lugar -->
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3" style="background: linear-gradient(135deg, #f0f7ff, #f3e8ff);">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-calendar-event text-primary" style="font-size:1.3rem;"></i>
+                                <strong class="small">Fecha programada</strong>
+                            </div>
+                            <div class="fw-bold fs-5" style="color:#7c3aed;">{{ acto.fecha_acto|date:"d" }} de {{ acto.fecha_acto|date:"F Y" }}</div>
+                            <div class="text-muted small">{{ acto.fecha_acto|date:"H:i" }} hrs</div>
+                            <div class="mt-2 d-flex align-items-center gap-2">
+                                <i class="bi bi-geo-alt text-danger"></i>
+                                <span class="small fw-semibold">{{ acto.lugar }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <!-- Confirmación del alumno -->
+                        {% with mi_conf=acto.confirmaciones.all %}
+                        {% for c in mi_conf %}{% if c.rol == 'ALUMNO' %}
+                        {% if c.confirmado %}
+                        <div class="p-3 rounded-3 text-center h-100 d-flex flex-column justify-content-center" style="background:#f0fdf4; border:2px solid #16a34a;">
+                            <i class="bi bi-check-circle-fill text-success" style="font-size:2rem;"></i>
+                            <div class="fw-bold text-success mt-2">Asistencia confirmada</div>
+                            <small class="text-muted">{{ c.fecha_confirmacion|date:"d/m/Y H:i" }}</small>
+                        </div>
+                        {% else %}
+                        <div class="p-3 rounded-3 text-center h-100 d-flex flex-column justify-content-center" style="background:#fef3c7; border:2px dashed #d97706;">
+                            <i class="bi bi-exclamation-triangle text-warning" style="font-size:1.5rem;"></i>
+                            <div class="fw-semibold mt-2 small">Debes confirmar tu asistencia</div>
+                            <form method="post" action="{% url 'alumnos:confirmar_asistencia' %}" class="mt-2">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-success btn-sm px-4">
+                                    <i class="bi bi-check-lg me-1"></i>Confirmar mi asistencia
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
+                        {% endif %}{% endfor %}
+                        {% endwith %}
+                    </div>
+                </div>
+
+                <!-- Estado de confirmaciones de asistentes -->
+                <div class="mt-3 p-3 rounded-3" style="background:#f8f9fa;">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="small fw-bold text-muted">
+                            <i class="bi bi-people-fill me-1"></i>Confirmaciones de asistencia
+                        </div>
+                        {% if acto.confirmaciones_completas %}
+                        <span class="badge bg-success">Todas confirmadas</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark">Pendientes</span>
+                        {% endif %}
+                    </div>
+                    {% for conf in acto.confirmaciones.all %}
+                    <div class="d-flex align-items-center gap-2 py-1 {% if not forloop.last %}border-bottom{% endif %}">
+                        {% if conf.confirmado %}
+                        <i class="bi bi-check-circle-fill text-success"></i>
+                        {% else %}
+                        <i class="bi bi-clock text-warning"></i>
+                        {% endif %}
+                        <span class="small fw-semibold">{{ conf.get_rol_display }}</span>
+                        <span class="ms-auto small text-muted">
+                            {% if conf.confirmado %}
+                            Confirmado {{ conf.fecha_confirmacion|date:"d/m H:i" }}
+                            {% else %}
+                            Pendiente
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Countdown -->
+                <div class="mt-3 p-2 rounded text-center" id="countdown-container" style="background:#f8f9fa;">
+                    <small class="text-muted fw-semibold">Tiempo restante:</small>
+                    <div id="countdown-display" class="fw-bold" style="color:#7c3aed; font-size:1.1rem;"></div>
+                </div>
+                <script>
+                (function(){
+                    var target = new Date('{{ acto.fecha_acto|date:"c" }}').getTime();
+                    var el = document.getElementById('countdown-display');
+                    var container = document.getElementById('countdown-container');
+                    function update() {
+                        var now = Date.now();
+                        var diff = target - now;
+                        if (diff <= 0) {
+                            container.style.background = '#f0fdf4';
+                            el.style.color = '#16a34a';
+                            el.innerHTML = '<i class="bi bi-check-circle me-1"></i>¡El acto ya se llevó a cabo!';
+                            return;
+                        }
+                        var d = Math.floor(diff / 86400000);
+                        var h = Math.floor((diff % 86400000) / 3600000);
+                        var m = Math.floor((diff % 3600000) / 60000);
+                        var s = Math.floor((diff % 60000) / 1000);
+                        el.textContent = (d > 0 ? d + 'd ' : '') + h + 'h ' + m + 'm ' + s + 's';
+                        setTimeout(update, 1000);
+                    }
+                    update();
+                })();
+                </script>
+                {% endif %}
+                {% endwith %}
+
+                {% elif expediente.estado == 'CONCLUIDO' %}
+                <div class="text-center py-3">
+                    <div style="font-size:3rem;">🎓</div>
+                    <h5 class="fw-bold text-success mt-2">¡Felicidades, ya eres titulado(a)!</h5>
+                    <p class="text-muted small mb-0">Tu proceso de titulación ha concluido exitosamente.</p>
+                    {% if expediente.fecha_conclusion %}
+                    <small class="text-muted">Fecha de conclusión: {{ expediente.fecha_conclusion|date:"d/m/Y" }}</small>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+
 </div>
 
 <!-- Notificaciones recientes -->

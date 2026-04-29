@@ -1,0 +1,307 @@
+{% comment %}
+Calendario visual de actos protocolarios (FullCalendar.js)
+Incluir en cualquier template con: {% include 'includes/calendario.html' %}
+Variables de contexto requeridas:
+  - api_url: URL del endpoint JSON (ej: /api/calendario/eventos/)
+  - carreras: QuerySet de carreras para el filtro (opcional)
+  - mostrar_filtros: True/False (default True)
+  - detalle_url_name: nombre de URL para enlazar al detalle (opcional)
+{% endcomment %}
+
+<style>
+    .calendario-container {
+        background: #fff;
+        border-radius: .75rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,.08);
+        border: 1px solid rgba(0,0,0,.05);
+        overflow: hidden;
+    }
+    .calendario-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    .calendario-header .titulo {
+        font-weight: 700;
+        font-size: .95rem;
+        color: var(--ita-azul);
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+    }
+    .calendario-body {
+        padding: 1rem;
+    }
+    /* FullCalendar overrides */
+    .fc {
+        font-family: 'Noto Sans', 'Inter', sans-serif !important;
+    }
+    .fc .fc-toolbar-title {
+        font-size: 1.1rem !important;
+        font-weight: 700 !important;
+        color: var(--ita-azul) !important;
+        text-transform: capitalize;
+    }
+    .fc .fc-button {
+        font-size: .78rem !important;
+        font-weight: 600 !important;
+        padding: .35rem .65rem !important;
+        border-radius: .4rem !important;
+    }
+    .fc .fc-button-primary {
+        background: var(--ita-azul) !important;
+        border-color: var(--ita-azul) !important;
+    }
+    .fc .fc-button-primary:not(:disabled).fc-button-active,
+    .fc .fc-button-primary:not(:disabled):active {
+        background: var(--ita-azul-claro) !important;
+        border-color: var(--ita-azul-claro) !important;
+    }
+    .fc .fc-event {
+        border-radius: .35rem !important;
+        padding: 2px 5px !important;
+        font-size: .72rem !important;
+        font-weight: 600 !important;
+        cursor: pointer;
+        transition: transform .1s, box-shadow .1s;
+    }
+    .fc .fc-event:hover {
+        transform: scale(1.03);
+        box-shadow: 0 2px 8px rgba(0,0,0,.15);
+    }
+    .fc .fc-daygrid-day-number {
+        font-weight: 600;
+        font-size: .8rem;
+        color: #495057;
+    }
+    .fc .fc-col-header-cell-cushion {
+        font-weight: 700;
+        font-size: .75rem;
+        text-transform: uppercase;
+        color: var(--ita-azul);
+    }
+    .fc .fc-day-today {
+        background: rgba(0,87,184,.04) !important;
+    }
+
+    /* Leyenda */
+    .calendario-leyenda {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        padding: .75rem 1.25rem;
+        border-top: 1px solid #f0f0f0;
+        background: #fafbfc;
+    }
+    .leyenda-item {
+        display: flex;
+        align-items: center;
+        gap: .35rem;
+        font-size: .72rem;
+        font-weight: 600;
+        color: #495057;
+    }
+    .leyenda-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    /* Modal de detalle */
+    .evento-modal-body .info-row {
+        display: flex;
+        gap: .5rem;
+        margin-bottom: .6rem;
+        align-items: flex-start;
+    }
+    .evento-modal-body .info-label {
+        font-weight: 700;
+        font-size: .78rem;
+        color: #6c757d;
+        min-width: 90px;
+        flex-shrink: 0;
+    }
+    .evento-modal-body .info-value {
+        font-size: .85rem;
+        color: #1a1a2e;
+    }
+</style>
+
+<div class="calendario-container">
+    <div class="calendario-header">
+        <div class="titulo">
+            <i class="bi bi-calendar3"></i> Calendario de Actos Protocolarios
+        </div>
+        {% if mostrar_filtros != False %}
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+            {% if carreras %}
+            <select id="filtro-carrera" class="form-select form-select-sm" style="width:200px;">
+                <option value="">Todas las carreras</option>
+                {% for c in carreras %}
+                <option value="{{ c.pk }}">{{ c.nombre|truncatechars:30 }}</option>
+                {% endfor %}
+            </select>
+            {% endif %}
+            <div class="input-group input-group-sm" style="width:200px;">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" id="filtro-busqueda" class="form-control" placeholder="Buscar alumno…">
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    <div class="calendario-body">
+        <div id="fullcalendar"></div>
+    </div>
+    <div class="calendario-leyenda">
+        <div class="leyenda-item"><span class="leyenda-dot" style="background:#f59e0b;"></span> Pendiente</div>
+        <div class="leyenda-item"><span class="leyenda-dot" style="background:#16a34a;"></span> Aprobado</div>
+        <div class="leyenda-item"><span class="leyenda-dot" style="background:#7c3aed;"></span> Mención Honorífica</div>
+        <div class="leyenda-item"><span class="leyenda-dot" style="background:#dc3545;"></span> Suspendido</div>
+        <div class="leyenda-item"><span class="leyenda-dot" style="background:#6c757d;"></span> No se presentó</div>
+    </div>
+</div>
+
+<!-- Modal de detalle del evento -->
+<div class="modal fade" id="modalEvento" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title fw-bold">
+                    <i class="bi bi-mortarboard me-2" style="color:var(--ita-azul);"></i>
+                    <span id="modal-alumno"></span>
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body evento-modal-body">
+                <div class="info-row"><span class="info-label">N° Control</span><span class="info-value" id="modal-control"></span></div>
+                <div class="info-row"><span class="info-label">Carrera</span><span class="info-value" id="modal-carrera"></span></div>
+                <div class="info-row"><span class="info-label">Modalidad</span><span class="info-value" id="modal-modalidad"></span></div>
+                <div class="info-row"><span class="info-label">Trabajo</span><span class="info-value" id="modal-titulo"></span></div>
+                <hr class="my-2">
+                <div class="info-row"><span class="info-label">Fecha</span><span class="info-value fw-bold" id="modal-fecha"></span></div>
+                <div class="info-row"><span class="info-label">Lugar</span><span class="info-value" id="modal-lugar"></span></div>
+                <div class="info-row"><span class="info-label">Resultado</span><span class="info-value" id="modal-resultado"></span></div>
+                <hr class="my-2">
+                <div class="info-row"><span class="info-label">Jurado</span><pre class="info-value mb-0" id="modal-jurado" style="font-size:.8rem; font-family:inherit; white-space:pre-line; background:#f8f9fa; padding:.5rem; border-radius:.4rem;"></pre></div>
+            </div>
+            <div class="modal-footer py-2" id="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- FullCalendar CDN -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.15/locales/es.global.min.js"></script>
+
+<script>
+(function() {
+    var apiUrl = '{{ api_url }}';
+    var detalleUrlBase = '{{ detalle_url_base|default:"" }}';
+    var calendarEl = document.getElementById('fullcalendar');
+    var filtroCarrera = document.getElementById('filtro-carrera');
+    var filtroBusqueda = document.getElementById('filtro-busqueda');
+    var debounceTimer;
+
+    var calendar = new FullCalendar.Calendar(calendarEl, {
+        locale: 'es',
+        initialView: 'dayGridMonth',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,listMonth'
+        },
+        buttonText: {
+            today: 'Hoy',
+            month: 'Mes',
+            list: 'Lista'
+        },
+        height: 'auto',
+        navLinks: true,
+        dayMaxEvents: 3,
+        moreLinkText: 'más',
+        eventDisplay: 'block',
+
+        events: function(info, successCallback, failureCallback) {
+            var params = new URLSearchParams({
+                start: info.startStr,
+                end: info.endStr,
+            });
+            if (filtroCarrera && filtroCarrera.value) {
+                params.set('carrera', filtroCarrera.value);
+            }
+            if (filtroBusqueda && filtroBusqueda.value.trim()) {
+                params.set('q', filtroBusqueda.value.trim());
+            }
+            fetch(apiUrl + '?' + params.toString())
+                .then(function(r) { return r.json(); })
+                .then(function(data) { successCallback(data); })
+                .catch(function(err) { failureCallback(err); });
+        },
+
+        eventClick: function(info) {
+            var props = info.event.extendedProps;
+            var dt = info.event.start;
+            var fechaStr = dt ? dt.toLocaleDateString('es-MX', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            }) : '—';
+
+            document.getElementById('modal-alumno').textContent = props.alumno;
+            document.getElementById('modal-control').textContent = props.control;
+            document.getElementById('modal-carrera').textContent = props.carrera;
+            document.getElementById('modal-modalidad').textContent = props.modalidad;
+            document.getElementById('modal-titulo').textContent = props.titulo_trabajo;
+            document.getElementById('modal-fecha').textContent = fechaStr;
+            document.getElementById('modal-lugar').textContent = props.lugar;
+            document.getElementById('modal-jurado').textContent = props.jurado || 'Sin asignar';
+
+            // Badge de resultado
+            var colorMap = {
+                'PENDIENTE': 'warning',
+                'APROBADO': 'success',
+                'APROBADO_MENCION': 'primary',
+                'SUSPENDIDO': 'danger',
+                'NO_PRESENTADO': 'secondary'
+            };
+            var badgeClass = colorMap[props.resultado_key] || 'secondary';
+            document.getElementById('modal-resultado').innerHTML =
+                '<span class="badge bg-' + badgeClass + '">' + props.resultado + '</span>';
+
+            // Footer: enlace al expediente
+            var footer = document.getElementById('modal-footer');
+            if (detalleUrlBase && props.expediente_pk) {
+                footer.innerHTML = '<a href="' + detalleUrlBase + props.expediente_pk + '/" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye me-1"></i>Ver expediente</a>';
+            } else {
+                footer.innerHTML = '';
+            }
+
+            var modal = new bootstrap.Modal(document.getElementById('modalEvento'));
+            modal.show();
+        }
+    });
+
+    calendar.render();
+
+    // Filtros
+    if (filtroCarrera) {
+        filtroCarrera.addEventListener('change', function() {
+            calendar.refetchEvents();
+        });
+    }
+    if (filtroBusqueda) {
+        filtroBusqueda.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function() {
+                calendar.refetchEvents();
+            }, 400);
+        });
+    }
+})();
+</script>

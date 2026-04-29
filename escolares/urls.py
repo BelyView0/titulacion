@@ -6,6 +6,7 @@ app_name = 'escolares'
 urlpatterns = [
     path('', views.DashboardEscolaresView.as_view(), name='dashboard'),
     path('expedientes/', views.ExpedienteListaEscolaresView.as_view(), name='expedientes'),
+    path('calendario/', views.CalendarioEscolaresView.as_view(), name='calendario'),
     path('expedientes/<int:pk>/', views.ExpedienteDetalleEscolaresView.as_view(), name='expediente_detalle'),
     path('expedientes/<int:pk>/integrar/', views.IntegrarExpedienteView.as_view(), name='integrar'),
     path('expedientes/<int:pk>/descargar/', views.DescargarExpedienteView.as_view(), name='descargar_expediente'),

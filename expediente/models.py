@@ -619,6 +619,80 @@ class ActoProtocolario(models.Model):
     def __str__(self):
         return f'Acto — {self.expediente.alumno.get_full_name()} — {self.fecha_acto}'
 
+    def confirmaciones_completas(self):
+        """
+        Verifica si todas las confirmaciones necesarias están completas.
+        Requiere: presidente, secretario, vocal (propietario O suplente), alumno.
+        """
+        confirmaciones = {c.rol: c.confirmado for c in self.confirmaciones.all()}
+        presidente_ok = confirmaciones.get('PRESIDENTE', False)
+        secretario_ok = confirmaciones.get('SECRETARIO', False)
+        alumno_ok = confirmaciones.get('ALUMNO', False)
+        vocal_prop_ok = confirmaciones.get('VOCAL_PROPIETARIO', False)
+        vocal_sup_ok = confirmaciones.get('VOCAL_SUPLENTE', False)
+        vocal_ok = vocal_prop_ok or vocal_sup_ok
+        return all([presidente_ok, secretario_ok, vocal_ok, alumno_ok])
+
+    def get_vocal_confirmado(self):
+        """Retorna quién confirma como vocal: propietario o suplente."""
+        for c in self.confirmaciones.filter(rol__in=['VOCAL_PROPIETARIO', 'VOCAL_SUPLENTE']):
+            if c.confirmado:
+                return c
+        return None
+
+    def resumen_confirmaciones(self):
+        """Retorna dict con estado de cada confirmación."""
+        confirmaciones = {c.rol: c for c in self.confirmaciones.all()}
+        return confirmaciones
+
+
+class ConfirmacionActo(models.Model):
+    """
+    Confirmación de asistencia de cada participante del acto protocolario.
+    """
+    ROL_CHOICES = [
+        ('PRESIDENTE', 'Presidente'),
+        ('SECRETARIO', 'Secretario/a'),
+        ('VOCAL_PROPIETARIO', 'Vocal Propietario/a'),
+        ('VOCAL_SUPLENTE', 'Vocal Suplente'),
+        ('ALUMNO', 'Alumno/a'),
+    ]
+
+    acto = models.ForeignKey(
+        ActoProtocolario, on_delete=models.CASCADE,
+        related_name='confirmaciones',
+        verbose_name='Acto Protocolario'
+    )
+    rol = models.CharField(
+        max_length=20,
+        choices=ROL_CHOICES,
+        verbose_name='Rol en el jurado'
+    )
+    nombre_participante = models.CharField(
+        max_length=300,
+        verbose_name='Nombre del participante'
+    )
+    email = models.EmailField(verbose_name='Correo electrónico')
+    token = models.CharField(
+        max_length=64, unique=True,
+        verbose_name='Token de confirmación'
+    )
+    confirmado = models.BooleanField(default=False, verbose_name='¿Confirmado?')
+    fecha_confirmacion = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Fecha de confirmación'
+    )
+    fecha_envio = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de envío')
+
+    class Meta:
+        verbose_name = 'Confirmación de Asistencia'
+        verbose_name_plural = 'Confirmaciones de Asistencia'
+        unique_together = [['acto', 'rol']]
+
+    def __str__(self):
+        estado = '✓' if self.confirmado else '✗'
+        return f'{estado} {self.get_rol_display()} — {self.nombre_participante}'
+
 
 # ─────────────────────────────────────────────────────────────
 # HISTORIAL (AUDITORÍA)

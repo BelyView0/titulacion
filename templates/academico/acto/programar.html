@@ -69,7 +69,7 @@
                     <span class="badge bg-success">V</span>
                     <div>
                         <small class="text-muted fw-semibold d-block" style="font-size:.65rem;">VOCAL</small>
-                        <span class="fw-semibold small">{{ jurado.vocal.get_full_name }}</span>
+                        <span class="fw-semibold small">{{ jurado.vocal_propietario.get_full_name }}</span>
                     </div>
                 </div>
             </div>
@@ -186,7 +186,7 @@
                             {% if jurado %}
                             <strong>Jurado:</strong> {{ jurado.presidente.get_full_name }} (P),
                             {{ jurado.secretario.get_full_name }} (S),
-                            {{ jurado.vocal.get_full_name }} (V)
+                            {{ jurado.vocal_propietario.get_full_name }} (V)
                             {% endif %}
                             {% endwith %}
                         </div>

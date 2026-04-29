@@ -19,19 +19,45 @@
     </a>
 </div>
 
+<style>
+    .tabla-usuarios tbody tr {
+        transition: background .15s;
+    }
+    .tabla-usuarios tbody tr:hover {
+        background: #e8f0fe !important;
+    }
+    .tabla-usuarios tbody tr:hover td {
+        color: #1a1a2e;
+    }
+    .badge-rol {
+        font-size: .72rem;
+        font-weight: 600;
+        padding: .35em .7em;
+        border-radius: .35rem;
+    }
+    .badge-rol-admin       { background: #dc3545; color: #fff; }
+    .badge-rol-jefe_proyecto { background: #6f42c1; color: #fff; }
+    .badge-rol-escolares   { background: #0d6efd; color: #fff; }
+    .badge-rol-academico   { background: #198754; color: #fff; }
+    .badge-rol-alumno      { background: #6c757d; color: #fff; }
+</style>
+
 <div class="content-card">
     <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
+        <table class="table table-hover align-middle mb-0 tabla-usuarios">
             <thead class="table-light">
                 <tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Carrera</th><th>Estado</th><th></th></tr>
             </thead>
             <tbody>
                 {% for u in usuarios %}
                 <tr>
-                    <td><span class="fw-mono">{{ u.username }}</span><br><small class="text-muted">{{ u.email|default:"—" }}</small></td>
-                    <td class="fw-semibold">{{ u.get_full_name|default:"—" }}</td>
-                    <td><span class="badge bg-{{ u.rol|lower }} badge-estado">{{ u.get_rol_display }}</span></td>
-                    <td><small>{{ u.carrera.nombre|default:"—"|truncatechars:20 }}</small></td>
+                    <td>
+                        <span class="fw-semibold" style="color:#1a1a2e;">{{ u.username }}</span><br>
+                        <small class="text-muted">{{ u.email|default:"—" }}</small>
+                    </td>
+                    <td class="fw-semibold" style="color:#1a1a2e;">{{ u.get_full_name|default:"—" }}</td>
+                    <td><span class="badge badge-rol badge-rol-{{ u.rol|lower }}">{{ u.get_rol_display }}</span></td>
+                    <td><small style="color:#495057;">{{ u.carrera.nombre|default:"—"|truncatechars:20 }}</small></td>
                     <td>
                         {% if u.is_active %}
                         <span class="badge bg-success-subtle text-success">Activo</span>
@@ -46,7 +72,10 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="text-center text-muted py-4">Sin resultados.</td></tr>
+                <tr><td colspan="6" class="text-center text-muted py-4">
+                    <i class="bi bi-inbox" style="font-size:1.5rem; opacity:.3;"></i>
+                    <p class="mb-0 mt-1">Sin resultados.</p>
+                </td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -55,12 +84,19 @@
     <div class="p-3 border-top d-flex justify-content-center">
         <nav>
             <ul class="pagination pagination-sm mb-0">
-                {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">«</a></li>{% endif %}
-                <li class="page-item active"><a class="page-link" href="#">{{ page_obj.number }}</a></li>
-                {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">»</a></li>{% endif %}
+                {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if busqueda %}&q={{ busqueda }}{% endif %}{% if rol_filtro %}&rol={{ rol_filtro }}{% endif %}"><i class="bi bi-chevron-left"></i></a></li>{% endif %}
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active"><a class="page-link" href="#">{{ num }}</a></li>
+                    {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+                    <li class="page-item"><a class="page-link" href="?page={{ num }}{% if busqueda %}&q={{ busqueda }}{% endif %}{% if rol_filtro %}&rol={{ rol_filtro }}{% endif %}">{{ num }}</a></li>
+                    {% endif %}
+                {% endfor %}
+                {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if busqueda %}&q={{ busqueda }}{% endif %}{% if rol_filtro %}&rol={{ rol_filtro }}{% endif %}"><i class="bi bi-chevron-right"></i></a></li>{% endif %}
             </ul>
         </nav>
     </div>
     {% endif %}
 </div>
 {% endblock %}
+

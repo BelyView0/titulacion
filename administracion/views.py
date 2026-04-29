@@ -495,6 +495,26 @@ class DescargarOficioJuradoJefeView(JefeProyectoRequeridoMixin, View):
         return response
 
 
+class CalendarioJefeView(JefeProyectoRequeridoMixin, TemplateView):
+    """Calendario de actos protocolarios para el Jefe de Proyecto."""
+    template_name = 'administracion/jefe/calendario.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        user = self.request.user
+        if user.departamento:
+            ctx['carreras'] = Carrera.objects.filter(
+                departamento=user.departamento, activa=True
+            ).order_by('nombre')
+        elif user.carrera:
+            ctx['carreras'] = Carrera.objects.filter(
+                pk=user.carrera_id, activa=True
+            )
+        else:
+            ctx['carreras'] = Carrera.objects.filter(activa=True).order_by('nombre')
+        return ctx
+
+
 class EstadisticasJefeView(JefeProyectoRequeridoMixin, TemplateView):
     """
     Estadísticas de titulación para el Jefe de Proyecto (RE-01 a RE-07).
@@ -621,3 +641,39 @@ class EstadisticasJefeView(JefeProyectoRequeridoMixin, TemplateView):
             'expedientes_por_estado': expedientes_por_estado,
         })
         return ctx
+
+
+class ToggleConfirmacionJefeView(JefeProyectoRequeridoMixin, View):
+    """POST — Jefe de proyecto confirma/quita confirmación de un miembro del jurado."""
+
+    def post(self, request, pk):
+        from expediente.models import ConfirmacionActo
+        from expediente.views_confirmacion import (
+            _enviar_correo_confirmacion_recibida,
+            _enviar_correo_acto_confirmado,
+        )
+        from django.contrib import messages
+        from django.utils import timezone
+
+        confirmacion = get_object_or_404(ConfirmacionActo, pk=pk)
+        acto = confirmacion.acto
+        expediente = acto.expediente
+
+        if not confirmacion.confirmado:
+            confirmacion.confirmado = True
+            confirmacion.fecha_confirmacion = timezone.now()
+            confirmacion.save()
+            messages.success(request, f'Asistencia de {confirmacion.nombre_participante} confirmada.')
+
+            _enviar_correo_confirmacion_recibida(confirmacion, acto)
+
+            if acto.confirmaciones_completas():
+                _enviar_correo_acto_confirmado(acto)
+                messages.info(request, '¡Todas las confirmaciones completas! Se envió correo final a todos.')
+        else:
+            confirmacion.confirmado = False
+            confirmacion.fecha_confirmacion = None
+            confirmacion.save()
+            messages.warning(request, f'Se quitó la confirmación de {confirmacion.nombre_participante}.')
+
+        return redirect('administracion:jefe_detalle', pk=expediente.pk)

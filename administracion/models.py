@@ -100,6 +100,10 @@ class Profesor(models.Model):
         """Formato para el oficio: 'Doctor en SC JUAN RAMOS RAMOS No. Cédula 14098703'"""
         return f'{self.titulo_academico} {self.get_full_name()} No. Cédula {self.cedula}'
 
+    def get_nombre_corto(self):
+        """Formato para correos: 'Doctor en SC JUAN RAMOS RAMOS' (sin cédula)."""
+        return f'{self.titulo_academico} {self.get_full_name()}'
+
 
 class Usuario(AbstractUser):
     """

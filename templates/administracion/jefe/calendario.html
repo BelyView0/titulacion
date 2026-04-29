@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block title %}Calendario de Titulaciones — Jefe de Proyecto{% endblock %}
+{% block page_title %}Calendario de Actos Protocolarios{% endblock %}
+
+{% block content %}
+{% with api_url="/api/calendario/eventos/" mostrar_filtros=True detalle_url_base="/admin-sistema/jefe/expedientes/" %}
+{% include 'includes/calendario.html' %}
+{% endwith %}
+{% endblock %}
