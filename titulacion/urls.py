@@ -22,13 +22,27 @@ urlpatterns = [
     # Autenticación
     path('auth/login/', auth_views.LoginView.as_view(template_name='auth/login.html'), name='login'),
     path('auth/logout/', auth_views.LogoutView.as_view(), name='logout'),
-    path('auth/password/', auth_views.PasswordChangeView.as_view(
-        template_name='auth/password_change.html',
-        success_url='/auth/password/done/'
-    ), name='password_change'),
-    path('auth/password/done/', auth_views.PasswordChangeDoneView.as_view(
-        template_name='auth/password_change_done.html'
-    ), name='password_change_done'),
+    # ─── CAMBIO DE CONTRASEÑA (Usuario autenticado) ───
+    path('auth/password/', 
+         __import__('administracion.views_auth', fromlist=['OTPPasswordChangeRequestView']).OTPPasswordChangeRequestView.as_view(), 
+         name='password_change'),
+    path('auth/password/verify/', 
+         __import__('administracion.views_auth', fromlist=['OTPPasswordChangeVerifyView']).OTPPasswordChangeVerifyView.as_view(), 
+         name='password_change_verify'),
+    path('auth/password/done/', 
+         __import__('administracion.views_auth', fromlist=['OTPPasswordChangeDoneView']).OTPPasswordChangeDoneView.as_view(), 
+         name='password_change_done'),
+
+    # ─── RECUPERACIÓN DE CONTRASEÑA (Desde login) ───
+    path('auth/password-reset/', 
+         __import__('administracion.views_auth', fromlist=['OTPPasswordResetRequestView']).OTPPasswordResetRequestView.as_view(), 
+         name='password_reset'),
+    path('auth/password-reset/verificar/', 
+         __import__('administracion.views_auth', fromlist=['OTPPasswordResetVerifyView']).OTPPasswordResetVerifyView.as_view(), 
+         name='password_reset_verify'),
+    path('auth/password-reset/completado/', 
+         __import__('administracion.views_auth', fromlist=['OTPPasswordResetCompleteView']).OTPPasswordResetCompleteView.as_view(), 
+         name='password_reset_complete'),
 
     # Redirección inteligente de dashboard
     path('dashboard/', login_required(dashboard_redirect), name='dashboard'),

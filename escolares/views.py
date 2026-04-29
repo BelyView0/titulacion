@@ -67,10 +67,10 @@ class DashboardEscolaresView(EscolaresRequeridoMixin, TemplateView):
         busqueda = self.request.GET.get('q', '').strip()
         if busqueda:
             qs = qs.filter(
-                Q(alumno__first_name__icontains=busqueda) |
-                Q(alumno__last_name__icontains=busqueda) |
-                Q(alumno__username__icontains=busqueda) |
-                Q(alumno__numero_control__icontains=busqueda)
+                Q(alumno__first_name__unaccent__icontains=busqueda) |
+                Q(alumno__last_name__unaccent__icontains=busqueda) |
+                Q(alumno__username__unaccent__icontains=busqueda) |
+                Q(alumno__numero_control__unaccent__icontains=busqueda)
             )
         ctx['busqueda'] = busqueda
         paginator = Paginator(qs, 20)
@@ -100,10 +100,10 @@ class ExpedienteListaEscolaresView(EscolaresRequeridoMixin, ListView):
         busqueda = self.request.GET.get('q', '').strip()
         if busqueda:
             qs = qs.filter(
-                Q(alumno__first_name__icontains=busqueda) |
-                Q(alumno__last_name__icontains=busqueda) |
-                Q(alumno__username__icontains=busqueda) |
-                Q(alumno__numero_control__icontains=busqueda)
+                Q(alumno__first_name__unaccent__icontains=busqueda) |
+                Q(alumno__last_name__unaccent__icontains=busqueda) |
+                Q(alumno__username__unaccent__icontains=busqueda) |
+                Q(alumno__numero_control__unaccent__icontains=busqueda)
             )
         return qs
 

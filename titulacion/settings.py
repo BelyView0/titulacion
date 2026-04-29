@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.postgres',
     # Apps del sistema
     'administracion',
     'expediente',
@@ -86,6 +87,9 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
+
+# Token de recuperación de contraseña expira en 5 minutos (300 segundos)
+PASSWORD_RESET_TIMEOUT = 300
 
 # ─── INTERNACIONALIZACIÓN ────────────────────────────────────────────────────
 LANGUAGE_CODE = 'es-mx'
