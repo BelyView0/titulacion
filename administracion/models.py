@@ -283,3 +283,20 @@ class JefeDepartamento(models.Model):
     def get_full_name(self):
         partes = [self.nombre, self.apellido_paterno, self.apellido_materno]
         return ' '.join(p.strip() for p in partes if p and p.strip())
+
+class PasswordResetOTP(models.Model):
+    """
+    Almacena los códigos de 6 dígitos (OTP) para verificación de contraseña.
+    """
+    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='otps')
+    codigo = models.CharField(max_length=6, verbose_name="Código de 6 dígitos")
+    creado_en = models.DateTimeField(auto_now_add=True)
+    usado = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "Código OTP"
+        verbose_name_plural = "Códigos OTP"
+
+    def __str__(self):
+        return f"OTP para {self.usuario.username} - {self.creado_en}"
+

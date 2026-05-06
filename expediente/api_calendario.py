@@ -54,10 +54,10 @@ def eventos_calendario(request):
     if busqueda:
         from django.db.models import Q
         qs = qs.filter(
-            Q(expediente__alumno__first_name__icontains=busqueda) |
-            Q(expediente__alumno__last_name__icontains=busqueda) |
-            Q(expediente__alumno__username__icontains=busqueda) |
-            Q(expediente__alumno__numero_control__icontains=busqueda)
+            Q(expediente__alumno__first_name__unaccent__icontains=busqueda) |
+            Q(expediente__alumno__last_name__unaccent__icontains=busqueda) |
+            Q(expediente__alumno__username__unaccent__icontains=busqueda) |
+            Q(expediente__alumno__numero_control__unaccent__icontains=busqueda)
         )
 
     eventos = []
