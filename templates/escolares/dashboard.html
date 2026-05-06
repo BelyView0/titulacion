@@ -91,18 +91,30 @@
     <!-- Buscador -->
     <div class="p-3 border-bottom">
         <form method="get" class="d-flex gap-2">
-            <div class="input-group input-group-sm">
+            <div class="input-group input-group-sm" style="flex-grow: 1;">
                 <span class="input-group-text"><i class="bi bi-search"></i></span>
                 <input type="text" name="q" class="form-control" placeholder="Buscar por nombre o N° de control…" value="{{ busqueda }}">
+                <select name="carrera" class="form-select" style="max-width: 200px;" onchange="this.form.submit()">
+                    <option value="">Todas las carreras</option>
+                    {% for c in carreras_filter %}
+                    <option value="{{ c.id }}" {% if c.id|stringformat:"s" == carrera_id %}selected{% endif %}>{{ c.nombre }}</option>
+                    {% endfor %}
+                </select>
+                <select name="modalidad" class="form-select" style="max-width: 200px;" onchange="this.form.submit()">
+                    <option value="">Todas las modalidades</option>
+                    {% for m in modalidades_filter %}
+                    <option value="{{ m.id }}" {% if m.id|stringformat:"s" == modalidad_id %}selected{% endif %}>{{ m.nombre }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
-            {% if busqueda %}
+            {% if busqueda or carrera_id or modalidad_id %}
             <a href="{% url 'escolares:dashboard' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x"></i></a>
             {% endif %}
         </form>
-        {% if busqueda %}
+        {% if busqueda or carrera_id or modalidad_id %}
         <small class="text-muted mt-1 d-block">
-            Mostrando resultados para "<strong>{{ busqueda }}</strong>" — {{ page_obj.paginator.count }} encontrado{{ page_obj.paginator.count|pluralize:"s" }}
+            Mostrando resultados para los filtros seleccionados — {{ page_obj.paginator.count }} encontrado{{ page_obj.paginator.count|pluralize:"s" }}
         </small>
         {% endif %}
     </div>

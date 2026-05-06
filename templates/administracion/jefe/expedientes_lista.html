@@ -6,16 +6,34 @@
 <!-- Filtros -->
 <div class="content-card p-3 mb-4">
     <form method="get" class="row g-2 align-items-end">
-        <div class="col-md-4">
-            <label class="form-label small fw-semibold">Filtrar por estado</label>
+        <div class="col-md-3">
+            <label class="form-label small fw-semibold">Estado</label>
             <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
-                <option value="">— Todos los estados —</option>
+                <option value="">— Todos —</option>
                 {% for val, label in estados %}
                 <option value="{{ val }}" {% if estado_filtro == val %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
+            <label class="form-label small fw-semibold">Carrera</label>
+            <select name="carrera" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">— Todas —</option>
+                {% for c in carreras_filter %}
+                <option value="{{ c.id }}" {% if c.id|stringformat:"s" == carrera_id %}selected{% endif %}>{{ c.nombre|truncatechars:20 }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small fw-semibold">Modalidad</label>
+            <select name="modalidad" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">— Todas —</option>
+                {% for m in modalidades_filter %}
+                <option value="{{ m.id }}" {% if m.id|stringformat:"s" == modalidad_id %}selected{% endif %}>{{ m.nombre|truncatechars:20 }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
             <label class="form-label small fw-semibold">Buscar alumno</label>
             <div class="input-group input-group-sm">
                 <span class="input-group-text"><i class="bi bi-search"></i></span>
@@ -26,7 +44,7 @@
             <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
         </div>
         <div class="col-auto">
-            {% if estado_filtro or busqueda %}
+            {% if estado_filtro or busqueda or carrera_id or modalidad_id %}
             <a href="{% url 'administracion:jefe_expedientes' %}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-x me-1"></i>Limpiar
             </a>

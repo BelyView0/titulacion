@@ -21,7 +21,7 @@ from administracion.models import Carrera, Departamento, Usuario, Rol, Configura
 from administracion.forms import UsuarioCreateForm, UsuarioUpdateForm, ConfiguracionInstitucionalForm, JefeDepartamentoForm
 from expediente.models import (
     Expediente, Documento, AsignacionJurado,
-    EstadoExpediente, EstadoDocumento
+    EstadoExpediente, EstadoDocumento, Modalidad
 )
 from expediente.notifications import notificar_alumno, registrar_cambio_estado
 
@@ -102,6 +102,9 @@ class DashboardAdminView(AdminRequeridoMixin, TemplateView):
             'alumno', 'modalidad', 'alumno__carrera'
         ).order_by('-fecha_apertura')
         busqueda = self.request.GET.get('q', '').strip()
+        carrera_id = self.request.GET.get('carrera', '')
+        modalidad_id = self.request.GET.get('modalidad', '')
+
         if busqueda:
             qs = qs.filter(
                 Q(alumno__first_name__unaccent__icontains=busqueda) |
@@ -109,7 +112,16 @@ class DashboardAdminView(AdminRequeridoMixin, TemplateView):
                 Q(alumno__username__unaccent__icontains=busqueda) |
                 Q(alumno__numero_control__unaccent__icontains=busqueda)
             )
+        if carrera_id:
+            qs = qs.filter(alumno__carrera_id=carrera_id)
+        if modalidad_id:
+            qs = qs.filter(modalidad_id=modalidad_id)
+
         ctx['busqueda'] = busqueda
+        ctx['carrera_id'] = carrera_id
+        ctx['modalidad_id'] = modalidad_id
+        ctx['carreras_filter'] = Carrera.objects.filter(activa=True)
+        ctx['modalidades_filter'] = Modalidad.objects.all()
         paginator = Paginator(qs, 20)
         page_number = self.request.GET.get('page')
         page_obj = paginator.get_page(page_number)
@@ -251,6 +263,9 @@ class DashboardJefeProyectoView(JefeProyectoRequeridoMixin, TemplateView):
         # Búsqueda y paginación
         qs = expedientes_dept.order_by('-fecha_ultima_actualizacion')
         busqueda = self.request.GET.get('q', '').strip()
+        carrera_id = self.request.GET.get('carrera', '')
+        modalidad_id = self.request.GET.get('modalidad', '')
+
         if busqueda:
             qs = qs.filter(
                 Q(alumno__first_name__unaccent__icontains=busqueda) |
@@ -258,7 +273,20 @@ class DashboardJefeProyectoView(JefeProyectoRequeridoMixin, TemplateView):
                 Q(alumno__username__unaccent__icontains=busqueda) |
                 Q(alumno__numero_control__unaccent__icontains=busqueda)
             )
+        if carrera_id:
+            qs = qs.filter(alumno__carrera_id=carrera_id)
+        if modalidad_id:
+            qs = qs.filter(modalidad_id=modalidad_id)
+
         ctx['busqueda'] = busqueda
+        ctx['carrera_id'] = carrera_id
+        ctx['modalidad_id'] = modalidad_id
+
+        if departamento:
+            ctx['carreras_filter'] = Carrera.objects.filter(departamento=departamento, activa=True)
+        else:
+            ctx['carreras_filter'] = Carrera.objects.filter(id=user.carrera_id, activa=True) if user.carrera_id else Carrera.objects.none()
+        ctx['modalidades_filter'] = Modalidad.objects.all()
         paginator = Paginator(qs, 20)
         page_number = self.request.GET.get('page')
         page_obj = paginator.get_page(page_number)
@@ -294,6 +322,15 @@ class ExpedienteListaJefeView(JefeProyectoRequeridoMixin, ListView):
                 Q(alumno__username__unaccent__icontains=busqueda) |
                 Q(alumno__numero_control__unaccent__icontains=busqueda)
             )
+
+        carrera_id = self.request.GET.get('carrera', '')
+        modalidad_id = self.request.GET.get('modalidad', '')
+
+        if carrera_id:
+            qs = qs.filter(alumno__carrera_id=carrera_id)
+        if modalidad_id:
+            qs = qs.filter(modalidad_id=modalidad_id)
+
         return qs
 
     def get_context_data(self, **kwargs):
@@ -302,6 +339,16 @@ class ExpedienteListaJefeView(JefeProyectoRequeridoMixin, ListView):
         ctx['estado_filtro'] = self.request.GET.get('estado', '')
         ctx['busqueda'] = self.request.GET.get('q', '')
         ctx['estados'] = EstadoExpediente.choices
+
+        ctx['carrera_id'] = self.request.GET.get('carrera', '')
+        ctx['modalidad_id'] = self.request.GET.get('modalidad', '')
+        user = self.request.user
+        if user.departamento:
+            ctx['carreras_filter'] = Carrera.objects.filter(departamento=user.departamento, activa=True)
+        else:
+            ctx['carreras_filter'] = Carrera.objects.filter(id=user.carrera_id, activa=True) if user.carrera_id else Carrera.objects.none()
+        ctx['modalidades_filter'] = Modalidad.objects.all()
+
         return ctx
 
 

@@ -19,7 +19,7 @@ from django.utils.text import slugify
 from expediente.mixins import EscolaresRequeridoMixin
 from expediente.models import (
     Expediente, Documento, ValidacionDocumento,
-    EnvioCDMX, EstadoExpediente, EstadoDocumento, EstadoValidacion
+    EnvioCDMX, EstadoExpediente, EstadoDocumento, EstadoValidacion, Modalidad
 )
 from expediente.notifications import notificar_alumno, registrar_cambio_estado, registrar_cambio_documento
 from expediente.workflow import actualizar_estado_documento, verificar_avance_expediente
@@ -65,6 +65,9 @@ class DashboardEscolaresView(EscolaresRequeridoMixin, TemplateView):
             estado__in=[EstadoExpediente.BORRADOR, EstadoExpediente.CANCELADO]
         ).select_related('alumno', 'modalidad', 'alumno__carrera').order_by('-fecha_ultima_actualizacion')
         busqueda = self.request.GET.get('q', '').strip()
+        carrera_id = self.request.GET.get('carrera', '')
+        modalidad_id = self.request.GET.get('modalidad', '')
+
         if busqueda:
             qs = qs.filter(
                 Q(alumno__first_name__unaccent__icontains=busqueda) |
@@ -72,7 +75,16 @@ class DashboardEscolaresView(EscolaresRequeridoMixin, TemplateView):
                 Q(alumno__username__unaccent__icontains=busqueda) |
                 Q(alumno__numero_control__unaccent__icontains=busqueda)
             )
+        if carrera_id:
+            qs = qs.filter(alumno__carrera_id=carrera_id)
+        if modalidad_id:
+            qs = qs.filter(modalidad_id=modalidad_id)
+
         ctx['busqueda'] = busqueda
+        ctx['carrera_id'] = carrera_id
+        ctx['modalidad_id'] = modalidad_id
+        ctx['carreras_filter'] = Carrera.objects.filter(activa=True)
+        ctx['modalidades_filter'] = Modalidad.objects.all()
         paginator = Paginator(qs, 20)
         page_number = self.request.GET.get('page')
         page_obj = paginator.get_page(page_number)
@@ -105,6 +117,15 @@ class ExpedienteListaEscolaresView(EscolaresRequeridoMixin, ListView):
                 Q(alumno__username__unaccent__icontains=busqueda) |
                 Q(alumno__numero_control__unaccent__icontains=busqueda)
             )
+
+        carrera_id = self.request.GET.get('carrera', '')
+        modalidad_id = self.request.GET.get('modalidad', '')
+
+        if carrera_id:
+            qs = qs.filter(alumno__carrera_id=carrera_id)
+        if modalidad_id:
+            qs = qs.filter(modalidad_id=modalidad_id)
+
         return qs
 
     def get_context_data(self, **kwargs):
@@ -112,6 +133,12 @@ class ExpedienteListaEscolaresView(EscolaresRequeridoMixin, ListView):
         ctx['estado_filtro'] = self.request.GET.get('estado', '')
         ctx['busqueda'] = self.request.GET.get('q', '')
         ctx['estados'] = EstadoExpediente.choices
+
+        ctx['carrera_id'] = self.request.GET.get('carrera', '')
+        ctx['modalidad_id'] = self.request.GET.get('modalidad', '')
+        ctx['carreras_filter'] = Carrera.objects.filter(activa=True)
+        ctx['modalidades_filter'] = Modalidad.objects.all()
+
         return ctx
 
 
