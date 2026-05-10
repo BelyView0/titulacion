@@ -121,6 +121,7 @@
                 <span class="badge bg-warning text-dark ms-2">Pendientes</span>
                 {% endif %}
             </div>
+            
             {% for conf in acto.confirmaciones.all %}
             <div class="d-flex align-items-center justify-content-between py-2 {% if not forloop.last %}border-bottom{% endif %}">
                 <div class="d-flex align-items-center gap-2">
@@ -151,16 +152,66 @@
             <p class="text-muted small mb-0">No se han generado confirmaciones aún.</p>
             {% endfor %}
 
-            {% if acto.confirmaciones_completas %}
-            <div class="alert alert-success py-2 small mt-3 mb-0">
-                <i class="bi bi-check-circle-fill me-1"></i>
-                <strong>Todas las asistencias confirmadas.</strong> El acto se llevará a cabo según lo programado.
-            </div>
+            {# Lógica de vencimiento y reprogramación #}
+            {% if acto_expirado %}
+                {% if not confirmaciones_completas %}
+                <div class="alert alert-danger py-2 small mt-3 mb-2">
+                    <i class="bi bi-exclamation-octagon me-1"></i>
+                    <strong>Fecha vencida:</strong> No se completaron las confirmaciones a tiempo. El acto debe ser reprogramado.
+                </div>
+                <button type="button" class="btn btn-warning btn-sm w-100" data-bs-toggle="modal" data-bs-target="#modalReprogramarJefe">
+                    <i class="bi bi-arrow-repeat me-1"></i>Reprogramar Acto
+                </button>
+                {% else %}
+                <div class="alert alert-success py-2 small mt-3 mb-0">
+                    <i class="bi bi-check-circle-fill me-1"></i>
+                    <strong>Acto realizado.</strong> Esperando registro de resultado en División de Estudios.
+                </div>
+                {% endif %}
             {% endif %}
+        </div>
+
+        {# Modal de reprogramación para Jefe #}
+        <div class="modal fade" id="modalReprogramarJefe" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning bg-opacity-10">
+                        <h6 class="modal-title fw-bold">
+                            <i class="bi bi-arrow-repeat me-2 text-warning"></i>Reprogramar Acto Protocolario
+                        </h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="post" action="{% url 'administracion:jefe_reprogramar' acto.pk %}">
+                        {% csrf_token %}
+                        <div class="modal-body">
+                            <p class="small text-muted">Esta acción eliminará la fecha actual y regresará el expediente al estado de "Jurado Asignado" para que puedas elegir una nueva fecha.</p>
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold">Motivo</label>
+                                <textarea name="motivo" class="form-control form-control-sm" rows="3">No se completaron las confirmaciones de asistencia a tiempo.</textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-sm btn-warning">Confirmar Reprogramación</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
         {% endif %}
         {% endwith %}
         {% endif %}
+
+        {% if expediente.estado == 'JURADO_ASIGNADO' %}
+        <div class="content-card p-3 mb-3 border-start border-4 border-primary animate__animated animate__fadeIn">
+            <div class="card-header-custom mb-2"><i class="bi bi-calendar-plus"></i> Siguiente Paso</div>
+            <p class="small text-muted">El jurado ya está asignado. Ahora debes programar la fecha y lugar del acto protocolario.</p>
+            <a href="{% url 'administracion:jefe_programar' expediente.pk %}" class="btn btn-primary btn-sm w-100">
+                <i class="bi bi-calendar-event me-1"></i>Programar Acto Protocolario
+            </a>
+        </div>
+        {% endif %}
+
     </div>
 
     <!-- Panel derecho: Documentos (solo lectura) -->

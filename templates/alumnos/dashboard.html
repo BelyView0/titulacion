@@ -155,7 +155,7 @@
                 {% if expediente.estado == 'JURADO_ASIGNADO' %}
                 <div class="alert alert-info py-2 small mb-0">
                     <i class="bi bi-people-fill me-1"></i>
-                    <strong>¡Tu jurado ha sido asignado!</strong> División de Estudios programará la fecha de tu acto protocolario.
+                    <strong>¡Tu jurado ha sido asignado!</strong> El Jefe de Proyecto programará la fecha de tu acto protocolario.
                 </div>
 
                 {% elif expediente.estado == 'ACTO_PROGRAMADO' %}
@@ -245,13 +245,20 @@
                     var target = new Date('{{ acto.fecha_acto|date:"c" }}').getTime();
                     var el = document.getElementById('countdown-display');
                     var container = document.getElementById('countdown-container');
+                    var confirmacionesCompletas = {{ acto.confirmaciones_completas|yesno:"true,false" }};
                     function update() {
                         var now = Date.now();
                         var diff = target - now;
                         if (diff <= 0) {
-                            container.style.background = '#f0fdf4';
-                            el.style.color = '#16a34a';
-                            el.innerHTML = '<i class="bi bi-check-circle me-1"></i>¡El acto ya se llevó a cabo!';
+                            if (confirmacionesCompletas) {
+                                container.style.background = '#f0fdf4';
+                                el.style.color = '#16a34a';
+                                el.innerHTML = '<i class="bi bi-check-circle me-1"></i>¡El acto ya se llevó a cabo!';
+                            } else {
+                                container.style.background = '#fef2f2';
+                                el.style.color = '#dc3545';
+                                el.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i>La fecha del acto pasó sin completarse las confirmaciones. El Jefe de Proyecto reprogramará una nueva fecha.';
+                            }
                             return;
                         }
                         var d = Math.floor(diff / 86400000);

@@ -1,0 +1,10 @@
+﻿C:\Users\JEN\ProyectoT\mientorno\Scripts\python.exe :   File "<string>", line 9
+En línea: 1 Carácter: 1
++ C:\Users\JEN\ProyectoT\mientorno\Scripts\python.exe -c "
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (  File "<string>", line 9:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+    print(f'ID={d[" pk\]}:
+                  ^
+SyntaxError: unterminated string literal (detected at line 9)
