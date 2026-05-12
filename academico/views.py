@@ -157,6 +157,19 @@ class ExpedienteDetalleAcademicoView(AcademicoRequeridoMixin, DetailView):
         ctx['jurado'] = AsignacionJurado.objects.filter(
             expediente=expediente
         ).select_related('presidente', 'secretario', 'vocal_propietario', 'vocal_suplente').first()
+
+        # Contexto de confirmaciones del acto protocolario
+        try:
+            acto = expediente.acto_protocolario
+            ctx['acto'] = acto
+            ctx['confirmaciones'] = acto.confirmaciones.all().order_by('rol')
+            ctx['confirmaciones_completas'] = acto.confirmaciones_completas()
+            ctx['acto_expirado'] = acto.fecha_acto < timezone.now()
+        except ActoProtocolario.DoesNotExist:
+            ctx['acto'] = None
+            ctx['confirmaciones'] = []
+            ctx['confirmaciones_completas'] = False
+            ctx['acto_expirado'] = False
         
         return ctx
 
@@ -655,3 +668,6 @@ class ToggleConfirmacionView(AcademicoRequeridoMixin, View):
             messages.warning(request, f'Se quitó la confirmación de {confirmacion.nombre_participante}.')
 
         return redirect('academico:expediente_detalle', pk=expediente.pk)
+
+
+

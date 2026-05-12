@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+{% block title %}Estadísticas Globales — Servicios Escolares{% endblock %}
+{% block page_title %}Estadísticas de Titulación{% endblock %}
+
+{% block content %}
+<!-- Cards de resumen (KPIs) -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="content-card p-3 text-center border-bottom border-primary border-4">
+            <div class="text-muted small fw-bold text-uppercase mb-1">Total Expedientes</div>
+            <div class="fs-2 fw-bold text-primary">{{ total_expedientes }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="content-card p-3 text-center border-bottom border-success border-4">
+            <div class="text-muted small fw-bold text-uppercase mb-1">Concluidos</div>
+            <div class="fs-2 fw-bold text-success">{{ total_concluidos }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="content-card p-3 text-center border-bottom border-warning border-4">
+            <div class="text-muted small fw-bold text-uppercase mb-1">En Proceso</div>
+            <div class="fs-2 fw-bold text-warning">{{ total_en_proceso }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="content-card p-3 text-center border-bottom border-info border-4">
+            <div class="text-muted small fw-bold text-uppercase mb-1">Tasa de Éxito</div>
+            <div class="fs-2 fw-bold text-info">{{ tasa_exito }}%</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Gráfico 1: Por Estado -->
+    <div class="col-lg-8">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <i class="bi bi-bar-chart-fill"></i> Expedientes por Estado del Proceso
+            </div>
+            <div class="p-4">
+                <div style="height: 350px;">
+                    <canvas id="chartEstados"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico 2: Por Modalidad -->
+    <div class="col-lg-4">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <i class="bi bi-pie-chart-fill"></i> Distribución por Modalidad
+            </div>
+            <div class="p-4">
+                <div style="height: 350px;">
+                    <canvas id="chartModalidades"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico 3: Por Carrera -->
+    <div class="col-12">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <i class="bi bi-graph-up"></i> Expedientes por Carrera
+            </div>
+            <div class="p-4">
+                <div style="height: 400px;">
+                    <canvas id="chartCarreras"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts de Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Configuración global de Chart.js para que se vea premium
+    Chart.defaults.font.family = "'Inter', 'Segoe UI', sans-serif";
+    Chart.defaults.color = '#6c757d';
+
+    // 1. Gráfico de Estados (Barras Horizontales)
+    const ctxEstados = document.getElementById('chartEstados').getContext('2d');
+    new Chart(ctxEstados, {
+        type: 'bar',
+        data: {
+            labels: {{ stats_estados.labels|safe }},
+            datasets: [{
+                label: 'Cantidad',
+                data: {{ stats_estados.data|safe }},
+                backgroundColor: [
+                    'rgba(59, 130, 246, 0.7)',
+                    'rgba(16, 185, 129, 0.7)',
+                    'rgba(245, 158, 11, 0.7)',
+                    'rgba(239, 68, 68, 0.7)',
+                    'rgba(139, 92, 246, 0.7)',
+                    'rgba(107, 114, 128, 0.7)'
+                ],
+                borderRadius: 6,
+                borderWidth: 0
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: { grid: { display: false } },
+                y: { grid: { display: false } }
+            }
+        }
+    });
+
+    // 2. Gráfico de Modalidades (Doughnut)
+    const ctxModalidades = document.getElementById('chartModalidades').getContext('2d');
+    new Chart(ctxModalidades, {
+        type: 'doughnut',
+        data: {
+            labels: {{ stats_modalidades.labels|safe }},
+            datasets: [{
+                data: {{ stats_modalidades.data|safe }},
+                backgroundColor: [
+                    '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#6366f1'
+                ],
+                hoverOffset: 15,
+                borderWidth: 5,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } }
+            },
+            cutout: '70%'
+        }
+    });
+
+    // 3. Gráfico de Carreras (Barras Verticales)
+    const ctxCarreras = document.getElementById('chartCarreras').getContext('2d');
+    new Chart(ctxCarreras, {
+        type: 'bar',
+        data: {
+            labels: {{ stats_carreras.labels|safe }},
+            datasets: [{
+                label: 'Alumnos en proceso',
+                data: {{ stats_carreras.data|safe }},
+                backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                borderColor: '#3b82f6',
+                borderWidth: 2,
+                borderRadius: 8,
+                barThickness: 40
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { beginAtZero: true, grid: { borderDash: [5, 5] } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+</script>
+{% endblock %}
