@@ -17,3 +17,6 @@ db.sqlite3
 
 # Sistema
 .DS_Store
+
+# Seguridad admin
+.admin_ensure_lock

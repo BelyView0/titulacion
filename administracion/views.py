@@ -132,6 +132,65 @@ class DashboardAdminView(AdminRequeridoMixin, TemplateView):
         ctx['carreras'] = Carrera.objects.filter(activa=True).annotate(
             num_expedientes=Count('usuario__expediente')
         )
+
+        # --- Alertas del sistema para el administrador ---
+        alertas = []
+
+        # Verificar roles criticos
+        roles_criticos = [
+            (Rol.JEFE_PROYECTO, 'Jefe de Proyecto / Administracion',
+             'Este usuario gestiona la asignacion de jurados y programa actos protocolarios.'),
+            (Rol.ACADEMICO, 'Jefe de Division de Estudios Profesionales',
+             'Este usuario valida documentos y supervisa el proceso academico de titulacion.'),
+            (Rol.ESCOLARES, 'Jefe de Servicios Escolares',
+             'Este usuario gestiona el envio a CDMX y la emision de cedulas profesionales.'),
+        ]
+
+        for rol_value, rol_nombre, descripcion in roles_criticos:
+            if not Usuario.objects.filter(rol=rol_value, is_active=True).exists():
+                alertas.append({
+                    'tipo': 'danger',
+                    'icono': 'bi-person-x-fill',
+                    'titulo': f'Falta: {rol_nombre}',
+                    'mensaje': f'No hay ningun usuario con el rol "{rol_nombre}" registrado en el sistema. {descripcion}',
+                    'accion_url': reverse_lazy('administracion:usuario_crear'),
+                    'accion_texto': 'Crear usuario',
+                })
+
+        # Verificar carreras
+        if not Carrera.objects.filter(activa=True).exists():
+            alertas.append({
+                'tipo': 'warning',
+                'icono': 'bi-mortarboard-fill',
+                'titulo': 'Sin carreras registradas',
+                'mensaje': 'No hay carreras activas en el sistema. Los alumnos no podran registrar expedientes sin una carrera asignada.',
+                'accion_url': reverse_lazy('administracion:carrera_crear'),
+                'accion_texto': 'Crear carrera',
+            })
+
+        # Verificar departamentos
+        if not Departamento.objects.exists():
+            alertas.append({
+                'tipo': 'warning',
+                'icono': 'bi-building',
+                'titulo': 'Sin departamentos registrados',
+                'mensaje': 'No hay departamentos en el sistema. Los departamentos son necesarios para asignar jefes de proyecto.',
+                'accion_url': '/admin/administracion/departamento/add/',
+                'accion_texto': 'Crear departamento',
+            })
+
+        # Verificar jefes de departamento (para oficios)
+        if Departamento.objects.exists() and not JefeDepartamento.objects.exists():
+            alertas.append({
+                'tipo': 'info',
+                'icono': 'bi-person-badge',
+                'titulo': 'Sin jefes de departamento asignados',
+                'mensaje': 'No se han registrado jefes de departamento. Son necesarios para firmar oficios de asignacion de jurado.',
+                'accion_url': reverse_lazy('administracion:jefe_crear'),
+                'accion_texto': 'Asignar jefe',
+            })
+
+        ctx['alertas_sistema'] = alertas
         return ctx
 
 

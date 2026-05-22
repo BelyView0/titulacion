@@ -167,6 +167,64 @@ class OTPPasswordChangeVerifyView(LoginRequiredMixin, View):
         return redirect('password_change_done')
 
 class OTPPasswordChangeDoneView(LoginRequiredMixin, View):
-    """Paso 3: Éxito en cambio."""
+    """Paso 3: Exito en cambio."""
     def get(self, request):
         return render(request, 'auth/password_change_done.html')
+
+
+# --- CAMBIO OBLIGATORIO DE CONTRASENA (primer inicio de sesion) ---
+
+class ForcePasswordChangeView(LoginRequiredMixin, View):
+    """
+    Vista de cambio de contrasena obligatorio.
+    No requiere OTP ya que el usuario acaba de autenticarse
+    con las credenciales por defecto del sistema.
+    Se muestra cuando debe_cambiar_password=True.
+    """
+
+    def get(self, request):
+        if not request.user.debe_cambiar_password:
+            return redirect('dashboard')
+        return render(request, 'auth/force_password_change.html')
+
+    def post(self, request):
+        if not request.user.debe_cambiar_password:
+            return redirect('dashboard')
+
+        new_password = request.POST.get('new_password', '')
+        new_password_confirm = request.POST.get('new_password_confirm', '')
+        email = request.POST.get('email', '').strip()
+
+        # Validaciones
+        if not new_password or not new_password_confirm:
+            messages.error(request, 'Debes llenar todos los campos.')
+            return render(request, 'auth/force_password_change.html')
+
+        if new_password != new_password_confirm:
+            messages.error(request, 'Las contrasenas no coinciden.')
+            return render(request, 'auth/force_password_change.html')
+
+        if len(new_password) < 8:
+            messages.error(request, 'La contrasena debe tener al menos 8 caracteres.')
+            return render(request, 'auth/force_password_change.html')
+
+        # No permitir que use la misma contrasena por defecto
+        if request.user.check_password(new_password):
+            messages.error(request, 'No puedes usar la misma contrasena. Elige una nueva.')
+            return render(request, 'auth/force_password_change.html')
+
+        # Actualizar email si lo proporcionaron
+        if email:
+            request.user.email = email
+
+        # Cambiar contrasena y desactivar bandera
+        request.user.set_password(new_password)
+        request.user.debe_cambiar_password = False
+        request.user.save()
+
+        # Mantener sesion activa
+        update_session_auth_hash(request, request.user)
+
+        messages.success(request, 'Contrasena actualizada exitosamente. Bienvenido al sistema.')
+        return redirect('dashboard')
+

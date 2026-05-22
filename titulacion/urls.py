@@ -32,6 +32,9 @@ urlpatterns = [
     path('auth/password/done/', 
          __import__('administracion.views_auth', fromlist=['OTPPasswordChangeDoneView']).OTPPasswordChangeDoneView.as_view(), 
          name='password_change_done'),
+    path('auth/password/obligatorio/',
+         __import__('administracion.views_auth', fromlist=['ForcePasswordChangeView']).ForcePasswordChangeView.as_view(),
+         name='forzar_cambio_password'),
 
     # ─── RECUPERACIÓN DE CONTRASEÑA (Desde login) ───
     path('auth/password-reset/', 

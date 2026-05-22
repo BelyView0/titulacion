@@ -162,6 +162,11 @@ class Usuario(AbstractUser):
         related_name='jefes',
         verbose_name='Departamento (solo para Jefes de Proyecto)'
     )
+    debe_cambiar_password = models.BooleanField(
+        default=False,
+        verbose_name='Debe cambiar contrasena',
+        help_text='Si es True, el usuario sera forzado a cambiar su contrasena al iniciar sesion.'
+    )
 
     class Meta:
         verbose_name = 'Usuario'
