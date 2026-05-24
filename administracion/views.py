@@ -108,35 +108,39 @@ class DashboardAdminView(AdminRequeridoMixin, TemplateView):
             estado=EstadoExpediente.CONCLUIDO
         ).count()
 
-        # Expedientes con búsqueda y paginación
-        qs = Expediente.objects.select_related(
-            'alumno', 'modalidad', 'alumno__carrera'
-        ).order_by('-fecha_apertura')
+        # Alumnos con búsqueda, filtros y paginación (LEFT JOIN a expediente)
+        qs = Usuario.objects.filter(rol='ALUMNO').select_related(
+            'carrera', 'expediente', 'expediente__modalidad'
+        ).order_by('-date_joined')
+
         busqueda = self.request.GET.get('q', '').strip()
         carrera_id = self.request.GET.get('carrera', '')
-        modalidad_id = self.request.GET.get('modalidad', '')
+        estado_filtro = self.request.GET.get('estado', '')
 
         if busqueda:
             qs = qs.filter(
-                Q(alumno__first_name__unaccent__icontains=busqueda) |
-                Q(alumno__last_name__unaccent__icontains=busqueda) |
-                Q(alumno__username__unaccent__icontains=busqueda) |
-                Q(alumno__numero_control__unaccent__icontains=busqueda)
+                Q(first_name__unaccent__icontains=busqueda) |
+                Q(last_name__unaccent__icontains=busqueda) |
+                Q(username__unaccent__icontains=busqueda) |
+                Q(numero_control__unaccent__icontains=busqueda)
             )
         if carrera_id:
-            qs = qs.filter(alumno__carrera_id=carrera_id)
-        if modalidad_id:
-            qs = qs.filter(modalidad_id=modalidad_id)
+            qs = qs.filter(carrera_id=carrera_id)
+        if estado_filtro:
+            if estado_filtro == 'SIN_EXPEDIENTE':
+                qs = qs.filter(expediente__isnull=True)
+            else:
+                qs = qs.filter(expediente__estado=estado_filtro)
 
         ctx['busqueda'] = busqueda
         ctx['carrera_id'] = carrera_id
-        ctx['modalidad_id'] = modalidad_id
+        ctx['estado_filtro'] = estado_filtro
         ctx['carreras_filter'] = Carrera.objects.filter(activa=True)
-        ctx['modalidades_filter'] = Modalidad.objects.all()
+        ctx['estados_filter'] = EstadoExpediente.choices
         paginator = Paginator(qs, 20)
         page_number = self.request.GET.get('page')
         page_obj = paginator.get_page(page_number)
-        ctx['expedientes_recientes'] = page_obj
+        ctx['alumnos_page'] = page_obj
         ctx['page_obj'] = page_obj
         ctx['is_paginated'] = page_obj.has_other_pages()
 

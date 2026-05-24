@@ -68,33 +68,34 @@
     <div class="col-lg-8">
         <div class="content-card">
             <div class="card-header-custom">
-                <i class="bi bi-table"></i> Expedientes
+                <i class="bi bi-table"></i> Alumnos
             </div>
             <!-- Buscador -->
             <div class="p-3 border-bottom">
-                <form method="get" class="d-flex gap-2">
-                    <div class="input-group input-group-sm" style="flex-grow: 1;">
+                <form method="get" class="d-flex gap-2 flex-wrap">
+                    <div class="input-group input-group-sm" style="flex-grow: 1; min-width: 200px;">
                         <span class="input-group-text"><i class="bi bi-search"></i></span>
                         <input type="text" name="q" class="form-control" placeholder="Buscar por nombre o N° de control…" value="{{ busqueda }}">
-                        <select name="carrera" class="form-select" style="max-width: 200px;" onchange="this.form.submit()">
-                            <option value="">Todas las carreras</option>
-                            {% for c in carreras_filter %}
-                            <option value="{{ c.id }}" {% if c.id|stringformat:"s" == carrera_id %}selected{% endif %}>{{ c.nombre }}</option>
-                            {% endfor %}
-                        </select>
-                        <select name="modalidad" class="form-select" style="max-width: 200px;" onchange="this.form.submit()">
-                            <option value="">Todas las modalidades</option>
-                            {% for m in modalidades_filter %}
-                            <option value="{{ m.id }}" {% if m.id|stringformat:"s" == modalidad_id %}selected{% endif %}>{{ m.nombre }}</option>
-                            {% endfor %}
-                        </select>
                     </div>
+                    <select name="carrera" class="form-select form-select-sm" style="max-width: 200px;" onchange="this.form.submit()">
+                        <option value="">Todas las carreras</option>
+                        {% for c in carreras_filter %}
+                        <option value="{{ c.id }}" {% if c.id|stringformat:"s" == carrera_id %}selected{% endif %}>{{ c.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                    <select name="estado" class="form-select form-select-sm" style="max-width: 220px;" onchange="this.form.submit()">
+                        <option value="">Todos los estados</option>
+                        <option value="SIN_EXPEDIENTE" {% if estado_filtro == 'SIN_EXPEDIENTE' %}selected{% endif %}>Sin expediente</option>
+                        {% for value, label in estados_filter %}
+                        <option value="{{ value }}" {% if estado_filtro == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
                     <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
-                    {% if busqueda or carrera_id or modalidad_id %}
+                    {% if busqueda or carrera_id or estado_filtro %}
                     <a href="{% url 'administracion:dashboard' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x"></i></a>
                     {% endif %}
                 </form>
-                {% if busqueda or carrera_id or modalidad_id %}
+                {% if busqueda or carrera_id or estado_filtro %}
                 <small class="text-muted mt-1 d-block">
                     Mostrando resultados para los filtros seleccionados — {{ page_obj.paginator.count }} encontrado{{ page_obj.paginator.count|pluralize:"s" }}
                 </small>
@@ -104,21 +105,27 @@
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
-                        <tr><th>Alumno</th><th>Carrera</th><th>Modalidad</th><th>Estado</th><th>Fecha</th></tr>
+                        <tr><th>Alumno</th><th>Carrera</th><th>Modalidad</th><th>Estado</th><th>Fecha registro</th></tr>
                     </thead>
                     <tbody>
-                        {% for exp in expedientes_recientes %}
+                        {% for alumno in alumnos_page %}
                         <tr>
-                            <td><div class="fw-semibold">{{ exp.alumno.get_full_name }}</div><small class="text-muted">{{ exp.alumno.username }}</small></td>
-                            <td><small class="text-muted">{{ exp.alumno.carrera.nombre|default:"—"|truncatechars:25 }}</small></td>
-                            <td><small>{{ exp.modalidad.nombre|default:"—"|truncatechars:30 }}</small></td>
-                            <td><span class="badge bg-{{ exp.get_estado_display_color }} badge-estado">{{ exp.get_estado_display }}</span></td>
-                            <td><small class="text-muted">{{ exp.fecha_apertura|date:"d/m/Y" }}</small></td>
+                            <td><div class="fw-semibold">{{ alumno.get_full_name }}</div><small class="text-muted">{{ alumno.username }}</small></td>
+                            <td><small class="text-muted">{{ alumno.carrera.nombre|default:"—"|truncatechars:25 }}</small></td>
+                            <td><small>{% if alumno.tiene_expediente %}{{ alumno.expediente.modalidad.nombre|default:"—"|truncatechars:30 }}{% else %}—{% endif %}</small></td>
+                            <td>
+                                {% if alumno.tiene_expediente %}
+                                <span class="badge bg-{{ alumno.expediente.get_estado_display_color }} badge-estado">{{ alumno.expediente.get_estado_display }}</span>
+                                {% else %}
+                                <span class="badge bg-secondary badge-estado">Sin expediente</span>
+                                {% endif %}
+                            </td>
+                            <td><small class="text-muted">{{ alumno.date_joined|date:"d/m/Y" }}</small></td>
                         </tr>
                         {% empty %}
                         <tr><td colspan="5" class="text-center text-muted py-3">
                             <i class="bi bi-inbox" style="font-size:1.5rem; opacity:.3;"></i>
-                            <p class="mb-0 mt-1">{% if busqueda %}No se encontraron expedientes para "{{ busqueda }}".{% else %}Sin expedientes aún.{% endif %}</p>
+                            <p class="mb-0 mt-1">{% if busqueda %}No se encontraron alumnos para "{{ busqueda }}".{% else %}Sin alumnos registrados aún.{% endif %}</p>
                         </td></tr>
                         {% endfor %}
                     </tbody>

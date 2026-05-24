@@ -203,6 +203,14 @@ class Usuario(AbstractUser):
     def es_jefe_proyecto(self):
         return self.rol == Rol.JEFE_PROYECTO
 
+    @property
+    def tiene_expediente(self):
+        """Verifica si el usuario tiene un expediente asociado (OneToOne)."""
+        try:
+            return self.expediente is not None
+        except Exception:
+            return False
+
     def get_dashboard_url(self):
         from django.urls import reverse
         dashboards = {
