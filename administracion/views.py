@@ -51,11 +51,22 @@ class JefeDepartamentoListView(AdminRequeridoMixin, ListView):
     template_name = 'administracion/jefe_departamento_list.html'
     context_object_name = 'jefes'
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['departamentos_count'] = Departamento.objects.count()
+        return ctx
+
 class JefeDepartamentoCreateView(AdminRequeridoMixin, CreateView):
     model = JefeDepartamento
     form_class = JefeDepartamentoForm
     template_name = 'administracion/jefe_departamento_form.html'
     success_url = reverse_lazy('administracion:jefes')
+
+    def dispatch(self, request, *args, **kwargs):
+        if not Departamento.objects.exists():
+            messages.error(request, 'No puedes asignar un Jefe porque no hay Departamentos registrados en el sistema. Por favor, crea un Departamento primero.')
+            return redirect('administracion:jefes')
+        return super().dispatch(request, *args, **kwargs)
     
     def form_valid(self, form):
         messages.success(self.request, 'Jefe de Departamento creado correctamente.')
@@ -221,7 +232,10 @@ class UsuarioListView(AdminRequeridoMixin, ListView):
         ctx['rol_filtro'] = self.request.GET.get('rol', '')
         ctx['busqueda'] = self.request.GET.get('q', '')
         from administracion.models import Rol
+        from expediente.models import PlanEstudios
         ctx['roles'] = Rol.choices
+        ctx['carreras_count'] = Carrera.objects.count()
+        ctx['planes_count'] = PlanEstudios.objects.count()
         return ctx
 
 
@@ -257,12 +271,23 @@ class CarreraListView(AdminRequeridoMixin, ListView):
     template_name = 'administracion/carreras/lista.html'
     context_object_name = 'carreras'
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['departamentos_count'] = Departamento.objects.count()
+        return ctx
+
 
 class CarreraCreateView(AdminRequeridoMixin, CreateView):
     model = Carrera
     template_name = 'administracion/carreras/form.html'
-    fields = ['nombre', 'clave', 'activa']
+    fields = ['nombre', 'clave', 'activa', 'departamento']
     success_url = reverse_lazy('administracion:carreras')
+
+    def dispatch(self, request, *args, **kwargs):
+        if not Departamento.objects.exists():
+            messages.error(request, 'No puedes registrar una Carrera porque no hay Departamentos registrados en el sistema. Por favor, crea un Departamento primero.')
+            return redirect('administracion:carreras')
+        return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
         messages.success(self.request, 'Carrera creada exitosamente.')
@@ -272,7 +297,7 @@ class CarreraCreateView(AdminRequeridoMixin, CreateView):
 class CarreraUpdateView(AdminRequeridoMixin, UpdateView):
     model = Carrera
     template_name = 'administracion/carreras/form.html'
-    fields = ['nombre', 'clave', 'activa']
+    fields = ['nombre', 'clave', 'activa', 'departamento']
     success_url = reverse_lazy('administracion:carreras')
 
     def form_valid(self, form):

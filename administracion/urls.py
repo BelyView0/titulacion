@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import views_import
 
 app_name = 'administracion'
 
@@ -25,6 +26,11 @@ urlpatterns = [
     path('carreras/', views.CarreraListView.as_view(), name='carreras'),
     path('carreras/nueva/', views.CarreraCreateView.as_view(), name='carrera_crear'),
     path('carreras/<int:pk>/editar/', views.CarreraUpdateView.as_view(), name='carrera_editar'),
+
+    # Importación y Exportación Masiva vía Excel
+    path('importar-exportar/', views_import.ImportarExportarHubView.as_view(), name='importar_exportar'),
+    path('importar-exportar/descargar/', views_import.DescargarPlantillaView.as_view(), name='descargar_plantilla'),
+    path('importar-exportar/subir/', views_import.SubirExcelView.as_view(), name='subir_excel'),
 
     # ─── Jefe de Proyecto (administración por carrera) ────────
     path('jefe/', views.DashboardJefeProyectoView.as_view(), name='jefe_dashboard'),

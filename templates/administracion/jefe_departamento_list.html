@@ -3,16 +3,40 @@
 {% block page_title %}Gestión de Jefes de Departamento{% endblock %}
 
 {% block content %}
+<!-- Alerta de dependencia faltante si departamentos_count es 0 -->
+{% if departamentos_count == 0 %}
+<div class="alert alert-warning border-warning shadow-sm d-flex align-items-start gap-3 mb-4 fade-in" style="border-left: 4px solid;">
+    <i class="bi bi-exclamation-triangle-fill fs-4 mt-1"></i>
+    <div class="flex-grow-1">
+        <strong>Falta una dependencia crítica: No hay Departamentos registrados</strong>
+        <p class="mb-0 small">No puedes registrar un Jefe de Departamento porque no hay Departamentos en el sistema. Los Jefes de Departamento deben estar vinculados obligatoriamente a un Departamento académico o administrativo existente.</p>
+        <div class="mt-2 gap-2 d-flex">
+            <a href="/admin/administracion/departamento/add/" class="btn btn-sm btn-warning"><i class="bi bi-plus-circle me-1"></i>Crear Departamento</a>
+            <a href="{% url 'administracion:importar_exportar' %}?tab=departamentos" class="btn btn-sm btn-outline-dark"><i class="bi bi-cloud-arrow-up me-1"></i>Importar Departamentos</a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="row">
     <div class="col-12">
         <div class="content-card">
-            <div class="card-header-custom d-flex justify-content-between align-items-center">
+            <div class="card-header-custom d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div><i class="bi bi-person-badge me-2"></i> Jefes de Departamento</div>
-                <div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'administracion:importar_exportar' %}?tab=profesores" class="btn btn-outline-light btn-sm text-white">
+                        <i class="bi bi-file-earmark-excel me-1"></i>Importar Profesores
+                    </a>
+                    {% if departamentos_count > 0 %}
                     <a href="{% url 'administracion:jefe_crear' %}" class="btn btn-light btn-sm text-primary">
                         <i class="bi bi-plus-circle me-1"></i>Nuevo Jefe
                     </a>
-                    <a href="{% url 'administracion:dashboard' %}" class="btn btn-outline-light btn-sm ms-2">
+                    {% else %}
+                    <button class="btn btn-light btn-sm text-muted" disabled title="Debes registrar un departamento primero">
+                        <i class="bi bi-plus-circle me-1"></i>Nuevo Jefe
+                    </button>
+                    {% endif %}
+                    <a href="{% url 'administracion:dashboard' %}" class="btn btn-outline-light btn-sm">
                         <i class="bi bi-arrow-left"></i> Volver
                     </a>
                 </div>

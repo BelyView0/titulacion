@@ -20,3 +20,6 @@ db.sqlite3
 
 # Seguridad admin
 .admin_ensure_lock
+
+# Scratch
+scratch/

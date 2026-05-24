@@ -1,0 +1,280 @@
+{% extends 'base.html' %}
+{% block title %}Importación y Exportación Masiva — ITA{% endblock %}
+{% block page_title %}Importación y Exportación Masiva de Datos{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Panel Izquierdo: Resumen y Estado -->
+    <div class="col-lg-3 mb-4">
+        <div class="content-card p-3 shadow-sm mb-3">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-database-fill-gear"></i> Estado del Servidor
+            </div>
+            <p class="small text-muted mb-3">Conteo actual de registros guardados en el sistema de titulación:</p>
+            <div class="d-grid gap-2">
+                <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                    <span class="small fw-semibold"><i class="bi bi-building me-1"></i> Departamentos</span>
+                    <span class="badge bg-secondary rounded-pill">{{ counts.departamentos }}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                    <span class="small fw-semibold"><i class="bi bi-mortarboard me-1"></i> Carreras</span>
+                    <span class="badge bg-secondary rounded-pill">{{ counts.carreras }}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                    <span class="small fw-semibold"><i class="bi bi-journal-code me-1"></i> Planes de Estudio</span>
+                    <span class="badge bg-secondary rounded-pill">{{ counts.planes }}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                    <span class="small fw-semibold"><i class="bi bi-bezier2 me-1"></i> Modalidades</span>
+                    <span class="badge bg-secondary rounded-pill">{{ counts.modalidades }}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                    <span class="small fw-semibold"><i class="bi bi-person-badge me-1"></i> Profesores / Sinodales</span>
+                    <span class="badge bg-secondary rounded-pill">{{ counts.profesores }}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                    <span class="small fw-semibold"><i class="bi bi-people me-1"></i> Alumnos</span>
+                    <span class="badge bg-secondary rounded-pill">{{ counts.alumnos }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="content-card p-3 shadow-sm bg-light">
+            <div class="card-header-custom mb-2 text-dark"><i class="bi bi-shield-exclamation text-warning"></i> Reglas de Importación</div>
+            <ul class="small text-muted ps-3 mb-0">
+                <li class="mb-1"><strong>Evita duplicados:</strong> Si el registro existe (evaluado por llave única), se actualizarán sus campos en lugar de duplicarse.</li>
+                <li class="mb-1"><strong>Integridad transaccional:</strong> Si una sola celda tiene formato inválido o una llave foránea inexistente, se cancelará toda la importación (Rollback) para mantener el sistema seguro.</li>
+                <li class="mb-1"><strong>Alumnos Nuevos:</strong> Recibirán una contraseña inicial <code>Ita.[Número de Control]!</code> y deberán cambiarla al iniciar sesión.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Panel Derecho: Interfaz de Carga/Descarga por Pestaña -->
+    <div class="col-lg-9">
+        <!-- Mostrar errores de consistencia si ocurrieron durante el POST -->
+        {% if errors %}
+        <div class="alert alert-danger border-danger shadow-sm mb-4">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-x-circle-fill fs-5"></i>
+                <h6 class="mb-0 fw-bold">Se canceló la importación: Se detectaron errores de consistencia (Rollback activado)</h6>
+            </div>
+            <p class="small mb-3 text-white-50">Corrige los siguientes renglones en tu archivo de Excel y vuelve a subirlo. Ningún dato fue guardado.</p>
+            <div class="table-responsive" style="max-height: 250px;">
+                <table class="table table-sm table-striped table-hover table-light mb-0 align-middle small text-dark">
+                    <thead>
+                        <tr><th>Pestaña / Hoja</th><th>Renglón / Fila</th><th>Columna</th><th>Descripción del Error</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for err in errors %}
+                        <tr>
+                            <td><span class="badge bg-danger">{{ err.hoja }}</span></td>
+                            <td class="fw-bold">{{ err.fila }}</td>
+                            <td><code>{{ err.columna }}</code></td>
+                            <td class="text-danger fw-semibold">{{ err.error }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Hub de Pestañas Estilizadas -->
+        <div class="card border-0 shadow-sm overflow-hidden mb-4">
+            <!-- Cabecera de pestañas corporativas -->
+            <div class="card-header bg-dark p-0 border-0">
+                <ul class="nav nav-tabs border-0" id="importTabs" role="tablist" style="background: rgba(0,0,0,.35);">
+                    <li class="nav-item">
+                        <button class="nav-link text-white py-3 px-4 border-0 fw-semibold active" id="tab-todo" data-bs-toggle="tab" data-bs-target="#panel-todo" type="button" role="tab"><i class="bi bi-globe2 me-1"></i> Todo el Sistema</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link text-white py-3 px-3 border-0 fw-semibold" id="tab-departamentos" data-bs-toggle="tab" data-bs-target="#panel-departamentos" type="button" role="tab"><i class="bi bi-building me-1"></i> Deptos.</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link text-white py-3 px-3 border-0 fw-semibold" id="tab-carreras" data-bs-toggle="tab" data-bs-target="#panel-carreras" type="button" role="tab"><i class="bi bi-mortarboard me-1"></i> Carreras</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link text-white py-3 px-3 border-0 fw-semibold" id="tab-planes" data-bs-toggle="tab" data-bs-target="#panel-planes" type="button" role="tab"><i class="bi bi-journal-code me-1"></i> Planes</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link text-white py-3 px-3 border-0 fw-semibold" id="tab-modalidades" data-bs-toggle="tab" data-bs-target="#panel-modalidades" type="button" role="tab"><i class="bi bi-bezier2 me-1"></i> Modalidades</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link text-white py-3 px-3 border-0 fw-semibold" id="tab-profesores" data-bs-toggle="tab" data-bs-target="#panel-profesores" type="button" role="tab"><i class="bi bi-person-badge me-1"></i> Profesores</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link text-white py-3 px-3 border-0 fw-semibold" id="tab-alumnos" data-bs-toggle="tab" data-bs-target="#panel-alumnos" type="button" role="tab"><i class="bi bi-people me-1"></i> Alumnos</button>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Contenido de las pestañas -->
+            <div class="card-body p-4 bg-white">
+                <div class="tab-content" id="importTabsContent">
+                    
+                    {% for key, val in counts.items %}
+                    <!-- Paneles de Catálogos Específicos -->
+                    <div class="tab-pane fade" id="panel-{{ key }}" role="tabpanel">
+                        <div class="row align-items-center">
+                            <div class="col-md-7">
+                                <h5 class="fw-bold text-primary mb-2">Importar / Exportar {{ key|title }}</h5>
+                                <p class="text-muted small mb-4">
+                                    {% if key == 'departamentos' %}
+                                        Gestiona las áreas del instituto. Clave requerida (ej: CB).
+                                    {% elif key == 'carreras' %}
+                                        Gestiona los planes profesionales. Vincula mediante Clave Departamento.
+                                    {% elif key == 'planes' %}
+                                        Registra las retículas oficiales (ej: ISIC-2010-224).
+                                    {% elif key == 'modalidades' %}
+                                        Opciones de egreso asociadas a Planes de Estudio.
+                                    {% elif key == 'profesores' %}
+                                        Catálogo de docentes y sinodales autorizados. Identificador por Cédula Profesional.
+                                    {% elif key == 'alumnos' %}
+                                        Registra estudiantes asociándolos a Carreras y Planes vigentes. Genera su expediente automáticamente.
+                                    {% endif %}
+                                </p>
+
+                                <div class="row g-2 mb-3">
+                                    <div class="col-sm-6">
+                                        <a href="{% url 'administracion:descargar_plantilla' %}?tipo={{ key }}&con_datos=false" class="btn btn-outline-secondary btn-sm w-100 py-2">
+                                            <i class="bi bi-download me-1"></i> Descargar Plantilla Limpia
+                                        </a>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <a href="{% url 'administracion:descargar_plantilla' %}?tipo={{ key }}&con_datos=true" class="btn btn-outline-primary btn-sm w-100 py-2">
+                                            <i class="bi bi-cloud-arrow-down me-1"></i> Descargar con Datos Actuales
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-5 border-start ps-md-4">
+                                <form action="{% url 'administracion:subir_excel' %}" method="post" enctype="multipart/form-data">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="tipo" value="{{ key }}">
+                                    
+                                    <div class="mb-3 text-center drag-zone py-4 px-3 border border-dashed rounded bg-light" style="border-width: 2px; border-color: #ced4da;">
+                                        <i class="bi bi-file-earmark-excel-fill text-success fs-1 mb-2 d-block"></i>
+                                        <label class="form-label small fw-bold mb-1">Subir Excel de {{ key|title }}</label>
+                                        <input type="file" name="archivo_excel" class="form-control form-control-sm border-0 bg-transparent shadow-none" accept=".xlsx" required>
+                                        <div class="form-text small" style="font-size: .75rem;">Solo archivos en formato Excel (.xlsx)</div>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-success btn-sm w-100 py-2 fw-semibold">
+                                        <i class="bi bi-cloud-arrow-up-fill me-1"></i> Procesar Importación Masiva
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    <!-- Panel Principal: Todo el Sistema -->
+                    <div class="tab-pane fade show active" id="panel-todo" role="tabpanel">
+                        <div class="row">
+                            <div class="col-md-7">
+                                <h5 class="fw-bold text-primary mb-2">Importar / Exportar Libro de Trabajo Completo</h5>
+                                <p class="text-muted small mb-4">
+                                    Permite descargar o cargar una hoja de cálculo unificada que contiene las 6 pestañas estructuradas ordenadas por dependencias: 
+                                    <strong>Departamentos ➔ Carreras ➔ Planes ➔ Modalidades ➔ Profesores ➔ Alumnos</strong>.
+                                </p>
+                                
+                                <div class="alert alert-info py-2 px-3 small border-info rounded-3 mb-4" style="background: rgba(13,110,253,.05);">
+                                    <i class="bi bi-info-circle-fill me-2"></i><strong>Recomendado para respaldos:</strong> Descargar con datos actuales sirve como un respaldo completo editable de la base de datos de catálogos y alumnos.
+                                </div>
+
+                                <div class="row g-3">
+                                    <div class="col-sm-6">
+                                        <a href="{% url 'administracion:descargar_plantilla' %}?tipo=todo&con_datos=false" class="btn btn-outline-secondary w-100 py-3">
+                                            <i class="bi bi-file-earmark-excel fs-4 d-block mb-1"></i>
+                                            <span>Plantilla Unificada Vacía</span>
+                                        </a>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <a href="{% url 'administracion:descargar_plantilla' %}?tipo=todo&con_datos=true" class="btn btn-primary w-100 py-3 text-white">
+                                            <i class="bi bi-file-earmark-arrow-down fs-4 d-block mb-1 text-white"></i>
+                                            <strong>Libro Completo con Datos</strong>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-5 border-start ps-md-4">
+                                <form action="{% url 'administracion:subir_excel' %}" method="post" enctype="multipart/form-data">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="tipo" value="todo">
+                                    
+                                    <div class="mb-3 text-center drag-zone py-4 px-3 border border-dashed rounded bg-light" style="border-width: 2px; border-color: #ced4da;">
+                                        <i class="bi bi-file-zip-fill text-success fs-1 mb-2 d-block"></i>
+                                        <label class="form-label small fw-bold mb-1">Subir Libro de Trabajo Completo</label>
+                                        <input type="file" name="archivo_excel" class="form-control form-control-sm border-0 bg-transparent shadow-none" accept=".xlsx" required>
+                                        <div class="form-text small" style="font-size: .75rem;">Procesa todas las pestañas simultáneamente.</div>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-success w-100 py-2 fw-semibold">
+                                        <i class="bi bi-cloud-arrow-up-fill me-1"></i> Cargar y Actualizar Todo el Sistema
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Estilos premium para las pestañas de importación */
+    #importTabs .nav-link {
+        border-radius: 0;
+        transition: all .2s;
+        opacity: .75;
+    }
+    #importTabs .nav-link:hover {
+        background: rgba(255,255,255,.08);
+        opacity: 1;
+    }
+    #importTabs .nav-link.active {
+        background: #fff !important;
+        color: var(--ita-azul) !important;
+        opacity: 1;
+        border-top: 3px solid var(--ita-rojo) !important;
+    }
+    .drag-zone {
+        transition: border-color .2s, background-color .2s;
+    }
+    .drag-zone:hover {
+        border-color: var(--ita-azul-claro) !important;
+        background-color: rgba(0,87,184,.02) !important;
+    }
+</style>
+
+<script>
+    // Código JS para activar automáticamente la pestaña enviada en la URL (ej: ?tab=carreras)
+    (function () {
+        const activeTabKey = "{{ active_tab }}";
+        if (activeTabKey && activeTabKey !== 'todo') {
+            const tabButton = document.getElementById('tab-' + activeTabKey);
+            if (tabButton) {
+                // Desactivar pestaña actual por defecto
+                document.querySelectorAll('#importTabs button').forEach(b => {
+                    b.classList.remove('active');
+                    b.setAttribute('aria-selected', 'false');
+                });
+                document.querySelectorAll('#importTabsContent .tab-pane').forEach(p => {
+                    p.classList.remove('show', 'active');
+                });
+
+                // Activar pestaña indicada
+                tabButton.classList.add('active');
+                tabButton.setAttribute('aria-selected', 'true');
+                const targetPanel = document.querySelector(tabButton.getAttribute('data-bs-target'));
+                if (targetPanel) {
+                    targetPanel.classList.add('show', 'active');
+                }
+            }
+        }
+    })();
+</script>
+{% endblock %}
