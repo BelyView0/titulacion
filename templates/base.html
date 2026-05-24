@@ -504,19 +504,41 @@
             <ul class="navbar-nav me-auto">
 
                 {% if user.es_admin %}
-                <!-- ── ADMIN: Panel de Control ── -->
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-                        <i class="bi bi-gear-wide-connected"></i> Panel Admin
+                <!-- ── ADMIN: Botones individuales ── -->
+                <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.namespace == 'administracion' %}active{% endif %}" href="{% url 'administracion:dashboard' %}">
+                        <i class="bi bi-house"></i> Inicio
                     </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{% url 'administracion:dashboard' %}"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
-                        <li><a class="dropdown-item" href="{% url 'administracion:usuarios' %}"><i class="bi bi-people"></i> Usuarios</a></li>
-                        <li><a class="dropdown-item" href="{% url 'administracion:carreras' %}"><i class="bi bi-mortarboard"></i> Carreras</a></li>
-                        <li><a class="dropdown-item" href="{% url 'administracion:importar_exportar' %}"><i class="bi bi-file-earmark-excel"></i> Importar/Exportar</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="/admin/"><i class="bi bi-terminal"></i> Django Admin</a></li>
-                    </ul>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'usuarios' or request.resolver_match.url_name == 'usuario_crear' or request.resolver_match.url_name == 'usuario_editar' %}active{% endif %}" href="{% url 'administracion:usuarios' %}">
+                        <i class="bi bi-people"></i> Usuarios
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'carreras' or request.resolver_match.url_name == 'carrera_crear' or request.resolver_match.url_name == 'carrera_editar' %}active{% endif %}" href="{% url 'administracion:carreras' %}">
+                        <i class="bi bi-mortarboard"></i> Carreras
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'jefes' or request.resolver_match.url_name == 'jefe_crear' or request.resolver_match.url_name == 'jefe_editar' %}active{% endif %}" href="{% url 'administracion:jefes' %}">
+                        <i class="bi bi-person-badge"></i> Jefes de Depto.
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'importar_exportar' %}active{% endif %}" href="{% url 'administracion:importar_exportar' %}">
+                        <i class="bi bi-file-earmark-excel"></i> Importar/Exportar
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'configuracion' %}active{% endif %}" href="{% url 'administracion:configuracion' %}">
+                        <i class="bi bi-image"></i> Membretes
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/admin/">
+                        <i class="bi bi-terminal"></i> Django Admin
+                    </a>
                 </li>
                 {% endif %}
 
