@@ -258,9 +258,6 @@ class UsuarioCreateView(AdminRequeridoMixin, CreateView):
         
         email = usuario.email
         if email:
-            base_url = self.request.build_absolute_uri('/')[:-1]
-            login_url = f"{base_url}{reverse('login')}"
-            
             subject = "[ITA Titulación] Tu cuenta ha sido creada — Datos de Acceso"
             full_name = usuario.get_full_name() or usuario.username
             
@@ -294,10 +291,8 @@ class UsuarioCreateView(AdminRequeridoMixin, CreateView):
       </table>
     </div>
 
-    <div style="text-align:center;margin:30px 0;">
-      <a href="{login_url}" style="background:#1B396A;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:700;display:inline-block;box-shadow:0 4px 10px rgba(27,57,106,.25);">
-        Acceder a la Plataforma
-      </a>
+    <div style="background:#eef2f7;border-radius:8px;padding:16px;margin:20px 0;text-align:center;color:#445;font-size:14px;line-height:1.5;">
+      Para acceder, abre tu navegador web e ingresa a la dirección habitual de la plataforma de titulación de tu institución.
     </div>
 
     <div style="background:#fffbcb;border-radius:8px;padding:16px;font-size:13px;color:#856404;border:1px solid #ffeeba;margin:20px 0;line-height:1.5;">
@@ -325,8 +320,7 @@ Datos de Acceso:
 - Nombre de usuario: {usuario.username}
 - Contraseña: {password_clear}
 
-Puedes ingresar en la siguiente dirección:
-{login_url}
+Puedes ingresar a la plataforma abriendo tu navegador web e introduciendo la dirección habitual de la institución.
 
 IMPORTANTE: Por motivos de seguridad, el sistema te pedirá cambiar tu contraseña en tu primer inicio de sesión.
 
