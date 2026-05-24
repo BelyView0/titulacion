@@ -239,6 +239,7 @@ class SubirExcelView(AdminRequeridoMixin, View):
         active_keys = sheet_mapping.keys() if tipo == 'todo' else [tipo]
         errors = []
         stats = {k: {'creados': 0, 'actualizados': 0} for k in sheet_mapping.keys()}
+        self.newly_created_users = []
 
         # Ejecución transaccional atómica
         try:
@@ -290,6 +291,102 @@ class SubirExcelView(AdminRequeridoMixin, View):
                     'error': f"Error crítico al guardar en la base de datos: {e}"
                 }]
             return render(request, 'administracion/importar_exportar.html', ctx)
+
+        # Enviar correos post-commit para evitar enviar correos si la transacción se revierte
+        if hasattr(self, 'newly_created_users') and self.newly_created_users:
+            from django.core.mail import EmailMultiAlternatives
+            from django.conf import settings
+            
+            base_url = request.build_absolute_uri('/')[:-1]
+            login_url = f"{base_url}{reverse('login')}"
+
+            for u_data in self.newly_created_users:
+                email = u_data['email']
+                if not email:
+                    continue
+                
+                subject = "[ITA Titulación] Tu cuenta ha sido creada — Datos de Acceso"
+                
+                html_content = f"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;">
+<div style="max-width:600px;margin:0 auto;padding:20px;">
+  <div style="background:linear-gradient(135deg,#1B396A,#0f2447);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
+    <div style="font-size:36px;color:#fff;">🎓</div>
+    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Bienvenido a la Plataforma de Titulación</h2>
+    <p style="color:rgba(255,255,255,.8);margin:0;font-size:13px;">Instituto Tecnológico de Apizaco — TecNM</p>
+  </div>
+  <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
+    <p style="font-size:15px;color:#333;">Estimado(a) <strong>{u_data['full_name']}</strong>,</p>
+    <p style="font-size:14px;color:#555;line-height:1.6;">
+      Te informamos que tu cuenta de acceso para la plataforma de titulación del 
+      <strong>Instituto Tecnológico de Apizaco</strong> ha sido registrada con éxito.
+    </p>
+
+    <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin:20px 0;border-left:4px solid #1B396A;">
+      <h3 style="margin-top:0;color:#1B396A;font-size:15px;">Datos de Acceso:</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;">
+        <tr>
+          <td style="padding:6px 0;font-weight:700;color:#6c757d;width:150px;">Nombre de usuario:</td>
+          <td style="padding:6px 0;font-weight:700;color:#333;">{u_data['username']}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;font-weight:700;color:#6c757d;">Contraseña temporal:</td>
+          <td style="padding:6px 0;font-weight:700;color:#333;font-family:monospace;font-size:15px;background:#eef2f7;padding:4px 8px;border-radius:4px;">{u_data['password']}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="text-align:center;margin:30px 0;">
+      <a href="{login_url}" style="background:#1B396A;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:700;display:inline-block;box-shadow:0 4px 10px rgba(27,57,106,.25);">
+        Acceder a la Plataforma
+      </a>
+    </div>
+
+    <div style="background:#fffbcb;border-radius:8px;padding:16px;font-size:13px;color:#856404;border:1px solid #ffeeba;margin:20px 0;line-height:1.5;">
+      <strong>⚠️ Importante:</strong> Por motivos de seguridad y confidencialidad, 
+      el sistema te solicitará cambiar esta contraseña temporal por una contraseña 
+      personal y segura en tu primer inicio de sesión.
+    </div>
+
+    <p style="font-size:13px;color:#777;line-height:1.5;margin-top:30px;">
+      Este correo electrónico también sirve para validar la existencia y correcto funcionamiento de tu dirección de contacto.
+    </p>
+  </div>
+  <p style="text-align:center;font-size:11px;color:#999;margin-top:16px;">
+    Este mensaje fue generado automáticamente por el Sistema de Gestión de Titulación.<br>
+    Instituto Tecnológico de Apizaco — TecNM.
+  </p>
+</div>
+</body></html>"""
+
+                text_content = f"""Estimado(a) {u_data['full_name']},
+
+Te informamos que tu cuenta de acceso para la plataforma de titulación del Instituto Tecnológico de Apizaco ha sido creada.
+
+Datos de Acceso:
+- Nombre de usuario: {u_data['username']}
+- Contraseña temporal: {u_data['password']}
+
+Puedes ingresar en la siguiente dirección:
+{login_url}
+
+IMPORTANTE: Por motivos de seguridad, el sistema te pedirá cambiar tu contraseña en tu primer inicio de sesión.
+
+Instituto Tecnológico de Apizaco — TecNM.
+"""
+                try:
+                    msg = EmailMultiAlternatives(
+                        subject=subject,
+                        body=text_content,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        to=[email]
+                    )
+                    msg.attach_alternative(html_content, "text/html")
+                    msg.send(fail_silently=True)
+                except Exception:
+                    pass
+        
 
         # Armar mensaje de éxito con estadísticas descriptivas
         success_msg = "¡Importación y actualización masiva realizada con éxito!<br><ul class='mb-0'>"
@@ -570,6 +667,14 @@ class SubirExcelView(AdminRequeridoMixin, View):
             user.set_password(default_pwd)
             user.save()
             created = True
+
+            # Registrar para enviar correo post-commit
+            self.newly_created_users.append({
+                'username': control,
+                'email': email,
+                'password': default_pwd,
+                'full_name': f"{first_name} {last_name} {apellido_materno}".strip().upper()
+            })
         else:
             # Actualizar campos existentes
             cambio = False
