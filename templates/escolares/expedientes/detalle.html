@@ -58,6 +58,16 @@
                 <small class="text-muted fw-semibold">Fecha de apertura</small>
                 <div>{{ expediente.fecha_apertura|date:"d/m/Y H:i" }}</div>
             </div>
+            {% if expediente.comprobante_pago %}
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Comprobante de Pago</small>
+                <div>
+                    <a href="{{ expediente.comprobante_pago.url }}" target="_blank" class="btn btn-outline-danger btn-xs py-0 px-2 fw-semibold" style="font-size: .75rem;">
+                        <i class="bi bi-file-earmark-pdf me-1"></i>Ver Pago (PDF)
+                    </a>
+                </div>
+            </div>
+            {% endif %}
             <div class="proceso-progress mt-3">
                 <div class="d-flex justify-content-between mb-1">
                     <small class="fw-semibold text-muted">Progreso</small>
@@ -94,10 +104,44 @@
             </button>
             {% endif %}
 
+            {% elif expediente.estado == 'PAGO_PENDIENTE' %}
+            <div class="alert alert-warning py-2 mb-0 small">
+                <i class="bi bi-hourglass-split me-1"></i>
+                <strong>Esperando pago:</strong> El estudiante debe subir su comprobante de pago de titulación en PDF para continuar.
+            </div>
+
+            {% elif expediente.estado == 'PAGO_EN_REVISION' %}
+            <div class="alert alert-info py-2 mb-3 small">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                <strong>Pago por Validar:</strong> El alumno ha cargado su comprobante de pago. Por favor, verifícalo.
+            </div>
+            {% if expediente.comprobante_pago %}
+            <div class="mb-3">
+                <a href="{{ expediente.comprobante_pago.url }}" target="_blank" class="btn btn-outline-primary btn-sm w-100 mb-2">
+                    <i class="bi bi-file-earmark-pdf me-1"></i>Visualizar Comprobante (PDF)
+                </a>
+            </div>
+            <form method="post" action="{% url 'escolares:validar_pago' expediente.pk %}" class="mt-2">
+                {% csrf_token %}
+                <div class="mb-2">
+                    <label class="form-label small fw-semibold">Observaciones (solo para rechazo)</label>
+                    <textarea name="observaciones" class="form-control form-control-sm" rows="2" placeholder="Escribe el motivo del rechazo aquí..."></textarea>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="submit" name="accion" value="APROBAR" class="btn btn-success btn-sm flex-fill">
+                        <i class="bi bi-check-circle me-1"></i>Aprobar Pago
+                    </button>
+                    <button type="submit" name="accion" value="RECHAZAR" class="btn btn-danger btn-sm flex-fill">
+                        <i class="bi bi-x-circle me-1"></i>Rechazar Pago
+                    </button>
+                </div>
+            </form>
+            {% endif %}
+
             {% elif expediente.estado == 'INTEGRADO' %}
             <div class="alert alert-primary py-2 mb-3 small" style="border-left: 4px solid var(--ita-azul);">
                 <i class="bi bi-info-circle me-1"></i>
-                <strong>Listo para envío:</strong> El expediente ha sido integrado. Descárgalo para realizar el <strong>envío externo/físico</strong>.
+                <strong>Listo para envío:</strong> El expediente ha sido integrado y el pago está verificado. Descárgalo para realizar el <strong>envío externo/físico</strong>.
             </div>
 
             <!-- Paso 1: Descargar -->

@@ -247,6 +247,59 @@ class DocumentoCargarView(ExpedientePropioMixin, UpdateView):
         return redirect('alumnos:expediente')
 
 
+class SubirComprobantePagoView(ExpedientePropioMixin, View):
+    """El alumno sube o reemplaza su comprobante de pago PDF."""
+
+    def post(self, request, *args, **kwargs):
+        expediente = self.get_expediente()
+        if not expediente:
+            messages.error(request, 'No tienes expediente activo.')
+            return redirect('alumnos:dashboard')
+
+        if expediente.estado not in [EstadoExpediente.PAGO_PENDIENTE]:
+            messages.error(request, 'No estás en la etapa de pago actualmente.')
+            return redirect('alumnos:expediente')
+
+        comprobante = request.FILES.get('comprobante_pago')
+        if not comprobante:
+            messages.error(request, 'Por favor, selecciona un archivo.')
+            return redirect('alumnos:expediente')
+
+        # Validar extensión
+        if not comprobante.name.lower().endswith('.pdf'):
+            messages.error(request, 'El comprobante debe ser un archivo en formato PDF.')
+            return redirect('alumnos:expediente')
+
+        # Guardar archivo y actualizar estado
+        expediente.comprobante_pago = comprobante
+        expediente.pago_validado = 'CARGADO'
+        expediente.fecha_subida_pago = timezone.now()
+        expediente.estado = EstadoExpediente.PAGO_EN_REVISION
+        expediente.save(update_fields=[
+            'comprobante_pago', 'pago_validado', 'fecha_subida_pago', 'estado', 'fecha_ultima_actualizacion'
+        ])
+
+        # Registrar en el historial
+        registrar_cambio_estado(
+            expediente=expediente,
+            estado_nuevo=EstadoExpediente.PAGO_EN_REVISION,
+            realizado_por=request.user,
+            descripcion='Alumno cargó su comprobante de pago.'
+        )
+
+        from expediente.notifications import notificar_alumno
+        notificar_alumno(
+            expediente=expediente,
+            tipo='AVANCE',
+            titulo='Comprobante de pago cargado',
+            url=reverse('alumnos:expediente'),
+            mensaje='Has subido tu comprobante de pago. Servicios Escolares lo validará a la brevedad.'
+        )
+
+        messages.success(request, '¡Comprobante de pago subido correctamente! En espera de validación de Servicios Escolares.')
+        return redirect('alumnos:expediente')
+
+
 class NotificacionListView(AlumnoRequeridoMixin, ListView):
     model = Notificacion
     template_name = 'alumnos/notificaciones/lista.html'
@@ -277,6 +330,8 @@ class TimelineView(ExpedientePropioMixin, TemplateView):
                 (EstadoExpediente.DOCUMENTOS_PENDIENTES, 'Carga de Documentos'),
                 (EstadoExpediente.EN_REVISION_DOCUMENTOS, 'Revisión Documentos'),
                 (EstadoExpediente.LISTO_INTEGRACION, 'Listo Integración'),
+                (EstadoExpediente.PAGO_PENDIENTE, 'Pago Pendiente'),
+                (EstadoExpediente.PAGO_EN_REVISION, 'Pago en Revisión'),
                 (EstadoExpediente.INTEGRADO, 'Integrado'),
                 (EstadoExpediente.ENVIADO_CDMX, 'Enviado CDMX'),
                 (EstadoExpediente.APROBADO_CDMX, 'Aprobado CDMX'),

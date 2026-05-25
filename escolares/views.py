@@ -256,17 +256,85 @@ class IntegrarExpedienteView(EscolaresRequeridoMixin, View):
 
         registrar_cambio_estado(
             expediente=expediente,
-            estado_nuevo=EstadoExpediente.INTEGRADO,
+            estado_nuevo=EstadoExpediente.PAGO_PENDIENTE,
             realizado_por=request.user,
-            descripcion='Servicios Escolares integró el expediente completo.'
+            descripcion='Servicios Escolares integró el expediente completo. En espera de pago.'
         )
         notificar_alumno(
             expediente=expediente,
             tipo='AVANCE',
-            titulo='Expediente Integrado',
-            mensaje='Servicios Escolares ha integrado tu expediente completo. En proceso de envío a CDMX.',
+            titulo='Expediente Integrado — Pendiente de Pago',
+            mensaje='Servicios Escolares ha integrado tu expediente completo. Por favor, sube tu comprobante de pago para continuar.',
         )
-        messages.success(request, 'Expediente integrado exitosamente.')
+        messages.success(request, 'Expediente integrado exitosamente. Ahora el expediente está en etapa de pago.')
+        return redirect('escolares:expediente_detalle', pk=pk)
+
+
+class ValidarPagoEscolaresView(EscolaresRequeridoMixin, View):
+    """Servicios Escolares aprueba o rechaza el comprobante de pago cargado."""
+
+    def post(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+        accion = request.POST.get('accion')  # APROBAR, RECHAZAR
+        observaciones = request.POST.get('observaciones', '').strip()
+
+        if expediente.estado != EstadoExpediente.PAGO_EN_REVISION:
+            messages.error(request, 'El expediente no se encuentra en revisión de pago.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        if accion == 'APROBAR':
+            expediente.pago_validado = 'APROBADO'
+            expediente.estado = EstadoExpediente.INTEGRADO
+            expediente.pago_observaciones = ''
+            expediente.fecha_validacion_pago = timezone.now()
+            expediente.save(update_fields=[
+                'pago_validado', 'estado', 'pago_observaciones', 'fecha_validacion_pago', 'fecha_ultima_actualizacion'
+            ])
+
+            registrar_cambio_estado(
+                expediente=expediente,
+                estado_nuevo=EstadoExpediente.INTEGRADO,
+                realizado_por=request.user,
+                descripcion='Servicios Escolares aprobó el comprobante de pago.'
+            )
+            notificar_alumno(
+                expediente=expediente,
+                tipo='APROBADO',
+                titulo='Pago de Titulación Aprobado',
+                mensaje='Tu comprobante de pago ha sido aprobado. El expediente está listo para envío a CDMX.',
+            )
+            messages.success(request, 'Comprobante de pago aprobado con éxito. El expediente avanza a la etapa de Integrado.')
+
+        elif accion == 'RECHAZAR':
+            if not observaciones:
+                messages.error(request, 'Debes escribir observaciones/motivo del rechazo.')
+                return redirect('escolares:expediente_detalle', pk=pk)
+
+            expediente.pago_validado = 'RECHAZADO'
+            expediente.estado = EstadoExpediente.PAGO_PENDIENTE
+            expediente.pago_observaciones = observaciones
+            expediente.fecha_validacion_pago = timezone.now()
+            expediente.save(update_fields=[
+                'pago_validado', 'estado', 'pago_observaciones', 'fecha_validacion_pago', 'fecha_ultima_actualizacion'
+            ])
+
+            registrar_cambio_estado(
+                expediente=expediente,
+                estado_nuevo=EstadoExpediente.PAGO_PENDIENTE,
+                realizado_por=request.user,
+                descripcion=f'Servicios Escolares rechazó el comprobante de pago. Motivo: {observaciones}'
+            )
+            notificar_alumno(
+                expediente=expediente,
+                tipo='RECHAZADO',
+                titulo='Comprobante de Pago Rechazado',
+                mensaje=f'Tu comprobante de pago fue rechazado. Observaciones: {observaciones}',
+            )
+            messages.success(request, 'Comprobante de pago rechazado con éxito.')
+
+        else:
+            messages.error(request, 'Acción no válida.')
+
         return redirect('escolares:expediente_detalle', pk=pk)
 
 

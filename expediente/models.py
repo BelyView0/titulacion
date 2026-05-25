@@ -95,6 +95,8 @@ class EstadoExpediente(models.TextChoices):
     DOCUMENTOS_PENDIENTES = 'DOCUMENTOS_PENDIENTES', 'Carga de Documentos Pendiente'
     EN_REVISION_DOCUMENTOS = 'EN_REVISION_DOCUMENTOS', 'Documentos en Revisión'
     LISTO_INTEGRACION = 'LISTO_INTEGRACION', 'Listo para Integración (Escolares)'
+    PAGO_PENDIENTE = 'PAGO_PENDIENTE', 'Pago de Titulación Pendiente'
+    PAGO_EN_REVISION = 'PAGO_EN_REVISION', 'Pago en Revisión'
     INTEGRADO = 'INTEGRADO', 'Expediente Integrado'
     ENVIADO_CDMX = 'ENVIADO_CDMX', 'Enviado a Revisión CDMX'
     RECHAZADO_CDMX = 'RECHAZADO_CDMX', 'Rechazado por CDMX'
@@ -174,6 +176,30 @@ class Expediente(models.Model):
         default=False,
         verbose_name='¿Foto física entregada en Escolares?'
     )
+    # Campos de Pago
+    comprobante_pago = models.FileField(
+        upload_to='comprobantes_pago/%Y/',
+        null=True, blank=True,
+        verbose_name='Comprobante de Pago (PDF)'
+    )
+    pago_validado = models.CharField(
+        max_length=20,
+        choices=[
+            ('PENDIENTE', 'Pendiente de Carga'),
+            ('CARGADO', 'Comprobante Cargado'),
+            ('APROBADO', 'Aprobado'),
+            ('RECHAZADO', 'Rechazado')
+        ],
+        default='PENDIENTE',
+        verbose_name='Estado de Validación del Pago'
+    )
+    pago_observaciones = models.TextField(
+        blank=True,
+        verbose_name='Observaciones de Validación del Pago'
+    )
+    fecha_subida_pago = models.DateTimeField(null=True, blank=True)
+    fecha_validacion_pago = models.DateTimeField(null=True, blank=True)
+
     # Fechas clave
     fecha_apertura = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de apertura')
     fecha_ultima_actualizacion = models.DateTimeField(auto_now=True)
@@ -201,6 +227,8 @@ class Expediente(models.Model):
             EstadoExpediente.DOCUMENTOS_PENDIENTES: 'warning',
             EstadoExpediente.EN_REVISION_DOCUMENTOS: 'info',
             EstadoExpediente.LISTO_INTEGRACION: 'primary',
+            EstadoExpediente.PAGO_PENDIENTE: 'warning',
+            EstadoExpediente.PAGO_EN_REVISION: 'info',
             EstadoExpediente.INTEGRADO: 'primary',
             EstadoExpediente.ENVIADO_CDMX: 'info',
             EstadoExpediente.RECHAZADO_CDMX: 'danger',
@@ -223,6 +251,8 @@ class Expediente(models.Model):
             EstadoExpediente.DOCUMENTOS_PENDIENTES,
             EstadoExpediente.EN_REVISION_DOCUMENTOS,
             EstadoExpediente.LISTO_INTEGRACION,
+            EstadoExpediente.PAGO_PENDIENTE,
+            EstadoExpediente.PAGO_EN_REVISION,
             EstadoExpediente.INTEGRADO,
             EstadoExpediente.ENVIADO_CDMX,
             EstadoExpediente.APROBADO_CDMX,
@@ -743,6 +773,8 @@ class HistorialExpediente(models.Model):
             'DOCUMENTOS_PENDIENTES': 'warning',
             'EN_REVISION_DOCUMENTOS': 'info',
             'LISTO_INTEGRACION': 'primary',
+            'PAGO_PENDIENTE': 'warning',
+            'PAGO_EN_REVISION': 'info',
             'INTEGRADO': 'primary',
             'ENVIADO_CDMX': 'info',
             'RECHAZADO_CDMX': 'danger',
