@@ -95,18 +95,38 @@ class EstadoExpediente(models.TextChoices):
     DOCUMENTOS_PENDIENTES = 'DOCUMENTOS_PENDIENTES', 'Carga de Documentos Pendiente'
     EN_REVISION_DOCUMENTOS = 'EN_REVISION_DOCUMENTOS', 'Documentos en Revisión'
     LISTO_INTEGRACION = 'LISTO_INTEGRACION', 'Listo para Integración (Escolares)'
+    RECIBI_PAPEL_ORIGINAL = 'RECIBI_PAPEL_ORIGINAL', 'Papeles originales recibidos'
     PAGO_PENDIENTE = 'PAGO_PENDIENTE', 'Pago de Titulación Pendiente'
     PAGO_EN_REVISION = 'PAGO_EN_REVISION', 'Pago en Revisión'
+    ESPERANDO_CONSTANCIA = 'ESPERANDO_CONSTANCIA', 'Esperando Constancia de No Inconveniencia'
+    CONSTANCIA_EN_REVISION = 'CONSTANCIA_EN_REVISION', 'Constancia en Revisión Académica'
     INTEGRADO = 'INTEGRADO', 'Expediente Integrado'
-    ENVIADO_CDMX = 'ENVIADO_CDMX', 'Enviado a Revisión CDMX'
-    RECHAZADO_CDMX = 'RECHAZADO_CDMX', 'Rechazado por CDMX'
-    APROBADO_CDMX = 'APROBADO_CDMX', 'Aprobado por CDMX'
     EMPASTADO_PENDIENTE = 'EMPASTADO_PENDIENTE', 'Pendiente de Recepción de Empastado'
     EMPASTADO_RECIBIDO = 'EMPASTADO_RECIBIDO', 'Empastado Recibido'
     JURADO_ASIGNADO = 'JURADO_ASIGNADO', 'Jurado Asignado'
     ACTO_PROGRAMADO = 'ACTO_PROGRAMADO', 'Acto Protocolario Programado'
+    ACTA_EXENCION = 'ACTA_EXENCION', 'Acta de Exención de Examen Profesional'
+    TRAMITE_DGP = 'TRAMITE_DGP', 'Captura en plataforma (e-títulos) de TNM'
+    CEDULA_EN_REVISION = 'CEDULA_EN_REVISION', 'Revisión de Cédula Profesional'
+    CEDULA_RECHAZADA = 'CEDULA_RECHAZADA', 'Cédula Profesional Rechazada'
+    CITA_ENTREGA = 'CITA_ENTREGA', 'Cita de Entrega Programada'
     CONCLUIDO = 'CONCLUIDO', 'Proceso Concluido'
     CANCELADO = 'CANCELADO', 'Cancelado'
+
+
+ESTADOS_INTEGRADOS = [
+    EstadoExpediente.INTEGRADO,
+    EstadoExpediente.EMPASTADO_PENDIENTE,
+    EstadoExpediente.EMPASTADO_RECIBIDO,
+    EstadoExpediente.JURADO_ASIGNADO,
+    EstadoExpediente.ACTO_PROGRAMADO,
+    EstadoExpediente.ACTA_EXENCION,
+    EstadoExpediente.TRAMITE_DGP,
+    EstadoExpediente.CEDULA_EN_REVISION,
+    EstadoExpediente.CEDULA_RECHAZADA,
+    EstadoExpediente.CITA_ENTREGA,
+    EstadoExpediente.CONCLUIDO,
+]
 
 
 class EstadoDocumento(models.TextChoices):
@@ -199,11 +219,31 @@ class Expediente(models.Model):
     )
     fecha_subida_pago = models.DateTimeField(null=True, blank=True)
     fecha_validacion_pago = models.DateTimeField(null=True, blank=True)
+    # Constancia de No Inconveniencia (subida manualmente por Escolares)
+    constancia_no_inconveniencia = models.FileField(
+        upload_to='constancias/%Y/',
+        null=True, blank=True,
+        verbose_name='Constancia de No Inconveniencia (PDF firmado)'
+    )
+    fecha_constancia = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de carga de la constancia')
+
+    # Gestión de Cédula y Cita de Entrega
+    cedula_profesional_pdf = models.FileField(
+        upload_to='cedulas/%Y/',
+        null=True, blank=True,
+        verbose_name='Cédula Profesional (PDF)'
+    )
+    fecha_subida_cedula = models.DateTimeField(null=True, blank=True)
+    observaciones_cedula = models.TextField(blank=True, verbose_name='Observaciones de revisión de cédula')
+    
+    fecha_cita_entrega = models.DateTimeField(null=True, blank=True, verbose_name='Fecha y Hora de Cita para Entrega')
+    instrucciones_cita = models.TextField(blank=True, verbose_name='Instrucciones para la Cita')
 
     # Fechas clave
     fecha_apertura = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de apertura')
     fecha_ultima_actualizacion = models.DateTimeField(auto_now=True)
     fecha_conclusion = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de conclusión')
+    fecha_ultimo_recordatorio = models.DateTimeField(null=True, blank=True, verbose_name='Fecha del último recordatorio')
     # Observaciones generales de División de Estudios
     observaciones_division = models.TextField(
         blank=True,
@@ -229,36 +269,45 @@ class Expediente(models.Model):
             EstadoExpediente.LISTO_INTEGRACION: 'primary',
             EstadoExpediente.PAGO_PENDIENTE: 'warning',
             EstadoExpediente.PAGO_EN_REVISION: 'info',
+            EstadoExpediente.ESPERANDO_CONSTANCIA: 'warning',
+            EstadoExpediente.CONSTANCIA_EN_REVISION: 'info',
             EstadoExpediente.INTEGRADO: 'primary',
-            EstadoExpediente.ENVIADO_CDMX: 'info',
-            EstadoExpediente.RECHAZADO_CDMX: 'danger',
-            EstadoExpediente.APROBADO_CDMX: 'success',
             EstadoExpediente.EMPASTADO_PENDIENTE: 'warning',
             EstadoExpediente.EMPASTADO_RECIBIDO: 'success',
             EstadoExpediente.JURADO_ASIGNADO: 'primary',
             EstadoExpediente.ACTO_PROGRAMADO: 'primary',
+            EstadoExpediente.ACTA_EXENCION: 'info',
+            EstadoExpediente.TRAMITE_DGP: 'info',
+            EstadoExpediente.CEDULA_EN_REVISION: 'warning',
+            EstadoExpediente.CEDULA_RECHAZADA: 'danger',
+            EstadoExpediente.CITA_ENTREGA: 'success',
             EstadoExpediente.CONCLUIDO: 'success',
-            EstadoExpediente.CANCELADO: 'dark',
+            EstadoExpediente.CANCELADO: 'danger',
         }
         return colores.get(self.estado, 'secondary')
 
     def porcentaje_progreso(self):
         """Calcula el porcentaje de avance del proceso para la barra de progreso."""
-        etapas = list(EstadoExpediente.values)
         etapas_lineales = [
             EstadoExpediente.BORRADOR,
             EstadoExpediente.EN_REVISION_ACADEMICO,
             EstadoExpediente.DOCUMENTOS_PENDIENTES,
             EstadoExpediente.EN_REVISION_DOCUMENTOS,
             EstadoExpediente.LISTO_INTEGRACION,
+            EstadoExpediente.RECIBI_PAPEL_ORIGINAL,
             EstadoExpediente.PAGO_PENDIENTE,
             EstadoExpediente.PAGO_EN_REVISION,
+            EstadoExpediente.ESPERANDO_CONSTANCIA,
+            EstadoExpediente.CONSTANCIA_EN_REVISION,
             EstadoExpediente.INTEGRADO,
-            EstadoExpediente.ENVIADO_CDMX,
-            EstadoExpediente.APROBADO_CDMX,
+            EstadoExpediente.EMPASTADO_PENDIENTE,
             EstadoExpediente.EMPASTADO_RECIBIDO,
             EstadoExpediente.JURADO_ASIGNADO,
             EstadoExpediente.ACTO_PROGRAMADO,
+            EstadoExpediente.ACTA_EXENCION,
+            EstadoExpediente.TRAMITE_DGP,
+            EstadoExpediente.CEDULA_EN_REVISION,
+            EstadoExpediente.CITA_ENTREGA,
             EstadoExpediente.CONCLUIDO,
         ]
         if self.estado in etapas_lineales:
@@ -276,7 +325,8 @@ class Expediente(models.Model):
         return self.documentos.exclude(estado=EstadoDocumento.APROBADO).count()
 
     def todos_documentos_aprobados(self):
-        docs = self.documentos.all()
+        """Return True only if all *obligatory* documents are approved."""
+        docs = self.documentos.filter(tipo_documento__es_obligatorio=True)
         if not docs.exists():
             return False
         return all(d.estado == EstadoDocumento.APROBADO for d in docs)
@@ -419,64 +469,6 @@ class ValidacionDocumento(models.Model):
 
 
 # ─────────────────────────────────────────────────────────────
-# ENVÍO A CDMX
-# ─────────────────────────────────────────────────────────────
-
-class EnvioCDMX(models.Model):
-    """
-    Registro del envío del expediente a CDMX para registro de título
-    y expedición de cédula profesional electrónica.
-    """
-    ESTADO_CHOICES = [
-        ('PREPARADO', 'Preparado para envío'),
-        ('ENVIADO', 'Enviado a CDMX/TecNM'),
-        ('EN_REVISION', 'En revisión en CDMX'),
-        ('APROBADO', 'Aprobado por CDMX'),
-        ('RECHAZADO', 'Rechazado por CDMX'),
-    ]
-
-    expediente = models.ForeignKey(
-        Expediente, on_delete=models.CASCADE,
-        related_name='envios_cdmx',
-        verbose_name='Expediente'
-    )
-    numero_oficio = models.CharField(
-        max_length=100, blank=True,
-        verbose_name='Número de oficio de envío'
-    )
-    fecha_envio = models.DateField(null=True, blank=True, verbose_name='Fecha de envío')
-    estado = models.CharField(
-        max_length=15, choices=ESTADO_CHOICES,
-        default='PREPARADO', verbose_name='Estado'
-    )
-    observaciones_envio = models.TextField(blank=True, verbose_name='Observaciones del envío')
-    # Respuesta de CDMX
-    fecha_respuesta = models.DateField(null=True, blank=True, verbose_name='Fecha de respuesta')
-    observaciones_cdmx = models.TextField(
-        blank=True,
-        verbose_name='Observaciones de CDMX (en caso de rechazo)'
-    )
-    numero_registro_titulo = models.CharField(
-        max_length=100, blank=True,
-        verbose_name='Número de registro del título (si fue aprobado)'
-    )
-    # Auditoría
-    registrado_por = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL, null=True,
-        related_name='envios_cdmx_registrados',
-        verbose_name='Registrado por'
-    )
-    fecha_creacion = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name = 'Envío a CDMX'
-        verbose_name_plural = 'Envíos a CDMX'
-        ordering = ['-fecha_creacion']
-
-    def __str__(self):
-        return f'Envío CDMX — {self.expediente.alumno.get_full_name()} — {self.get_estado_display()}'
-
 
 # ─────────────────────────────────────────────────────────────
 # RECEPCIÓN DE EMPASTADO
@@ -773,18 +765,23 @@ class HistorialExpediente(models.Model):
             'DOCUMENTOS_PENDIENTES': 'warning',
             'EN_REVISION_DOCUMENTOS': 'info',
             'LISTO_INTEGRACION': 'primary',
+            'RECIBI_PAPEL_ORIGINAL': 'primary',
             'PAGO_PENDIENTE': 'warning',
             'PAGO_EN_REVISION': 'info',
+            'ESPERANDO_CONSTANCIA': 'warning',
+            'CONSTANCIA_EN_REVISION': 'info',
             'INTEGRADO': 'primary',
-            'ENVIADO_CDMX': 'info',
-            'RECHAZADO_CDMX': 'danger',
-            'APROBADO_CDMX': 'success',
             'EMPASTADO_PENDIENTE': 'warning',
             'EMPASTADO_RECIBIDO': 'success',
             'JURADO_ASIGNADO': 'primary',
             'ACTO_PROGRAMADO': 'primary',
+            'ACTA_EXENCION': 'info',
+            'TRAMITE_DGP': 'info',
+            'CEDULA_EN_REVISION': 'warning',
+            'CEDULA_RECHAZADA': 'danger',
+            'CITA_ENTREGA': 'success',
             'CONCLUIDO': 'success',
-            'CANCELADO': 'dark',
+            'CANCELADO': 'danger',
         }
         return colores.get(self.estado_nuevo, 'secondary')
 

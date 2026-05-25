@@ -15,4 +15,5 @@ urlpatterns = [
     path('documentos/<int:pk>/cargar/', views.DocumentoCargarView.as_view(), name='documento_cargar'),
     path('notificaciones/', views.NotificacionListView.as_view(), name='notificaciones'),
     path('confirmar-asistencia/', views.ConfirmarAsistenciaAlumnoView.as_view(), name='confirmar_asistencia'),
+    path('expediente/subir-cedula/', views.SubirCedulaAlumnoView.as_view(), name='subir_cedula'),
 ]

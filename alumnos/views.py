@@ -165,7 +165,7 @@ class EnviarDocumentosRevisionView(ExpedientePropioMixin, View):
             messages.error(request, 'No tienes expediente activo.')
             return redirect('alumnos:dashboard')
 
-        if expediente.estado not in [EstadoExpediente.DOCUMENTOS_PENDIENTES, EstadoExpediente.RECHAZADO_CDMX]:
+        if expediente.estado not in [EstadoExpediente.DOCUMENTOS_PENDIENTES]:
             messages.error(request, 'Tu expediente no está en un estado que permita el envío de documentos.')
             return redirect('alumnos:expediente')
 
@@ -330,15 +330,20 @@ class TimelineView(ExpedientePropioMixin, TemplateView):
                 (EstadoExpediente.DOCUMENTOS_PENDIENTES, 'Carga de Documentos'),
                 (EstadoExpediente.EN_REVISION_DOCUMENTOS, 'Revisión Documentos'),
                 (EstadoExpediente.LISTO_INTEGRACION, 'Listo Integración'),
+                (EstadoExpediente.RECIBI_PAPEL_ORIGINAL, 'Papeles Recibidos'),
                 (EstadoExpediente.PAGO_PENDIENTE, 'Pago Pendiente'),
                 (EstadoExpediente.PAGO_EN_REVISION, 'Pago en Revisión'),
+                (EstadoExpediente.ESPERANDO_CONSTANCIA, 'Esperando Constancia'),
+                (EstadoExpediente.CONSTANCIA_EN_REVISION, 'Constancia en Revisión'),
                 (EstadoExpediente.INTEGRADO, 'Integrado'),
-                (EstadoExpediente.ENVIADO_CDMX, 'Enviado CDMX'),
-                (EstadoExpediente.APROBADO_CDMX, 'Aprobado CDMX'),
                 (EstadoExpediente.EMPASTADO_PENDIENTE, 'Empastado Pendiente'),
                 (EstadoExpediente.EMPASTADO_RECIBIDO, 'Empastado Recibido'),
                 (EstadoExpediente.JURADO_ASIGNADO, 'Jurado Asignado'),
                 (EstadoExpediente.ACTO_PROGRAMADO, 'Acto Programado'),
+                (EstadoExpediente.ACTA_EXENCION, 'Acta de Exención'),
+                (EstadoExpediente.TRAMITE_DGP, 'Captura en plataforma (e-títulos) de TNM'),
+                (EstadoExpediente.CEDULA_EN_REVISION, 'Cédula en Revisión'),
+                (EstadoExpediente.CITA_ENTREGA, 'Cita de Entrega'),
                 (EstadoExpediente.CONCLUIDO, 'Concluido'),
             ]
             ctx['estados_proceso'] = etapas_lineales
@@ -397,3 +402,42 @@ class ConfirmarAsistenciaAlumnoView(AlumnoRequeridoMixin, View):
             _enviar_correo_acto_confirmado(acto)
 
         return redirect('alumnos:dashboard')
+
+
+class SubirCedulaAlumnoView(ExpedientePropioMixin, View):
+    """El alumno sube su Cédula Profesional en formato PDF."""
+
+    def post(self, request):
+        expediente = self.get_expediente()
+        if not expediente:
+            messages.error(request, 'No tienes expediente activo.')
+            return redirect('alumnos:dashboard')
+
+        if expediente.estado not in [EstadoExpediente.TRAMITE_DGP, EstadoExpediente.CEDULA_RECHAZADA]:
+            messages.error(request, 'No puedes subir tu cédula en este momento.')
+            return redirect('alumnos:expediente')
+
+        archivo_cedula = request.FILES.get('cedula_pdf')
+        if not archivo_cedula:
+            messages.error(request, 'Debes seleccionar un archivo PDF con tu cédula.')
+            return redirect('alumnos:expediente')
+
+        if not archivo_cedula.name.lower().endswith('.pdf'):
+            messages.error(request, 'El archivo de la cédula debe ser en formato PDF.')
+            return redirect('alumnos:expediente')
+
+        expediente.cedula_profesional_pdf = archivo_cedula
+        expediente.fecha_subida_cedula = timezone.now()
+        expediente.estado = EstadoExpediente.CEDULA_EN_REVISION
+        expediente.save(update_fields=['cedula_profesional_pdf', 'fecha_subida_cedula', 'estado', 'fecha_ultima_actualizacion'])
+
+        from expediente.notifications import registrar_cambio_estado
+        registrar_cambio_estado(
+            expediente=expediente,
+            estado_nuevo=EstadoExpediente.CEDULA_EN_REVISION,
+            realizado_por=request.user,
+            descripcion='El alumno subió su Cédula Profesional Electrónica para revisión.'
+        )
+
+        messages.success(request, 'Tu Cédula Profesional ha sido cargada y enviada a revisión.')
+        return redirect('alumnos:expediente')

@@ -92,6 +92,32 @@
                 </div>
             </form>
 
+            {% elif expediente.estado == 'CONSTANCIA_EN_REVISION' %}
+            <div class="alert alert-warning py-2 small mb-3">
+                <i class="bi bi-file-earmark-check me-1"></i>Servicios Escolares ha cargado la Constancia de No Inconveniencia. Por favor, revísala y valídala.
+            </div>
+            {% if expediente.constancia_no_inconveniencia %}
+            <a href="{{ expediente.constancia_no_inconveniencia.url }}" target="_blank" class="btn btn-outline-primary btn-sm w-100 mb-3">
+                <i class="bi bi-eye me-1"></i>Ver Constancia (PDF)
+            </a>
+            {% endif %}
+            
+            <form action="{% url 'academico:validar_constancia' expediente.pk %}" method="post">
+                {% csrf_token %}
+                <div class="mb-2">
+                    <label class="form-label small fw-semibold">Observaciones (solo para rechazo)</label>
+                    <textarea name="observaciones" class="form-control form-control-sm" rows="2" placeholder="Observaciones sobre la constancia..."></textarea>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="submit" name="accion" value="APROBAR" class="btn btn-success btn-sm flex-fill">
+                        <i class="bi bi-check-circle me-1"></i>Validar Constancia
+                    </button>
+                    <button type="submit" name="accion" value="RECHAZAR" class="btn btn-danger btn-sm flex-fill">
+                        <i class="bi bi-x-circle me-1"></i>Rechazar
+                    </button>
+                </div>
+            </form>
+
             {% elif expediente.estado == 'EMPASTADO_PENDIENTE' %}
             <a href="{% url 'academico:recibir_empastado' expediente.pk %}" class="btn btn-primary btn-sm w-100">
                 <i class="bi bi-journal-bookmark me-1"></i>Registrar Recepción de Empastado

@@ -19,7 +19,7 @@ from django.utils.text import slugify
 from expediente.mixins import EscolaresRequeridoMixin
 from expediente.models import (
     Expediente, Documento, ValidacionDocumento,
-    EnvioCDMX, EstadoExpediente, EstadoDocumento, EstadoValidacion, Modalidad
+    EstadoExpediente, EstadoDocumento, EstadoValidacion, Modalidad, ESTADOS_INTEGRADOS
 )
 from expediente.notifications import notificar_alumno, registrar_cambio_estado, registrar_cambio_documento
 from expediente.workflow import actualizar_estado_documento, verificar_avance_expediente
@@ -48,13 +48,13 @@ class DashboardEscolaresView(EscolaresRequeridoMixin, TemplateView):
             estado=EstadoExpediente.LISTO_INTEGRACION
         ).count()
         ctx['expedientes_enviados_cdmx'] = Expediente.objects.filter(
-            estado=EstadoExpediente.ENVIADO_CDMX
+            estado=EstadoExpediente.TRAMITE_DGP
         ).count()
         ctx['expedientes_activos'] = Expediente.objects.exclude(
             estado__in=[EstadoExpediente.BORRADOR, EstadoExpediente.CONCLUIDO, EstadoExpediente.CANCELADO]
         ).count()
         ctx['expedientes_integrados'] = Expediente.objects.filter(
-            estado=EstadoExpediente.INTEGRADO
+            estado__in=ESTADOS_INTEGRADOS
         ).count()
         ctx['expedientes_concluidos'] = Expediente.objects.filter(
             estado=EstadoExpediente.CONCLUIDO
@@ -154,15 +154,25 @@ class ExpedienteDetalleEscolaresView(EscolaresRequeridoMixin, DetailView):
             'tipo_documento'
         ).prefetch_related('validaciones__validado_por').order_by('tipo_documento__orden')
         ctx['historial'] = expediente.historial.select_related('realizado_por')[:15]
-        try:
-            ctx['envio_cdmx'] = expediente.envios_cdmx.order_by('-fecha_creacion').first()
-        except Exception:
-            ctx['envio_cdmx'] = None
         return ctx
 
 
+
+class IntegrarExpedienteView(EscolaresRequeridoMixin, View):
+    """Servicios Escolares integra expediente tras aprobar todos los documentos."""
+
+    def post(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+        if expediente.estado != EstadoExpediente.EN_REVISION_DOCUMENTOS:
+            messages.error(request, 'El expediente no está en revisión de documentos.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+        # Intentar integrar (avanzar estado) y notificar al alumno
+        verificar_avance_expediente(expediente)
+        messages.success(request, 'Expediente integrado. Notificación enviada al alumno.')
+        return redirect('escolares:expediente_detalle', pk=pk)
+
 class ValidarDocumentoEscolaresView(EscolaresRequeridoMixin, View):
-    """Escolares aprueba, rechaza o solicita corrección en un documento."""
+    """Servicios Escolares aprueba, rechaza o solicita corrección en un documento."""
 
     def post(self, request, pk):
         documento = get_object_or_404(Documento, pk=pk)
@@ -178,7 +188,7 @@ class ValidarDocumentoEscolaresView(EscolaresRequeridoMixin, View):
             messages.error(request, 'Acción no válida.')
             return redirect('escolares:expediente_detalle', pk=documento.expediente.pk)
 
-        # Enforce sequential validation (DEP -> SE)
+        # Enforce sequential validation (DIV -> SE)
         if not documento.puede_escolares_validar():
             messages.error(request, 'Este documento no puede ser validado por Escolares aún. Requiere visto bueno de División de Estudios.')
             return redirect('escolares:expediente_detalle', pk=documento.expediente.pk)
@@ -235,12 +245,22 @@ class ValidarDocumentoEscolaresView(EscolaresRequeridoMixin, View):
         # Verificar si el expediente puede avanzar (todos los docs aprobados por ambos)
         verificar_avance_expediente(documento.expediente)
 
+        # Si el expediente pasó a LISTO_INTEGRACION, notificar al alumno para entregar papeles originales
+        if documento.expediente.estado == EstadoExpediente.LISTO_INTEGRACION:
+            notificar_alumno(
+                expediente=documento.expediente,
+                tipo='AVANCE',
+                titulo='Entrega de Papeles Originales Necesaria',
+                mensaje='Todos tus documentos digitales han sido aprobados. Por favor, entrega los papeles originales en Servicios Escolares para continuar con el proceso.',
+            )
+
         messages.success(request, f'Documento {participio}.')
         return redirect('escolares:expediente_detalle', pk=documento.expediente.pk)
 
 
-class IntegrarExpedienteView(EscolaresRequeridoMixin, View):
-    """Escolares marca el expediente como integrado (todos los docs aprobados)."""
+
+class MarcarPapelesRecibidosView(EscolaresRequeridoMixin, View):
+    """Escolares marca que recibió los papeles originales. Transita a PAGO_PENDIENTE."""
 
     def post(self, request, pk):
         expediente = get_object_or_404(Expediente, pk=pk)
@@ -251,22 +271,33 @@ class IntegrarExpedienteView(EscolaresRequeridoMixin, View):
 
         # Verificar entrega física de fotografías
         if not expediente.foto_fisica_division or not expediente.foto_fisica_escolares:
-            messages.error(request, 'No se puede integrar el expediente: Falta confirmar la entrega física de la fotografía en todos los departamentos.')
+            messages.error(request, 'Falta confirmar la entrega física de la fotografía en todos los departamentos.')
             return redirect('escolares:expediente_detalle', pk=pk)
+
+        # Registramos primero el paso intermedio "RECIBI_PAPEL_ORIGINAL" en el historial
+        registrar_cambio_estado(
+            expediente=expediente,
+            estado_nuevo=EstadoExpediente.RECIBI_PAPEL_ORIGINAL,
+            realizado_por=request.user,
+            descripcion='Servicios Escolares confirmó la recepción de los papeles originales.'
+        )
+
+        expediente.estado = EstadoExpediente.PAGO_PENDIENTE
+        expediente.save(update_fields=['estado', 'fecha_ultima_actualizacion'])
 
         registrar_cambio_estado(
             expediente=expediente,
             estado_nuevo=EstadoExpediente.PAGO_PENDIENTE,
             realizado_por=request.user,
-            descripcion='Servicios Escolares integró el expediente completo. En espera de pago.'
+            descripcion='El expediente avanza a etapa de pago de titulación.'
         )
         notificar_alumno(
             expediente=expediente,
             tipo='AVANCE',
-            titulo='Expediente Integrado — Pendiente de Pago',
-            mensaje='Servicios Escolares ha integrado tu expediente completo. Por favor, sube tu comprobante de pago para continuar.',
+            titulo='Papeles Originales Recibidos — Pendiente de Pago',
+            mensaje='Servicios Escolares ha recibido tus papeles originales. Por favor, sube tu comprobante de pago para continuar.',
         )
-        messages.success(request, 'Expediente integrado exitosamente. Ahora el expediente está en etapa de pago.')
+        messages.success(request, 'Papeles recibidos confirmados. El expediente está en etapa de pago.')
         return redirect('escolares:expediente_detalle', pk=pk)
 
 
@@ -284,7 +315,7 @@ class ValidarPagoEscolaresView(EscolaresRequeridoMixin, View):
 
         if accion == 'APROBAR':
             expediente.pago_validado = 'APROBADO'
-            expediente.estado = EstadoExpediente.INTEGRADO
+            expediente.estado = EstadoExpediente.ESPERANDO_CONSTANCIA
             expediente.pago_observaciones = ''
             expediente.fecha_validacion_pago = timezone.now()
             expediente.save(update_fields=[
@@ -293,7 +324,7 @@ class ValidarPagoEscolaresView(EscolaresRequeridoMixin, View):
 
             registrar_cambio_estado(
                 expediente=expediente,
-                estado_nuevo=EstadoExpediente.INTEGRADO,
+                estado_nuevo=EstadoExpediente.ESPERANDO_CONSTANCIA,
                 realizado_por=request.user,
                 descripcion='Servicios Escolares aprobó el comprobante de pago.'
             )
@@ -301,9 +332,9 @@ class ValidarPagoEscolaresView(EscolaresRequeridoMixin, View):
                 expediente=expediente,
                 tipo='APROBADO',
                 titulo='Pago de Titulación Aprobado',
-                mensaje='Tu comprobante de pago ha sido aprobado. El expediente está listo para envío a CDMX.',
+                mensaje='Tu comprobante de pago ha sido aprobado. Escolares subirá próximamente tu constancia de no inconveniencia.',
             )
-            messages.success(request, 'Comprobante de pago aprobado con éxito. El expediente avanza a la etapa de Integrado.')
+            messages.success(request, 'Comprobante de pago aprobado con éxito. El expediente avanza a la etapa de Esperando Constancia.')
 
         elif accion == 'RECHAZAR':
             if not observaciones:
@@ -416,129 +447,144 @@ DOCUMENTOS INCLUIDOS
         return response
 
 
-class EnviarCDMXView(EscolaresRequeridoMixin, View):
-    """Escolares registra el envío del expediente a CDMX."""
+class IniciarTramiteDGPView(EscolaresRequeridoMixin, View):
+    """Escolares inicia el trámite ante la DGP (Captura, Validación y Trámite)."""
 
     def post(self, request, pk):
         expediente = get_object_or_404(Expediente, pk=pk)
 
-        numero_oficio = request.POST.get('numero_oficio', '').strip()
-        fecha_envio = request.POST.get('fecha_envio', '').strip()
-        observaciones = request.POST.get('observaciones_envio', '').strip()
-
-        if not numero_oficio or not fecha_envio:
-            messages.error(request, 'Debes indicar el número de oficio y la fecha de envío.')
+        if expediente.estado != EstadoExpediente.ACTA_EXENCION:
+            messages.error(request, 'El expediente debe tener Acta de Exención registrada para iniciar el trámite DGP.')
             return redirect('escolares:expediente_detalle', pk=pk)
-
-        envio = EnvioCDMX.objects.create(
-            expediente=expediente,
-            numero_oficio=numero_oficio,
-            fecha_envio=fecha_envio,
-            observaciones_envio=observaciones,
-            estado='ENVIADO',
-            registrado_por=request.user,
-        )
 
         registrar_cambio_estado(
             expediente=expediente,
-            estado_nuevo=EstadoExpediente.ENVIADO_CDMX,
+            estado_nuevo=EstadoExpediente.TRAMITE_DGP,
             realizado_por=request.user,
-            descripcion=f'Expediente enviado a CDMX. Oficio: {envio.numero_oficio}'
+            descripcion='Se inició el Proceso de Captura, Validación y Trámite ante DGP (espera de 50 días).'
         )
+        
         notificar_alumno(
             expediente=expediente,
             tipo='AVANCE',
-            titulo='Expediente enviado a CDMX',
-            mensaje=f'Tu expediente fue enviado a CDMX/TecNM para registro de título. Oficio: {envio.numero_oficio}',
+            titulo='Trámite de Título en DGP Iniciado',
+            mensaje='Tu proceso ha avanzado a la captura y validación DGP. Revisa las instrucciones en tu panel sobre los tiempos de espera y monitoreo.',
         )
-        messages.success(request, 'Envío a CDMX registrado exitosamente.')
+        
+        messages.success(request, 'Trámite DGP iniciado exitosamente. El alumno ha sido notificado con las instrucciones.')
         return redirect('escolares:expediente_detalle', pk=pk)
 
 
-class RespuestaCDMXView(EscolaresRequeridoMixin, UpdateView):
-    model = EnvioCDMX
-    template_name = 'escolares/cdmx/respuesta.html'
-    fields = ['estado', 'fecha_respuesta', 'observaciones_cdmx', 'numero_registro_titulo']
+class ValidarCedulaEscolaresView(EscolaresRequeridoMixin, View):
+    """Escolares revisa la cédula electrónica subida por el alumno."""
 
-    def get_initial(self):
-        initial = super().get_initial()
-        # Si aún no tiene fecha de respuesta registrada, poner hoy por default
-        if not self.object.fecha_respuesta:
-            initial['fecha_respuesta'] = timezone.now().date()
-        return initial
+    def post(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+        accion = request.POST.get('accion')
+        observaciones = request.POST.get('observaciones_cedula', '').strip()
 
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        # Solo documentos que ya estaban aprobados o en revisión (excluye pendientes si hay)
-        ctx['documentos'] = self.object.expediente.documentos.select_related('tipo_documento').all()
-        return ctx
+        if expediente.estado != EstadoExpediente.CEDULA_EN_REVISION:
+            messages.error(request, 'La cédula no está en revisión.')
+            return redirect('escolares:expediente_detalle', pk=pk)
 
-    def form_valid(self, form):
-        envio = form.save()
-        expediente = envio.expediente
+        if accion == 'APROBAR':
+            # Mantener el estado o avanzar a un estado intermedio donde esperamos asignar cita
+            # En nuestro flujo, pasaremos directo a asignar cita en otra vista, pero si la aprueban
+            # y no asignan cita de inmediato, podemos dejarlo en CEDULA_EN_REVISION o pasarlo a un 
+            # estado intermedio. Lo ideal es pedir que apruebe y asigne cita en el mismo paso.
+            # Vamos a manejar esto en la vista de AgendarCitaEntregaView. Esta vista será solo para rechazo.
+            pass
 
-        if envio.estado == 'APROBADO':
-            registrar_cambio_estado(
-                expediente=expediente,
-                estado_nuevo=EstadoExpediente.APROBADO_CDMX,
-                realizado_por=self.request.user,
-                descripcion=f'CDMX aprobó el expediente. Registro: {envio.numero_registro_titulo}'
-            )
-            # Actualizar a empastado pendiente
-            registrar_cambio_estado(
-                expediente=expediente,
-                estado_nuevo=EstadoExpediente.EMPASTADO_PENDIENTE,
-                realizado_por=self.request.user,
-                descripcion='Expediente aprobado por CDMX. Pendiente recepción de empastado en División de Estudios.'
-            )
-            notificar_alumno(
-                expediente=expediente,
-                tipo='APROBADO',
-                titulo='¡Tu expediente fue aprobado por CDMX!',
-                mensaje='CDMX aprobó tu expediente. El siguiente paso es entregar el empastado en División de Estudios.',
-            )
-        else:
-            # Capturar documentos marcados con error
-            docs_con_error_ids = self.request.POST.getlist('documentos_error')
-            docs_nombres = []
-            
-            if docs_con_error_ids:
-                for doc_id in docs_con_error_ids:
-                    try:
-                        doc = expediente.documentos.get(pk=doc_id)
-                        doc.estado = EstadoDocumento.REQUIERE_CORRECCION
-                        doc.save(update_fields=['estado'])
-                        docs_nombres.append(doc.tipo_documento.nombre)
-                        
-                        registrar_cambio_documento(
-                            documento=doc,
-                            accion=f'CDMX rechazó este documento. Motivo general: {envio.observaciones_cdmx}',
-                            realizado_por=self.request.user
-                        )
-                    except Documento.DoesNotExist:
-                        continue
+        elif accion == 'RECHAZAR':
+            if not observaciones:
+                messages.error(request, 'Debes proporcionar observaciones si rechazas la cédula.')
+                return redirect('escolares:expediente_detalle', pk=pk)
+
+            expediente.observaciones_cedula = observaciones
+            expediente.save(update_fields=['observaciones_cedula'])
 
             registrar_cambio_estado(
                 expediente=expediente,
-                estado_nuevo=EstadoExpediente.RECHAZADO_CDMX,
-                realizado_por=self.request.user,
-                descripcion=f'CDMX rechazó el expediente. Observaciones: {envio.observaciones_cdmx}'
+                estado_nuevo=EstadoExpediente.CEDULA_RECHAZADA,
+                realizado_por=request.user,
+                descripcion=f'Cédula electrónica rechazada. Observaciones: {observaciones}'
             )
-            
-            mensaje_notif = f'CDMX rechazó tu expediente. Observaciones: {envio.observaciones_cdmx}.'
-            if docs_nombres:
-                mensaje_notif += f" Debes corregir: {', '.join(docs_nombres)}."
-            mensaje_notif += ' Por favor, corrige los documentos y vuelve a enviarlos para revisión.'
 
             notificar_alumno(
                 expediente=expediente,
                 tipo='RECHAZADO',
-                titulo='Expediente rechazado por CDMX',
-                mensaje=mensaje_notif,
+                titulo='Cédula Profesional Rechazada',
+                mensaje=f'Hubo un problema con la cédula que subiste. Observaciones: {observaciones}. Por favor, vuelve a cargarla.',
             )
+            messages.success(request, 'Cédula rechazada exitosamente.')
 
-        messages.success(self.request, 'Respuesta de CDMX registrada.')
-        return redirect('escolares:expediente_detalle', pk=expediente.pk)
+        return redirect('escolares:expediente_detalle', pk=pk)
+
+
+class AgendarCitaEntregaView(EscolaresRequeridoMixin, View):
+    """Escolares aprueba la cédula y agenda la cita de entrega física."""
+
+    def post(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+        
+        if expediente.estado != EstadoExpediente.CEDULA_EN_REVISION:
+            messages.error(request, 'La cédula debe estar en revisión para agendar cita.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        fecha_cita = request.POST.get('fecha_cita')
+        instrucciones = request.POST.get('instrucciones_cita', '').strip()
+
+        if not fecha_cita:
+            messages.error(request, 'Debes proporcionar una fecha y hora para la cita.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        expediente.fecha_cita_entrega = fecha_cita
+        expediente.instrucciones_cita = instrucciones
+        expediente.save(update_fields=['fecha_cita_entrega', 'instrucciones_cita'])
+
+        registrar_cambio_estado(
+            expediente=expediente,
+            estado_nuevo=EstadoExpediente.CITA_ENTREGA,
+            realizado_por=request.user,
+            descripcion=f'Cédula aprobada y Cita programada para {fecha_cita}.'
+        )
+
+        notificar_alumno(
+            expediente=expediente,
+            tipo='AVANCE',
+            titulo='¡Cita de Entrega de Título Programada!',
+            mensaje='Tu cédula ha sido aprobada y se ha programado tu cita para la entrega de documentos originales y título impreso. Revisa tu panel para más detalles.',
+        )
+
+        messages.success(request, 'Cita programada exitosamente.')
+        return redirect('escolares:expediente_detalle', pk=pk)
+
+class ConcluirProcesoView(EscolaresRequeridoMixin, View):
+    """Escolares concluye el trámite tras entregar los documentos en la cita."""
+    
+    def post(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+        
+        if expediente.estado != EstadoExpediente.CITA_ENTREGA:
+            messages.error(request, 'El expediente debe estar en Cita de Entrega para poder concluirlo.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+            
+        registrar_cambio_estado(
+            expediente=expediente,
+            estado_nuevo=EstadoExpediente.CONCLUIDO,
+            realizado_por=request.user,
+            descripcion='Proceso de titulación concluido exitosamente. Documentos y título entregados.'
+        )
+        
+        notificar_alumno(
+            expediente=expediente,
+            tipo='APROBADO',
+            titulo='¡Proceso de Titulación Concluido!',
+            mensaje='Has recibido tu título impreso y originales. ¡Felicidades, tu proceso de titulación ha concluido exitosamente!',
+        )
+        
+        messages.success(request, 'El proceso del alumno ha sido concluido.')
+        return redirect('escolares:expediente_detalle', pk=pk)
 
 
 class MarcarFotografiaEntregadaView(EscolaresRequeridoMixin, View):
@@ -584,3 +630,325 @@ class MarcarFotografiaEntregadaView(EscolaresRequeridoMixin, View):
         )
         
         return redirect('escolares:expediente_detalle', pk=pk)
+
+
+class SubirConstanciaEscolaresView(EscolaresRequeridoMixin, View):
+    """Servicios Escolares sube la Constancia de No Inconveniencia firmada en PDF."""
+
+    def post(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+        archivo_pdf = request.FILES.get('constancia_pdf')
+
+        if not archivo_pdf:
+            messages.error(request, 'Debes seleccionar un archivo PDF.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        if not archivo_pdf.name.lower().endswith('.pdf'):
+            messages.error(request, 'El archivo debe ser un PDF.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        # Guardar el archivo
+        expediente.constancia_no_inconveniencia = archivo_pdf
+        expediente.fecha_constancia = timezone.now()
+        
+        if expediente.estado == EstadoExpediente.ESPERANDO_CONSTANCIA:
+            expediente.estado = EstadoExpediente.CONSTANCIA_EN_REVISION
+            expediente.save(update_fields=['constancia_no_inconveniencia', 'fecha_constancia', 'estado'])
+            
+            registrar_cambio_estado(
+                expediente=expediente,
+                estado_nuevo=EstadoExpediente.CONSTANCIA_EN_REVISION,
+                realizado_por=request.user,
+                descripcion='Constancia de No Inconveniencia subida. Pendiente de revisión por División de Estudios.'
+            )
+        else:
+            expediente.save(update_fields=['constancia_no_inconveniencia', 'fecha_constancia'])
+
+        # Notificar a División de Estudios
+        from expediente.notifications import notificar_usuarios_division
+        notificar_usuarios_division(
+            expediente=expediente,
+            titulo='Constancia de No Inconveniencia Generada',
+            mensaje=f'Servicios Escolares ha cargado la Constancia de No Inconveniencia para el alumno {expediente.alumno.get_full_name()}. Por favor revísala y valídala para continuar con el proceso de titulación.',
+            url=reverse_lazy('academico:expediente_detalle', kwargs={'pk': pk})
+        )
+
+        # Notificar al alumno
+        notificar_alumno(
+            expediente=expediente,
+            tipo='INFO',
+            titulo='Constancia de No Inconveniencia Disponible',
+            mensaje='Servicios Escolares ha cargado tu Constancia de No Inconveniencia. División de Estudios la revisará pronto.',
+        )
+
+        messages.success(request, 'Constancia de No Inconveniencia subida exitosamente y enviada a revisión.')
+        return redirect('escolares:expediente_detalle', pk=pk)
+
+
+class RegistrarActaExencionView(EscolaresRequeridoMixin, View):
+    """Escolares registra que el acta de exención (Acto Protocolario) ha sido realizada."""
+
+    def post(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+
+        if expediente.estado != EstadoExpediente.ACTO_PROGRAMADO:
+            messages.error(request, 'El expediente debe estar en Acto Programado para registrar el acta.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        registrar_cambio_estado(
+            expediente=expediente,
+            estado_nuevo=EstadoExpediente.ACTA_EXENCION,
+            realizado_por=request.user,
+            descripcion='Acta de Exención de Examen Profesional registrada tras la conclusión del Acto Protocolario.'
+        )
+        
+        mensaje_dgp = (
+            'ATENCIÓN ALUMNO - PROCESO DE CAPTURA, VALIDACION Y TRAMITE\\n\\n'
+            'a) Captura, durante un tiempo transcurrido de 10 días hábiles, a partir de la fecha de protocolo, '
+            'ingresar a la plataforma que indica el Estatus del Título (Validación Títulos), https://etitulos.tecnm.mx/validacion '
+            'verificar la información capturada es correcta y responder al correo electrónico se_auxiliartitulacion@apizaco.tecnm.mx '
+            'que los datos concentrados están bien.\\n\\n'
+            'b) Validar y revisar, realizando el monitoreo durante los 50 días hábiles, tiempo que dura el proceso en captura de información, '
+            'revisión y expedición del documento Título Profesional, por la Dirección General de Profesiones (DGP), para observar el progreso '
+            'del estatus del Título.\\n'
+            '* Si el estatus es 5. Registrado en la plataforma de títulos electrónicos de la DGP, esto te permite tramitar tu cédula profesional en el paso c.\\n\\n'
+            'c) Tramitar tu Cédula Profesional electrónica en la siguiente plataforma:\\n'
+            'https://siurp.sep.gob.mx/mvc/cedulaElectronica\\n'
+            'Descargar el archivo y enviar a servicios escolares, para programar la cita de entrega '
+            'de documentación original y Titulo Profesional.'
+        )
+
+        notificar_alumno(
+            expediente=expediente,
+            tipo='AVANCE',
+            titulo='Acto Protocolario Registrado - Instrucciones DGP',
+            mensaje=mensaje_dgp,
+        )
+        
+        messages.success(request, 'Acta de Exención registrada. El expediente está listo para ser enviado a CDMX y se notificó al alumno.')
+        return redirect('escolares:expediente_detalle', pk=pk)
+
+
+class EnviarRecordatorioEscolaresView(EscolaresRequeridoMixin, View):
+    """Envía un recordatorio (email/notificación) al alumno para que continúe su trámite."""
+
+    def post(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+        
+        estados_pausa = [
+            EstadoExpediente.EN_CORRECCION,
+            EstadoExpediente.DOCUMENTOS_PENDIENTES,
+            EstadoExpediente.PAGO_PENDIENTE,
+            EstadoExpediente.CEDULA_RECHAZADA,
+            EstadoExpediente.EMPASTADO_PENDIENTE,
+        ]
+
+        if expediente.estado not in estados_pausa:
+            messages.warning(request, 'El expediente no se encuentra en un estado que requiera acción del alumno.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        # Evitar spam (solo 1 recordatorio cada 24 hrs)
+        if expediente.fecha_ultimo_recordatorio:
+            diff = timezone.now() - expediente.fecha_ultimo_recordatorio
+            if diff.total_seconds() < 86400:  # 24 horas
+                messages.warning(request, 'Ya se envió un recordatorio a este alumno en las últimas 24 horas.')
+                return redirect('escolares:expediente_detalle', pk=pk)
+
+        # Configurar mensaje según estado
+        if expediente.estado == EstadoExpediente.PAGO_PENDIENTE:
+            motivo = 'subir tu comprobante de pago de titulación'
+        elif expediente.estado == EstadoExpediente.EMPASTADO_PENDIENTE:
+            motivo = 'entregar tu trabajo empastado físico en División de Estudios'
+        elif expediente.estado == EstadoExpediente.CEDULA_RECHAZADA:
+            motivo = 'corregir y subir tu Cédula Profesional en formato PDF'
+        else:
+            motivo = 'cargar o corregir los documentos pendientes de tu expediente'
+
+        mensaje = f'Servicios Escolares te recuerda que debes {motivo} para poder continuar con tu trámite de titulación. Por favor, atiende este requerimiento a la brevedad posible.'
+
+        notificar_alumno(
+            expediente=expediente,
+            tipo='URGENTE',
+            titulo='Recordatorio de Trámite Pendiente',
+            mensaje=mensaje,
+        )
+
+        expediente.fecha_ultimo_recordatorio = timezone.now()
+        expediente.save(update_fields=['fecha_ultimo_recordatorio'])
+
+        messages.success(request, 'Recordatorio enviado exitosamente al alumno.')
+        return redirect('escolares:expediente_detalle', pk=pk)
+
+
+class ExportarExpedientesExcelView(EscolaresRequeridoMixin, View):
+    """Exporta la lista de expedientes filtrados a un archivo Excel."""
+
+    def get(self, request):
+        import openpyxl
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+        # 1. Obtener los datos con los mismos filtros que la vista de lista
+        qs = Expediente.objects.exclude(
+            estado=EstadoExpediente.BORRADOR
+        ).select_related(
+            'alumno', 'modalidad', 'alumno__carrera'
+        ).order_by('-fecha_ultima_actualizacion')
+        
+        estado = request.GET.get('estado')
+        if estado:
+            qs = qs.filter(estado=estado)
+            
+
+
+        busqueda = request.GET.get('q', '').strip()
+        if busqueda:
+            qs = qs.filter(
+                Q(alumno__first_name__unaccent__icontains=busqueda) |
+                Q(alumno__last_name__unaccent__icontains=busqueda) |
+                Q(alumno__username__unaccent__icontains=busqueda) |
+                Q(alumno__numero_control__unaccent__icontains=busqueda)
+            )
+
+        carrera_id = request.GET.get('carrera', '')
+        if carrera_id:
+            qs = qs.filter(alumno__carrera_id=carrera_id)
+            
+        modalidad_id = request.GET.get('modalidad', '')
+        if modalidad_id:
+            qs = qs.filter(modalidad_id=modalidad_id)
+
+        # 2. Crear el libro de Excel
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Expedientes"
+
+        # 3. Estilos
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="1B396A", end_color="1B396A", fill_type="solid")
+        header_alignment = Alignment(horizontal="center", vertical="center")
+        thin_border = Border(left=Side(style='thin'), right=Side(style='thin'),
+                             top=Side(style='thin'), bottom=Side(style='thin'))
+
+        headers = [
+            "ID", "N° de Control", "Alumno", "Carrera", "Modalidad", 
+            "Estado Actual", "Fecha de Apertura", "Última Actualización"
+        ]
+
+        # Escribir encabezados
+        for col_num, header_title in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_num, value=header_title)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+            cell.border = thin_border
+
+        # Escribir datos
+        for row_num, exp in enumerate(qs, 2):
+            # Formatear fechas de manera segura
+            fecha_aper = exp.fecha_apertura.strftime("%d/%m/%Y %H:%M") if exp.fecha_apertura else ""
+            fecha_act = exp.fecha_ultima_actualizacion.strftime("%d/%m/%Y %H:%M") if exp.fecha_ultima_actualizacion else ""
+            
+            carrera_nombre = exp.alumno.carrera.nombre if hasattr(exp.alumno, 'carrera') and exp.alumno.carrera else "N/A"
+            modalidad_nombre = exp.modalidad.nombre if exp.modalidad else "N/A"
+
+            row_data = [
+                exp.pk,
+                exp.alumno.username,
+                exp.alumno.get_full_name(),
+                carrera_nombre,
+                modalidad_nombre,
+                exp.get_estado_display(),
+                fecha_aper,
+                fecha_act
+            ]
+
+            for col_num, cell_value in enumerate(row_data, 1):
+                cell = ws.cell(row=row_num, column=col_num, value=cell_value)
+                cell.border = thin_border
+                if col_num in [1, 2, 7, 8]:  # ID, Control y fechas centrados
+                    cell.alignment = Alignment(horizontal="center")
+
+        # Ajustar ancho de columnas
+        ws.column_dimensions['A'].width = 10
+        ws.column_dimensions['B'].width = 15
+        ws.column_dimensions['C'].width = 40
+        ws.column_dimensions['D'].width = 40
+        ws.column_dimensions['E'].width = 30
+        ws.column_dimensions['F'].width = 35
+        ws.column_dimensions['G'].width = 20
+        ws.column_dimensions['H'].width = 20
+
+        # 4. Preparar la respuesta HTTP
+        import io
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        
+        response = HttpResponse(buffer.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename=Expedientes_Titulación.xlsx'
+        wb.save(response)
+        return response
+
+class EstadisticasEscolaresView(EscolaresRequeridoMixin, TemplateView):
+    """Vista de estadísticas generales para Servicios Escolares."""
+    template_name = 'escolares/estadisticas.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        
+        # Filtros
+        year = self.request.GET.get('year', str(timezone.now().year))
+        
+        # Querysets base
+        qs_base = Expediente.objects.exclude(estado=EstadoExpediente.BORRADOR)
+        qs_year = qs_base.filter(fecha_apertura__year=year)
+        
+        # 1. Conteo de expedientes
+        abiertos_total = qs_base.count()
+        abiertos_year = qs_year.count()
+        
+        concluidos_total = qs_base.filter(estado=EstadoExpediente.CONCLUIDO).count()
+        concluidos_year = qs_year.filter(estado=EstadoExpediente.CONCLUIDO).count()
+        
+        inconclusos_total = abiertos_total - concluidos_total - qs_base.filter(estado=EstadoExpediente.CANCELADO).count()
+        inconclusos_year = abiertos_year - concluidos_year - qs_year.filter(estado=EstadoExpediente.CANCELADO).count()
+
+        ctx['stats'] = {
+            'abiertos_total': abiertos_total,
+            'abiertos_year': abiertos_year,
+            'concluidos_total': concluidos_total,
+            'concluidos_year': concluidos_year,
+            'inconclusos_total': inconclusos_total,
+            'inconclusos_year': inconclusos_year,
+        }
+        
+        # 2. Histórico anual (últimos 5 años)
+        current_year = timezone.now().year
+        historico = []
+        for y in range(current_year - 4, current_year + 1):
+            qs_y = qs_base.filter(fecha_apertura__year=y)
+            historico.append({
+                'year': y,
+                'abiertos': qs_y.count(),
+                'concluidos': qs_y.filter(estado=EstadoExpediente.CONCLUIDO).count(),
+            })
+        ctx['historico_anual'] = sorted(historico, key=lambda x: x['year'], reverse=True)
+        
+        # 3. Listado de alumnos con proceso inconcluso (filtrable por año)
+        qs_inconclusos = qs_year.exclude(
+            estado__in=[EstadoExpediente.CONCLUIDO, EstadoExpediente.CANCELADO]
+        ).select_related('alumno', 'alumno__carrera', 'modalidad').order_by('fecha_apertura')
+        
+        # Paginación de inconclusos
+        paginator = Paginator(qs_inconclusos, 20)
+        page_number = self.request.GET.get('page')
+        ctx['page_obj'] = paginator.get_page(page_number)
+        
+        # Años disponibles para el filtro
+        years = Expediente.objects.dates('fecha_apertura', 'year', order='DESC')
+        ctx['years'] = [d.year for d in years]
+        if not ctx['years']:
+            ctx['years'] = [current_year]
+        ctx['selected_year'] = int(year) if year.isdigit() else current_year
+        
+        return ctx

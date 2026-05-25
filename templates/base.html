@@ -610,6 +610,11 @@
                         <i class="bi bi-calendar3"></i> Calendario
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if 'estadisticas' in request.path and 'escolares' in request.path %}active{% endif %}" href="{% url 'escolares:estadisticas' %}">
+                        <i class="bi bi-bar-chart-line"></i> Estadísticas
+                    </a>
+                </li>
                 {% endif %}
 
                 {% if user.es_academico %}

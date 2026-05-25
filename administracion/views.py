@@ -158,7 +158,7 @@ class DashboardAdminView(AdminRequeridoMixin, TemplateView):
             (Rol.ACADEMICO, 'Jefe de Division de Estudios Profesionales',
              'Este usuario valida documentos y supervisa el proceso academico de titulacion.'),
             (Rol.ESCOLARES, 'Jefe de Servicios Escolares',
-             'Este usuario gestiona el envio a CDMX y la emision de cedulas profesionales.'),
+             'Este usuario gestiona el trámite DGP, la validación de cédulas profesionales y la entrega final.'),
         ]
 
         for rol_value, rol_nombre, descripcion in roles_criticos:

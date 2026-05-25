@@ -124,8 +124,8 @@ def actualizar_estado_documento(documento, realizado_por=None):
 
 def verificar_avance_expediente(expediente):
     """
-    Verifica si TODOS los documentos del expediente están aprobados
-    (por AMBOS departamentos donde aplique) para avanzar el estado.
+    Verifica si TODOS los documentos del expediente están aprobados (por AMBOS departamentos donde aplique) para avanzar el estado.
+    Cambia el estado a LISTO_INTEGRACION y notifica al alumno cuando corresponde.
     """
     if not expediente.todos_documentos_aprobados():
         return False
@@ -136,6 +136,19 @@ def verificar_avance_expediente(expediente):
     ):
         expediente.estado = EstadoExpediente.LISTO_INTEGRACION
         expediente.save(update_fields=['estado', 'fecha_ultima_actualizacion'])
+        # Register state change and notify student
+        from expediente.notifications import registrar_cambio_estado, notificar_alumno
+        registrar_cambio_estado(
+            expediente=expediente,
+            estado_nuevo=EstadoExpediente.LISTO_INTEGRACION,
+            realizado_por=None,
+            descripcion='Todos los documentos aprobados; expediente listo para integración de Servicios Escolares.',
+        )
+        notificar_alumno(
+            expediente=expediente,
+            tipo='AVANCE',
+            titulo='Entrega de papeles originales requerida',
+            mensaje='El expediente ha sido integrado. Por favor entrega los papeles originales en Servicios Escolares para continuar con el proceso.',
+        )
         return True
-
     return False

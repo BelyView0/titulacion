@@ -137,24 +137,17 @@
             </div>
         </div>
 
-        {% elif expediente.estado == 'DOCUMENTOS_PENDIENTES' or expediente.estado == 'RECHAZADO_CDMX' %}
+        {% elif expediente.estado == 'DOCUMENTOS_PENDIENTES' %}
         <div class="content-card p-3">
             <div class="card-header-custom mb-2"><i class="bi bi-lightning"></i> Acciones</div>
-            {% if expediente.estado == 'RECHAZADO_CDMX' %}
-            <div class="alert alert-danger py-2 small mb-2">
-                <i class="bi bi-exclamation-octagon me-1"></i>
-                Tu expediente fue rechazado por CDMX. Corrige los documentos marcados abajo y vuelve a enviarlos.
-            </div>
-            {% elif expediente.estado == 'DOCUMENTOS_PENDIENTES' %}
-                {% if expediente.documentos_total > 0 and expediente.documentos_aprobados < expediente.documentos_total %}
-                    {% if expediente.historial.first.estado_anterior == 'EN_REVISION_DOCUMENTOS' %}
-                    <div class="alert alert-warning py-2 small mb-2">
-                        <i class="bi bi-exclamation-triangle me-1"></i>
-                        Tu expediente regresó a corrección. Revisa los documentos rechazados, corrígelos y vuelve a enviar a revisión.
-                    </div>
-                    {% else %}
-                    <p class="small text-muted">Carga todos los documentos obligatorios y luego envíalos a revisión de Servicios Escolares y División de Estudios.</p>
-                    {% endif %}
+            {% if expediente.documentos_total > 0 and expediente.documentos_aprobados < expediente.documentos_total %}
+                {% if expediente.historial.first.estado_anterior == 'EN_REVISION_DOCUMENTOS' %}
+                <div class="alert alert-warning py-2 small mb-2">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    Tu expediente regresó a corrección. Revisa los documentos rechazados, corrígelos y vuelve a enviar a revisión.
+                </div>
+                {% else %}
+                <p class="small text-muted">Carga todos los documentos obligatorios y luego envíalos a revisión de Servicios Escolares y División de Estudios.</p>
                 {% endif %}
             {% endif %}
 
@@ -173,7 +166,7 @@
             {% endwith %}
 
             <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#modalEnviarDocs">
-                <i class="bi bi-send-check me-2"></i>{% if expediente.estado == 'RECHAZADO_CDMX' %}Re-enviar para Revisión{% else %}Enviar Documentos a Revisión{% endif %}
+                <i class="bi bi-send-check me-2"></i>Enviar Documentos a Revisión
             </button>
         </div>
 
@@ -218,7 +211,7 @@
                 <strong>Pago Rechazado:</strong> {{ expediente.pago_observaciones|default:"Tu comprobante de pago no fue válido. Por favor, revísalo y vuelve a subirlo." }}
             </div>
             {% else %}
-            <p class="small text-muted">Tu expediente digital y físico ha sido integrado exitosamente. Para continuar a la etapa de envío a CDMX, por favor carga tu comprobante de pago en formato PDF.</p>
+            <p class="small text-muted">Tu expediente digital y físico ha sido integrado exitosamente. Para continuar con tu trámite de titulación, por favor carga tu comprobante de pago en formato PDF.</p>
             {% endif %}
 
             <form method="post" action="{% url 'alumnos:subir_pago' %}" enctype="multipart/form-data" class="mt-2">
@@ -248,7 +241,7 @@
         </div>
 
         {% elif expediente.comprobante_pago %}
-        <div class="content-card p-3">
+        <div class="content-card p-3 mb-3">
             <div class="card-header-custom mb-2"><i class="bi bi-credit-card"></i> Pago de Titulación</div>
             <div class="alert alert-success py-2 small mb-3">
                 <i class="bi bi-check-circle me-1"></i>
@@ -256,6 +249,106 @@
             </div>
             <a href="{{ expediente.comprobante_pago.url }}" target="_blank" class="btn btn-outline-secondary btn-sm w-100">
                 <i class="bi bi-file-earmark-pdf me-1"></i>Ver Comprobante de Pago (PDF)
+            </a>
+        </div>
+        {% endif %}
+
+        {% if expediente.estado in 'ACTA_EXENCION,TRAMITE_DGP,CEDULA_RECHAZADA' %}
+        <div class="content-card p-3 mb-3 border-primary shadow-sm">
+            <div class="card-header-custom mb-3 text-primary border-bottom pb-2">
+                <i class="bi bi-bank"></i> PROCESO DE CAPTURA, VALIDACIÓN Y TRÁMITE
+            </div>
+            
+            <div class="small text-muted mb-3">
+                <p><strong>a) Captura:</strong> Durante un tiempo transcurrido de <strong>10 días hábiles</strong>, a partir de la fecha de protocolo, ingresar a la plataforma que indica el Estatus del Título (Validación Títulos): 
+                <a href="https://etitulos.tecnm.mx/validacion" target="_blank">https://etitulos.tecnm.mx/validacion</a>.</p>
+                <div class="text-center mb-3">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://etitulos.tecnm.mx/validacion" alt="QR Validación Títulos" class="img-thumbnail" style="width: 100px; height: 100px;">
+                </div>
+                <p>Verificar que la información capturada es correcta y responder al correo electrónico <strong>se_auxiliartitulacion@apizaco.tecnm.mx</strong> que los datos concentrados están bien.</p>
+                <div class="text-center mb-3">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=mailto:se_auxiliartitulacion@apizaco.tecnm.mx" alt="QR Correo" class="img-thumbnail" style="width: 100px; height: 100px;">
+                </div>
+                
+                <p><strong>b) Validar y revisar:</strong> Realizar el monitoreo durante los <strong>50 días hábiles</strong>, tiempo que dura el proceso en captura de información, revisión y expedición del documento Título Profesional, por la Dirección General de Profesiones (DGP), para observar el progreso del estatus del Título.</p>
+                <p class="text-info"><i class="bi bi-info-circle me-1"></i> * Si el estatus es <strong>5. Registrado</strong> en la plataforma de títulos electrónicos de la DGP, esto te permite tramitar tu cédula profesional en el paso c.</p>
+                
+                <p><strong>c) Tramitar tu Cédula Profesional electrónica</strong> en la siguiente plataforma:
+                <a href="https://siurp.sep.gob.mx/mvc/cedulaElectronica" target="_blank">https://siurp.sep.gob.mx/mvc/cedulaElectronica</a>.</p>
+                <div class="text-center mb-3">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://siurp.sep.gob.mx/mvc/cedulaElectronica" alt="QR Cédula Electrónica" class="img-thumbnail" style="width: 100px; height: 100px;">
+                </div>
+                <p>Descargar el archivo y enviar a servicios escolares, para programar la cita de entrega de documentación original y Título Profesional.</p>
+            </div>
+
+            {% if expediente.estado == 'CEDULA_RECHAZADA' %}
+            <div class="alert alert-danger py-2 small mb-3">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                <strong>Cédula Rechazada:</strong> {{ expediente.observaciones_cedula }}
+            </div>
+            {% endif %}
+
+            <form method="post" action="{% url 'alumnos:subir_cedula' %}" enctype="multipart/form-data" class="mt-2">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="cedula_pdf" class="form-label small fw-semibold">Subir Cédula Profesional (PDF)</label>
+                    <input class="form-control form-control-sm" type="file" id="cedula_pdf" name="cedula_pdf" accept=".pdf" {% if expediente.estado == 'ACTA_EXENCION' %}disabled title="Aún no puedes subir la cédula, el trámite ante DGP debe iniciar primero"{% else %}required{% endif %}>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 btn-sm" {% if expediente.estado == 'ACTA_EXENCION' %}disabled{% endif %}>
+                    <i class="bi bi-cloud-arrow-up me-1"></i>Enviar Cédula a Revisión
+                </button>
+            </form>
+        </div>
+
+        {% elif expediente.estado == 'CEDULA_EN_REVISION' %}
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-2"><i class="bi bi-card-heading"></i> Revisión de Cédula</div>
+            <div class="alert alert-info py-2 small mb-3">
+                <i class="bi bi-hourglass-split me-1"></i>
+                Tu Cédula Profesional está en revisión por Servicios Escolares. En breve se te agendará tu cita de entrega de Título.
+            </div>
+            {% if expediente.cedula_profesional_pdf %}
+            <a href="{{ expediente.cedula_profesional_pdf.url }}" target="_blank" class="btn btn-outline-secondary btn-sm w-100">
+                <i class="bi bi-file-earmark-pdf me-1"></i>Ver Cédula Cargada
+            </a>
+            {% endif %}
+        </div>
+        
+        {% elif expediente.estado == 'CITA_ENTREGA' %}
+        <div class="content-card p-3 mb-3 border-success">
+            <div class="card-header-custom mb-2 text-success"><i class="bi bi-calendar-check"></i> Cita para Entrega de Título</div>
+            <div class="alert alert-success py-2 small mb-3">
+                Tu cédula fue aprobada. Tienes una cita programada para recoger tus documentos originales y tu Título Profesional.
+            </div>
+            <div class="mb-2">
+                <small class="text-muted d-block fw-semibold">Fecha y Hora de la Cita</small>
+                <div class="fw-bold text-dark" style="font-size: 1.1rem;">{{ expediente.fecha_cita_entrega|date:"d M Y - H:i" }} hrs</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted d-block fw-semibold">Instrucciones</small>
+                <div class="text-dark small">{{ expediente.instrucciones_cita }}</div>
+            </div>
+        </div>
+
+        {% elif expediente.estado == 'CONCLUIDO' %}
+        <div class="content-card p-3 mb-3 text-center border-success">
+            <i class="bi bi-award text-success" style="font-size:3rem;"></i>
+            <h5 class="fw-bold mt-2 mb-1">¡Proceso Concluido!</h5>
+            <p class="small text-muted mb-0">Has completado todo el trámite de titulación y se te ha entregado tu título profesional.</p>
+            {% if expediente.cedula_profesional_pdf %}
+            <a href="{{ expediente.cedula_profesional_pdf.url }}" target="_blank" class="btn btn-outline-secondary btn-sm w-100 mt-3">
+                <i class="bi bi-card-heading me-1"></i>Ver Mi Cédula Profesional
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if expediente.constancia_no_inconveniencia %}
+        <div class="content-card p-3 mt-3">
+            <div class="card-header-custom mb-2"><i class="bi bi-file-earmark-pdf"></i> Documentos Generados</div>
+            <p class="small text-muted">A continuación puedes descargar los documentos generados por Servicios Escolares.</p>
+            <a href="{{ expediente.constancia_no_inconveniencia.url }}" target="_blank" class="btn btn-outline-primary btn-sm w-100">
+                <i class="bi bi-download me-1"></i>Descargar Constancia de No Inconveniencia
             </a>
         </div>
         {% endif %}

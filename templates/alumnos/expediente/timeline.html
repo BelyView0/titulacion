@@ -85,7 +85,7 @@
             <div class="timeline-item
                 {% if forloop.first %}active
                 {% elif h.estado_nuevo == 'CONCLUIDO' %}done
-                {% elif h.estado_nuevo == 'RECHAZADO_ACADEMICO' or h.estado_nuevo == 'RECHAZADO_CDMX' %}error
+                {% elif h.estado_nuevo == 'RECHAZADO_ACADEMICO' or h.estado_nuevo == 'CEDULA_RECHAZADA' %}error
                 {% elif h.estado_nuevo == 'EN_CORRECCION' or h.estado_nuevo == 'REQUIERE_CORRECCION' %}warning
                 {% else %}done
                 {% endif %}">

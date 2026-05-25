@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page {
+    size: letter;
+    margin: 1.2cm 2cm 1.2cm 2cm;
+  }
+  @font-face {
+    font-family: 'Noto Sans';
+    src: url('{{ STATIC_ROOT }}/fonts/NotoSans-Regular.ttf');
+  }
+  body {
+    font-family: 'Noto Sans', sans-serif;
+    font-size: 11pt;
+    color: #000;
+    line-height: 1.5;
+  }
+  .fecha {
+    text-align: right;
+    font-size: 11pt;
+    margin-bottom: 30px;
+  }
+  .titulo {
+    text-align: center;
+    font-size: 14pt;
+    font-weight: bold;
+    margin-bottom: 40px;
+    text-transform: uppercase;
+  }
+  .cuerpo {
+    text-align: justify;
+    margin-bottom: 40px;
+  }
+  .cuerpo p {
+    margin: 0 0 15px 0;
+  }
+  .atentamente {
+    margin-top: 60px;
+    text-align: center;
+    font-weight: bold;
+  }
+  .firma-bloque {
+    margin-top: 60px;
+    text-align: center;
+  }
+  .firma-linea {
+    width: 60%;
+    border-bottom: 1px solid #000;
+    margin: 0 auto 5px auto;
+  }
+</style>
+</head>
+<body>
+
+<!-- Encabezado institucional -->
+{% if config and config.imagen_encabezado %}
+<div style="text-align: center; margin-bottom: 20px;">
+  <img src="{{ config.imagen_encabezado.path }}" style="max-width: 100%;" alt="Encabezado Institucional">
+</div>
+{% endif %}
+
+<div class="fecha">
+  {{ lugar|default:"Tzompantepec, Tlaxcala" }}, a {{ fecha_actual|date:"d \d\e F \d\e Y" }}
+</div>
+
+<div class="titulo">
+  CONSTANCIA DE NO INCONVENIENCIA<br>
+  PARA EL ACTO DE RECEPCIÓN PROFESIONAL
+</div>
+
+<div class="cuerpo">
+  <p><strong>A QUIEN CORRESPONDA:</strong></p>
+  
+  <p>
+    Por medio de la presente, el Departamento de Servicios Escolares hace constar que el (la) C. 
+    <strong>{{ alumno.get_full_name|upper }}</strong>, con número de control 
+    <strong>{{ alumno.numero_control|default:"___________" }}</strong>, egresado(a) de la carrera de 
+    <strong>{{ alumno.carrera.nombre|upper|default:"____________________" }}</strong>, 
+    habiendo cumplido con todos los requisitos académicos, documentales y el pago de derechos correspondientes a su proceso de titulación bajo la opción 
+    <strong>{{ expediente.modalidad.nombre|upper|default:"_____________" }}</strong>, 
+    cuyo tema es: &ldquo;<strong>{{ expediente.titulo_trabajo|upper|default:"_____________" }}</strong>&rdquo;; 
+    <strong>NO TIENE INCONVENIENTE</strong> para continuar con los trámites relativos a su Acto de Recepción Profesional.
+  </p>
+
+  <p>
+    Se extiende la presente constancia para los fines legales y administrativos que al interesado convengan.
+  </p>
+</div>
+
+<div class="atentamente">
+  A T E N T A M E N T E<br>
+  <em><span style="font-weight: normal; font-size: 10pt;">"Pensar para Servir, Servir para Triunfar"</span></em>
+</div>
+
+<div class="firma-bloque">
+  <div class="firma-linea"></div>
+  <strong>JEFE(A) DEL DEPARTAMENTO DE SERVICIOS ESCOLARES</strong><br>
+  Instituto Tecnológico de Apizaco
+</div>
+
+<!-- Pie de página institucional -->
+<div style="margin-top: 40px; text-align: center;">
+  {% if config and config.imagen_pie_pagina %}
+  <img src="{{ config.imagen_pie_pagina.path }}" style="max-width: 100%;" alt="Pie de Página Institucional">
+  {% endif %}
+</div>
+
+</body>
+</html>

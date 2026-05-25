@@ -38,6 +38,64 @@ def notificar_alumno(expediente, tipo, titulo, mensaje, url=''):
     return notif
 
 
+def notificar_usuarios_division(expediente, titulo, mensaje, url=''):
+    """
+    Notifica a todos los usuarios con rol ACADEMICO (División de Estudios).
+    """
+    from administracion.models import Usuario, Rol
+    from alumnos.models import Notificacion
+
+    academicos = Usuario.objects.filter(rol=Rol.ACADEMICO, is_active=True)
+    
+    notificaciones_creadas = []
+    correos_destinos = []
+    
+    for academico in academicos:
+        # Notificación interna
+        notif = Notificacion.objects.create(
+            destinatario=academico,
+            tipo='INFO',
+            titulo=titulo,
+            mensaje=mensaje,
+            url_relacionada=url,
+        )
+        notificaciones_creadas.append(notif)
+        
+        if academico.email:
+            correos_destinos.append(academico.email)
+            
+    if correos_destinos:
+        cuerpo = f"""
+Estimado(a) Usuario de División de Estudios,
+
+{mensaje}
+
+---
+Expediente: {expediente}
+Alumno: {expediente.alumno.get_full_name()}
+N° Control: {expediente.alumno.username}
+Fecha: {timezone.now().strftime('%d/%m/%Y %H:%M')}
+
+Este mensaje fue generado automáticamente por el Sistema de Gestión de Titulación
+del Instituto Tecnológico de Apizaco.
+
+Por favor no responda a este correo.
+        """.strip()
+
+        try:
+            send_mail(
+                subject=f'[ITA Titulación] {titulo}',
+                message=cuerpo,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=correos_destinos,
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+            
+    return notificaciones_creadas
+
+
 def _enviar_correo_alumno(alumno, expediente, titulo, mensaje):
     """Envía correo electrónico al alumno (correo institucional o email registrado)."""
     # Preferencia: correo institucional del perfil, luego email del usuario

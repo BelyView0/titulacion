@@ -6,48 +6,56 @@
 <!-- Fila 1: Acciones pendientes -->
 <div class="row g-3 mb-3">
     <div class="col-md-3">
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-3">
-                <div class="stat-icon" style="background:#fff3cd; color:#dc6b02;"><i class="bi bi-hourglass-split"></i></div>
-                <div>
-                    <div class="stat-value" style="color:#dc6b02;">{{ expedientes_para_revision }}</div>
-                    <div class="stat-label">Pendientes de revisión</div>
+        <a href="{% url 'escolares:expedientes' %}?estado=EN_REVISION_DOCUMENTOS" class="text-decoration-none text-dark d-block h-100">
+            <div class="stat-card h-100 hvr-grow">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon" style="background:#fff3cd; color:#dc6b02;"><i class="bi bi-hourglass-split"></i></div>
+                    <div>
+                        <div class="stat-value" style="color:#dc6b02;">{{ expedientes_para_revision }}</div>
+                        <div class="stat-label">Pendientes de revisión</div>
+                    </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
     <div class="col-md-3">
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-3">
-                <div class="stat-icon" style="background:#cff4fc; color:#0ea5e9;"><i class="bi bi-layers"></i></div>
-                <div>
-                    <div class="stat-value" style="color:#0ea5e9;">{{ expedientes_para_integrar }}</div>
-                    <div class="stat-label">Listos para integrar</div>
+        <a href="{% url 'escolares:expedientes' %}?estado=LISTO_INTEGRACION" class="text-decoration-none text-dark d-block h-100">
+            <div class="stat-card h-100 hvr-grow">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon" style="background:#cff4fc; color:#0ea5e9;"><i class="bi bi-layers"></i></div>
+                    <div>
+                        <div class="stat-value" style="color:#0ea5e9;">{{ expedientes_para_integrar }}</div>
+                        <div class="stat-label">Listos para integrar</div>
+                    </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
     <div class="col-md-3">
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-3">
-                <div class="stat-icon" style="background:#f3e8ff; color:#7c3aed;"><i class="bi bi-send"></i></div>
-                <div>
-                    <div class="stat-value" style="color:#7c3aed;">{{ expedientes_enviados_cdmx }}</div>
-                    <div class="stat-label">En revisión CDMX</div>
+        <a href="{% url 'escolares:expedientes' %}?estado=TRAMITE_DGP" class="text-decoration-none text-dark d-block h-100">
+            <div class="stat-card h-100 hvr-grow">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon" style="background:#f3e8ff; color:#7c3aed;"><i class="bi bi-send"></i></div>
+                    <div>
+                        <div class="stat-value" style="color:#7c3aed;">{{ expedientes_enviados_cdmx }}</div>
+                        <div class="stat-label">En Captura (e-títulos)</div>
+                    </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
     <div class="col-md-3">
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-3">
-                <div class="stat-icon" style="background:#e0e7ff; color:#4338ca;"><i class="bi bi-box-seam"></i></div>
-                <div>
-                    <div class="stat-value" style="color:#4338ca;">{{ expedientes_integrados }}</div>
-                    <div class="stat-label">Integrados</div>
+        <a href="{% url 'escolares:expedientes' %}?estado=INTEGRADO" class="text-decoration-none text-dark d-block h-100">
+            <div class="stat-card h-100 hvr-grow">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon" style="background:#e0e7ff; color:#4338ca;"><i class="bi bi-box-seam"></i></div>
+                    <div>
+                        <div class="stat-value" style="color:#4338ca;">{{ expedientes_integrados }}</div>
+                        <div class="stat-label">Integrados</div>
+                    </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
 </div>
 
@@ -57,26 +65,30 @@
 <!-- Fila 2: Resumen general -->
 <div class="row g-3 mb-4">
     <div class="col-md-6">
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-3">
-                <div class="stat-icon" style="background:#fef9c3; color:#ca8a04;"><i class="bi bi-folder2-open"></i></div>
-                <div>
-                    <div class="stat-value" style="color:#ca8a04;">{{ expedientes_activos }}</div>
-                    <div class="stat-label">Expedientes activos</div>
+        <a href="{% url 'escolares:expedientes' %}" class="text-decoration-none text-dark d-block h-100">
+            <div class="stat-card h-100 hvr-grow">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon" style="background:#fef9c3; color:#ca8a04;"><i class="bi bi-folder2-open"></i></div>
+                    <div>
+                        <div class="stat-value" style="color:#ca8a04;">{{ expedientes_activos }}</div>
+                        <div class="stat-label">Expedientes activos</div>
+                    </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
     <div class="col-md-6">
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-3">
-                <div class="stat-icon" style="background:#dcfce7; color:#16a34a;"><i class="bi bi-check-circle-fill"></i></div>
-                <div>
-                    <div class="stat-value" style="color:#16a34a;">{{ expedientes_concluidos }}</div>
-                    <div class="stat-label">Procesos concluidos</div>
+        <a href="{% url 'escolares:expedientes' %}?estado=CONCLUIDO" class="text-decoration-none text-dark d-block h-100">
+            <div class="stat-card h-100 hvr-grow">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon" style="background:#dcfce7; color:#16a34a;"><i class="bi bi-check-circle-fill"></i></div>
+                    <div>
+                        <div class="stat-value" style="color:#16a34a;">{{ expedientes_concluidos }}</div>
+                        <div class="stat-label">Procesos concluidos</div>
+                    </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
 </div>
 

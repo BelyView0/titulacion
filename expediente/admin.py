@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     PlanEstudios, Modalidad, TipoDocumento,
     Expediente, Documento, ValidacionDocumento,
-    EnvioCDMX, RecepcionEmpastado,
+    RecepcionEmpastado,
     AsignacionJurado, ActoProtocolario,
     HistorialExpediente, HistorialDocumento
 )
@@ -72,11 +72,6 @@ class DocumentoAdmin(admin.ModelAdmin):
     list_filter = ('estado',)
     inlines = [ValidacionInline]
 
-
-@admin.register(EnvioCDMX)
-class EnvioCDMXAdmin(admin.ModelAdmin):
-    list_display = ('expediente', 'numero_oficio', 'fecha_envio', 'estado', 'fecha_respuesta')
-    list_filter = ('estado',)
 
 
 @admin.register(RecepcionEmpastado)
