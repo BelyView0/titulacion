@@ -5,6 +5,7 @@ Validación final de documentos, integración de expediente, envío a CDMX.
 import io
 import os
 import zipfile
+import json
 
 from django.views.generic import TemplateView, ListView, View, CreateView, UpdateView, DetailView
 from django.contrib import messages
@@ -632,6 +633,7 @@ class MarcarFotografiaEntregadaView(EscolaresRequeridoMixin, View):
         return redirect('escolares:expediente_detalle', pk=pk)
 
 
+
 class SubirConstanciaEscolaresView(EscolaresRequeridoMixin, View):
     """Servicios Escolares sube la Constancia de No Inconveniencia firmada en PDF."""
 
@@ -798,8 +800,6 @@ class ExportarExpedientesExcelView(EscolaresRequeridoMixin, View):
         if estado:
             qs = qs.filter(estado=estado)
             
-
-
         busqueda = request.GET.get('q', '').strip()
         if busqueda:
             qs = qs.filter(
@@ -879,15 +879,11 @@ class ExportarExpedientesExcelView(EscolaresRequeridoMixin, View):
         ws.column_dimensions['H'].width = 20
 
         # 4. Preparar la respuesta HTTP
-        import io
-        buffer = io.BytesIO()
-        wb.save(buffer)
-        buffer.seek(0)
-        
-        response = HttpResponse(buffer.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = 'attachment; filename=Expedientes_Titulación.xlsx'
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="Reporte_Expedientes_{timezone.now().strftime("%Y%m%d_%H%M")}.xlsx"'
         wb.save(response)
         return response
+
 
 class EstadisticasEscolaresView(EscolaresRequeridoMixin, TemplateView):
     """Vista de estadísticas generales para Servicios Escolares."""
@@ -950,5 +946,18 @@ class EstadisticasEscolaresView(EscolaresRequeridoMixin, TemplateView):
         if not ctx['years']:
             ctx['years'] = [current_year]
         ctx['selected_year'] = int(year) if year.isdigit() else current_year
+
+        # 4. Datos para gráficos interactivos (ApexCharts)
+        from django.db.models import Count
+
+        # Carreras con mayor índice de titulación (Titulados: estado CONCLUIDO)
+        carreras_qs = qs_base.filter(estado=EstadoExpediente.CONCLUIDO).values('alumno__carrera__nombre').annotate(total=Count('id')).order_by('-total')[:10]
+        carreras_nombres = [item['alumno__carrera__nombre'] if item['alumno__carrera__nombre'] else "N/A" for item in carreras_qs]
+        carreras_totales = [item['total'] for item in carreras_qs]
+
+        ctx['carreras_chart'] = {
+            'labels': json.dumps(carreras_nombres),
+            'values': json.dumps(carreras_totales),
+        }
         
         return ctx

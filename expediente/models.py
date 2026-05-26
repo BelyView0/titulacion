@@ -315,6 +315,38 @@ class Expediente(models.Model):
             return round((idx / (len(etapas_lineales) - 1)) * 100)
         return 0
 
+    @property
+    def dias_en_estado_actual(self):
+        """Retorna el número de días que lleva el expediente en su estado actual."""
+        ultimo_cambio = self.historial.filter(estado_nuevo=self.estado).order_by('-fecha').first()
+        if ultimo_cambio:
+            delta = timezone.now() - ultimo_cambio.fecha
+        else:
+            delta = timezone.now() - self.fecha_apertura
+        return delta.days
+
+    @property
+    def semaforo_sla(self):
+        """Retorna la clase CSS del color del semáforo SLA basado en los días en el estado actual."""
+        estados_activos = [
+            EstadoExpediente.EN_REVISION_ACADEMICO,
+            EstadoExpediente.EN_REVISION_DOCUMENTOS,
+            EstadoExpediente.PAGO_EN_REVISION,
+            EstadoExpediente.CONSTANCIA_EN_REVISION,
+            EstadoExpediente.CEDULA_EN_REVISION,
+            EstadoExpediente.LISTO_INTEGRACION,
+        ]
+        if self.estado not in estados_activos:
+            return 'secondary'  # Estado pasivo o concluido, no requiere atención inmediata
+
+        dias = self.dias_en_estado_actual
+        if dias < 3:
+            return 'success'    # Verde: SLA a tiempo
+        elif dias <= 5:
+            return 'warning'    # Amarillo: En riesgo
+        else:
+            return 'danger'     # Rojo: Retrasado
+
     def documentos_aprobados(self):
         return self.documentos.filter(estado=EstadoDocumento.APROBADO).count()
 

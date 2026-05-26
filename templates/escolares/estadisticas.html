@@ -17,7 +17,7 @@
                 <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
                     {% for y in years %}
                     <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>Año {{ y }}</option>
-                    {% endfor %} <!-- Typo intentional, will fix later, actually it's endfor -->
+                    {% endfor %}
                 </select>
                 <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
             </form>
@@ -195,7 +195,7 @@
                                         <li class="page-item"><a class="page-link" href="?year={{ selected_year }}&page={{ num }}">{{ num }}</a></li>
                                     {% endif %}
                                 {% endfor %}
-
+                                
                                 {% if page_obj.has_next %}
                                 <li class="page-item">
                                     <a class="page-link" href="?year={{ selected_year }}&page={{ page_obj.next_page_number }}">&raquo;</a>
@@ -215,5 +215,84 @@
             </div>
         </div>
     </div>
+
+    <!-- Fila de Gráficos: Índice de Titulación por Carrera -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-graduation-cap me-1"></i> Índice de Alumnos Titulados por Carrera (Top 10)
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div id="chart-carreras" style="min-height: 380px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
+
+<!-- Scripts de ApexCharts -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Paleta de colores ITA
+        const colors = ['#1B396A', '#2E5B9A', '#417DCA', '#5EA1F8', '#86BFFF', '#AFD6FF', '#D8ECFF'];
+
+        // Gráfico de Carreras (Barras Horizontales)
+        const carOptions = {
+            chart: {
+                height: 380,
+                type: 'bar',
+                toolbar: { show: false },
+                fontFamily: 'Segoe UI, Arial, sans-serif'
+            },
+            plotOptions: {
+                bar: {
+                    barHeight: '65%',
+                    distributed: true,
+                    horizontal: true,
+                    borderRadius: 4,
+                    dataLabels: { position: 'bottom' }
+                }
+            },
+            colors: colors,
+            dataLabels: {
+                enabled: true,
+                textAnchor: 'start',
+                style: { colors: ['#fff'] },
+                formatter: function (val, opt) {
+                    return opt.w.globals.labels[opt.dataPointIndex] + ": " + val;
+                },
+                offsetX: 10,
+                dropShadow: { enabled: true }
+            },
+            series: [{
+                name: 'Titulados',
+                data: {{ carreras_chart.values|safe }}
+            }],
+            xaxis: {
+                categories: {{ carreras_chart.labels|safe }}
+            },
+            yaxis: {
+                labels: { show: false }
+            },
+            grid: {
+                borderColor: '#e7e7e7',
+                padding: { right: 20 }
+            },
+            tooltip: {
+                y: {
+                    title: {
+                        formatter: function() { return 'Titulados:'; }
+                    }
+                }
+            },
+            legend: { show: false }
+        };
+        new ApexCharts(document.querySelector("#chart-carreras"), carOptions).render();
+    });
+</script>
 {% endblock %}
