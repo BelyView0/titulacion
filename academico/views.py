@@ -860,64 +860,6 @@ class ValidarConstanciaView(AcademicoRequeridoMixin, View):
     def post(self, request, pk):
 
         accion = request.POST.get('accion')
-        expediente = get_object_or_404(Expediente, pk=pk)
-        observaciones = request.POST.get('observaciones', '').strip()
-
-        if expediente.estado != EstadoExpediente.CONSTANCIA_EN_REVISION:
-            messages.error(request, 'El expediente no se encuentra en revisión de constancia.')
-            return redirect('academico:expediente_detalle', pk=pk)
-
-        if accion == 'APROBAR':
-            expediente.estado = EstadoExpediente.INTEGRADO
-            expediente.save(update_fields=['estado', 'fecha_ultima_actualizacion'])
-
-            registrar_cambio_estado(
-                expediente=expediente,
-                estado_nuevo=EstadoExpediente.INTEGRADO,
-                realizado_por=request.user,
-                descripcion='División de Estudios aprobó la Constancia de No Inconveniencia. Expediente integrado.'
-            )
-            
-            notificar_alumno(
-                expediente=expediente,
-                tipo='APROBADO',
-                titulo='Constancia Aprobada — Expediente Integrado',
-                mensaje='División de Estudios ha validado tu constancia. Tu expediente está completamente integrado y listo para continuar.',
-            )
-            messages.success(request, 'Constancia aprobada. El expediente avanza a la etapa de Integrado.')
-
-        elif accion == 'RECHAZAR':
-            if not observaciones:
-                messages.error(request, 'Debes escribir observaciones/motivo del rechazo.')
-                return redirect('academico:expediente_detalle', pk=pk)
-
-            # Se regresa a ESPERANDO_CONSTANCIA para que Escolares la vuelva a subir
-            expediente.estado = EstadoExpediente.ESPERANDO_CONSTANCIA
-            expediente.save(update_fields=['estado', 'fecha_ultima_actualizacion'])
-
-            registrar_cambio_estado(
-                expediente=expediente,
-                estado_nuevo=EstadoExpediente.ESPERANDO_CONSTANCIA,
-                realizado_por=request.user,
-                descripcion=f'División de Estudios rechazó la Constancia de No Inconveniencia. Motivo: {observaciones}'
-            )
-            
-            # Notificar a Escolares
-            from expediente.notifications import notificar_usuarios_escolares
-            notificar_usuarios_escolares(
-                expediente=expediente,
-                titulo='Constancia de No Inconveniencia Rechazada',
-                mensaje=f'División de Estudios ha rechazado la constancia de {expediente.alumno.get_full_name()}. Observaciones: {observaciones}',
-                url=reverse_lazy('escolares:expediente_detalle', kwargs={'pk': pk})
-            )
-            
-            notificar_alumno(
-                expediente=expediente,
-                tipo='RECHAZADO',
-                titulo='Constancia de No Inconveniencia Rechazada',
-                mensaje=f'División de Estudios rechazó tu constancia por observaciones. Servicios Escolares subirá una nueva.',
-            )
-            messages.success(request, 'Constancia rechazada. Se notificó a Servicios Escolares para que suba una nueva.')
 
         expediente = get_object_or_404(Expediente, pk=pk)
         observaciones = request.POST.get('observaciones', '').strip()
