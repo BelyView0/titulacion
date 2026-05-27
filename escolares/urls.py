@@ -12,7 +12,8 @@ from escolares.views import (
     DescargarExpedienteView,
     EnviarRecordatorioEscolaresView,
     ExportarExpedientesExcelView,
-    RegistrarActaExencionView,
+    EnviarNotificacionDGPView,
+    SubirActaExencionView,
     IniciarTramiteDGPView,
     ValidarCedulaEscolaresView,
     AgendarCitaEntregaView,
@@ -40,8 +41,8 @@ urlpatterns = [
     
     path('expedientes/<int:pk>/recordatorio/', EnviarRecordatorioEscolaresView.as_view(), name='enviar_recordatorio'),
     path('expedientes/exportar-excel/', ExportarExpedientesExcelView.as_view(), name='exportar_excel'),
-    path('expedientes/<int:pk>/acta-exencion/', RegistrarActaExencionView.as_view(), name='acta_exencion'),
-
+    path('expedientes/<int:pk>/notificacion-dgp/', EnviarNotificacionDGPView.as_view(), name='enviar_notificacion_dgp'),
+    path('expedientes/<int:pk>/subir-acta-exencion/', SubirActaExencionView.as_view(), name='subir_acta_exencion'),
     # DGP y Cédula Profesional
     path('expedientes/<int:pk>/iniciar-dgp/', IniciarTramiteDGPView.as_view(), name='iniciar_dgp'),
     path('expedientes/<int:pk>/validar-cedula/', ValidarCedulaEscolaresView.as_view(), name='validar_cedula'),

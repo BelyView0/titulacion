@@ -923,6 +923,14 @@ class ActoProtocolarioView(JefeProyectoRequeridoMixin, CreateView):
         initial['fecha_acto'] = timezone.now().date()
         return initial
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        expediente = self.get_expediente()
+        acto = ActoProtocolario.objects.filter(expediente=expediente).first()
+        if acto:
+            kwargs['instance'] = acto
+        return kwargs
+
     def get_expediente(self):
         user = self.request.user
         queryset = Expediente.objects.filter(pk=self.kwargs['pk'])

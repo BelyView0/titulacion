@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Mi Expediente{% endblock %}
 {% block page_title %}Mi Expediente de Titulación{% endblock %}
 
@@ -253,7 +254,23 @@
         </div>
         {% endif %}
 
-        {% if expediente.estado in 'ACTA_EXENCION,TRAMITE_DGP,CEDULA_RECHAZADA' %}
+        {% if expediente.estado in 'ACTA_EXENCION,TRAMITE_DGP,CEDULA_RECHAZADA' or expediente.notificacion_dgp_enviada and expediente.estado != 'CEDULA_EN_REVISION' and expediente.estado != 'CITA_ENTREGA' and expediente.estado != 'CONCLUIDO' %}
+        
+        {% if expediente.acta_exencion_pdf %}
+        <div class="content-card p-3 mb-3 border-success shadow-sm">
+            <div class="card-header-custom mb-2 text-success border-bottom pb-2">
+                <i class="bi bi-file-earmark-check"></i> Acta de Exención / Examen
+            </div>
+            <div class="alert alert-success py-2 small mb-3">
+                <i class="bi bi-check-circle-fill me-1"></i>
+                Tu Acta de Exención de Examen Profesional (y/o Acta de Examen) ha sido generada y está disponible en el sistema. <strong>Si requieres el documento físico, favor de pasar a Servicios Escolares por él.</strong>
+            </div>
+            <a href="{{ expediente.acta_exencion_pdf.url }}" target="_blank" class="btn btn-outline-success btn-sm w-100">
+                <i class="bi bi-download me-1"></i>Descargar / Ver Acta Digital
+            </a>
+        </div>
+        {% endif %}
+
         <div class="content-card p-3 mb-3 border-primary shadow-sm">
             <div class="card-header-custom mb-3 text-primary border-bottom pb-2">
                 <i class="bi bi-bank"></i> PROCESO DE CAPTURA, VALIDACIÓN Y TRÁMITE
@@ -263,12 +280,9 @@
                 <p><strong>a) Captura:</strong> Durante un tiempo transcurrido de <strong>10 días hábiles</strong>, a partir de la fecha de protocolo, ingresar a la plataforma que indica el Estatus del Título (Validación Títulos): 
                 <a href="https://etitulos.tecnm.mx/validacion" target="_blank">https://etitulos.tecnm.mx/validacion</a>.</p>
                 <div class="text-center mb-3">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://etitulos.tecnm.mx/validacion" alt="QR Validación Títulos" class="img-thumbnail" style="width: 100px; height: 100px;">
+                    <img src="{% static 'img/qr_etitulos.png' %}" alt="QR Validación Títulos" class="img-thumbnail shadow-sm" style="width: 120px;">
                 </div>
                 <p>Verificar que la información capturada es correcta y responder al correo electrónico <strong>se_auxiliartitulacion@apizaco.tecnm.mx</strong> que los datos concentrados están bien.</p>
-                <div class="text-center mb-3">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=mailto:se_auxiliartitulacion@apizaco.tecnm.mx" alt="QR Correo" class="img-thumbnail" style="width: 100px; height: 100px;">
-                </div>
                 
                 <p><strong>b) Validar y revisar:</strong> Realizar el monitoreo durante los <strong>50 días hábiles</strong>, tiempo que dura el proceso en captura de información, revisión y expedición del documento Título Profesional, por la Dirección General de Profesiones (DGP), para observar el progreso del estatus del Título.</p>
                 <p class="text-info"><i class="bi bi-info-circle me-1"></i> * Si el estatus es <strong>5. Registrado</strong> en la plataforma de títulos electrónicos de la DGP, esto te permite tramitar tu cédula profesional en el paso c.</p>
@@ -276,7 +290,7 @@
                 <p><strong>c) Tramitar tu Cédula Profesional electrónica</strong> en la siguiente plataforma:
                 <a href="https://siurp.sep.gob.mx/mvc/cedulaElectronica" target="_blank">https://siurp.sep.gob.mx/mvc/cedulaElectronica</a>.</p>
                 <div class="text-center mb-3">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://siurp.sep.gob.mx/mvc/cedulaElectronica" alt="QR Cédula Electrónica" class="img-thumbnail" style="width: 100px; height: 100px;">
+                    <img src="{% static 'img/qr_cedula.png' %}" alt="QR Cédula Electrónica" class="img-thumbnail shadow-sm" style="width: 120px;">
                 </div>
                 <p>Descargar el archivo y enviar a servicios escolares, para programar la cita de entrega de documentación original y Título Profesional.</p>
             </div>

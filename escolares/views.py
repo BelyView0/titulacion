@@ -687,47 +687,95 @@ class SubirConstanciaEscolaresView(EscolaresRequeridoMixin, View):
         return redirect('escolares:expediente_detalle', pk=pk)
 
 
-class RegistrarActaExencionView(EscolaresRequeridoMixin, View):
-    """Escolares registra que el acta de exención (Acto Protocolario) ha sido realizada."""
+class EnviarNotificacionDGPView(EscolaresRequeridoMixin, View):
+    """Escolares envía la notificación DGP al alumno sin cambiar de etapa."""
 
     def post(self, request, pk):
         expediente = get_object_or_404(Expediente, pk=pk)
 
         if expediente.estado != EstadoExpediente.ACTO_PROGRAMADO:
-            messages.error(request, 'El expediente debe estar en Acto Programado para registrar el acta.')
+            messages.error(request, 'El expediente debe estar en Acto Programado para enviar esta notificación.')
             return redirect('escolares:expediente_detalle', pk=pk)
 
-        registrar_cambio_estado(
-            expediente=expediente,
-            estado_nuevo=EstadoExpediente.ACTA_EXENCION,
-            realizado_por=request.user,
-            descripcion='Acta de Exención de Examen Profesional registrada tras la conclusión del Acto Protocolario.'
-        )
-        
+        expediente.notificacion_dgp_enviada = True
+        expediente.save(update_fields=['notificacion_dgp_enviada'])
+
         mensaje_dgp = (
-            'ATENCIÓN ALUMNO - PROCESO DE CAPTURA, VALIDACION Y TRAMITE\\n\\n'
+            'DGP_INSTRUCCIONES\n\n'
+            'PROCESO DE CAPTURA, VALIDACIÓN Y TRÁMITE\n\n'
             'a) Captura, durante un tiempo transcurrido de 10 días hábiles, a partir de la fecha de protocolo, '
-            'ingresar a la plataforma que indica el Estatus del Título (Validación Títulos), https://etitulos.tecnm.mx/validacion '
-            'verificar la información capturada es correcta y responder al correo electrónico se_auxiliartitulacion@apizaco.tecnm.mx '
-            'que los datos concentrados están bien.\\n\\n'
-            'b) Validar y revisar, realizando el monitoreo durante los 50 días hábiles, tiempo que dura el proceso en captura de información, '
-            'revisión y expedición del documento Título Profesional, por la Dirección General de Profesiones (DGP), para observar el progreso '
-            'del estatus del Título.\\n'
-            '* Si el estatus es 5. Registrado en la plataforma de títulos electrónicos de la DGP, esto te permite tramitar tu cédula profesional en el paso c.\\n\\n'
-            'c) Tramitar tu Cédula Profesional electrónica en la siguiente plataforma:\\n'
-            'https://siurp.sep.gob.mx/mvc/cedulaElectronica\\n'
-            'Descargar el archivo y enviar a servicios escolares, para programar la cita de entrega '
-            'de documentación original y Titulo Profesional.'
+            'ingresar a la plataforma que indica el Estatus del Título (Validación Títulos):\n'
+            'https://etitulos.tecnm.mx/validacion\n'
+            'Verificar que la información capturada es correcta y responder al correo electrónico '
+            'se_auxiliartitulacion@apizaco.tecnm.mx que los datos concentrados están bien.\n\n'
+            'b) Validar y revisar, realizando el monitoreo durante los 50 días hábiles, tiempo que dura el proceso '
+            'en captura de información, revisión y expedición del documento Título Profesional, por la Dirección '
+            'General de Profesiones (DGP), para observar el progreso del estatus del Título.\n'
+            '* Si el estatus es 5. Registrado en la plataforma de títulos electrónicos de la DGP, '
+            'esto te permite tramitar tu cédula profesional en el paso c.\n\n'
+            'c) Tramitar tu Cédula Profesional electrónica en la siguiente plataforma:\n'
+            'https://siurp.sep.gob.mx/mvc/cedulaElectronica\n'
+            'Descargar el archivo y enviarlo a Servicios Escolares, para programar la cita de entrega '
+            'de documentación original y Título Profesional.'
         )
 
         notificar_alumno(
             expediente=expediente,
             tipo='AVANCE',
-            titulo='Acto Protocolario Registrado - Instrucciones DGP',
+            titulo='Instrucciones DGP — Proceso de Captura, Validación y Trámite',
             mensaje=mensaje_dgp,
         )
         
-        messages.success(request, 'Acta de Exención registrada. El expediente está listo para ser enviado a CDMX y se notificó al alumno.')
+        # Auditoría interna
+        registrar_cambio_estado(
+            expediente=expediente,
+            estado_nuevo=expediente.estado,
+            realizado_por=request.user,
+            descripcion='Notificación DGP enviada al alumno exitosamente.'
+        )
+        
+        messages.success(request, 'Notificación enviada al alumno exitosamente.')
+        return redirect('escolares:expediente_detalle', pk=pk)
+
+
+class SubirActaExencionView(EscolaresRequeridoMixin, View):
+    """Escolares sube el Acta de Exención / Examen, notifica al alumno y avanza la etapa."""
+
+    def post(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+
+        if expediente.estado != EstadoExpediente.ACTO_PROGRAMADO:
+            messages.error(request, 'El expediente debe estar en Acto Programado para subir el acta.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        archivo_pdf = request.FILES.get('acta_pdf')
+        if not archivo_pdf:
+            messages.error(request, 'Debes seleccionar un archivo PDF para el acta.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        if not archivo_pdf.name.lower().endswith('.pdf'):
+            messages.error(request, 'El archivo debe ser un PDF.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        expediente.acta_exencion_pdf = archivo_pdf
+        expediente.estado = EstadoExpediente.ACTA_EXENCION
+        expediente.save(update_fields=['acta_exencion_pdf', 'estado', 'fecha_ultima_actualizacion'])
+
+        registrar_cambio_estado(
+            expediente=expediente,
+            estado_nuevo=EstadoExpediente.ACTA_EXENCION,
+            realizado_por=request.user,
+            descripcion='Acta de Exención/Examen subida exitosamente.'
+        )
+
+        notificar_alumno(
+            expediente=expediente,
+            tipo='AVANCE',
+            titulo='Acta de Exención / Examen Disponible',
+            mensaje='Tu Acta de Exención de Examen Profesional (y/o Acta de Examen) ha sido generada y está disponible en el sistema. Si requieres el documento físico, favor de pasar a Servicios Escolares por él.',
+        )
+
+        messages.success(request, 'Acta subida y enviada al alumno. El expediente ha avanzado a la etapa Acta de Exención.')
         return redirect('escolares:expediente_detalle', pk=pk)
 
 

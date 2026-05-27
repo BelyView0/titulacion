@@ -553,6 +553,195 @@ class ActoProtocolarioView(AcademicoRequeridoMixin, CreateView):
         return ctx
 
 
+
+
+
+
+class ActoProtocolarioView(AcademicoRequeridoMixin, CreateView):
+    model = ActoProtocolario
+    template_name = 'academico/acto/programar.html'
+    fields = ['fecha_acto', 'lugar', 'observaciones']
+
+    def get_initial(self):
+        initial = super().get_initial()
+        initial['fecha_acto'] = timezone.now().date()
+        return initial
+
+    def get_expediente(self):
+        return get_object_or_404(Expediente, pk=self.kwargs['pk'],
+                                  estado=EstadoExpediente.JURADO_ASIGNADO)
+
+    def form_valid(self, form):
+        expediente = self.get_expediente()
+        acto = form.save(commit=False)
+        acto.expediente = expediente
+        acto.jurado = expediente.jurado
+        acto.resultado = 'PENDIENTE'
+        acto.programado_por = self.request.user
+        acto.save()
+
+        registrar_cambio_estado(
+            expediente=expediente,
+            estado_nuevo=EstadoExpediente.ACTO_PROGRAMADO,
+            realizado_por=self.request.user,
+            descripcion=f'Acto protocolario programado para el {acto.fecha_acto} en {acto.lugar}'
+        )
+        notificar_alumno(
+            expediente=expediente,
+            tipo='AVANCE',
+            titulo='¡Tu examen profesional está programado!',
+            mensaje=f'Tu acto protocolario ha sido programado para el {acto.fecha_acto.strftime("%d/%m/%Y a las %H:%M")} en {acto.lugar}.',
+        )
+
+        # Crear confirmaciones y enviar correos individuales con botón de confirmación
+        jurado = expediente.jurado
+        if jurado:
+            import secrets
+            from django.core.mail import EmailMultiAlternatives
+            from django.conf import settings
+            from expediente.models import ConfirmacionActo
+
+            participantes = [
+                ('PRESIDENTE', jurado.presidente.get_nombre_corto(), jurado.presidente.email),
+                ('SECRETARIO', jurado.secretario.get_nombre_corto(), jurado.secretario.email),
+            ]
+            if jurado.vocal_propietario:
+                participantes.append(('VOCAL_PROPIETARIO', jurado.vocal_propietario.get_nombre_corto(), jurado.vocal_propietario.email))
+            if jurado.vocal_suplente:
+                participantes.append(('VOCAL_SUPLENTE', jurado.vocal_suplente.get_nombre_corto(), jurado.vocal_suplente.email))
+            participantes.append(('ALUMNO', expediente.alumno.get_full_name(), expediente.alumno.email))
+
+            fecha_fmt = acto.fecha_acto.strftime('%d de %B de %Y a las %H:%M')
+            base_url = self.request.build_absolute_uri('/')[:-1]
+
+            for rol, nombre, email in participantes:
+                if not email:
+                    continue
+                token = secrets.token_urlsafe(48)
+                ConfirmacionActo.objects.update_or_create(
+                    acto=acto, rol=rol,
+                    defaults={
+                        'nombre_participante': nombre,
+                        'email': email,
+                        'token': token,
+                        'confirmado': False,
+                    }
+                )
+                confirm_url = f'{base_url}/confirmar/{token}/'
+                rol_display = dict(ConfirmacionActo.ROL_CHOICES).get(rol, rol)
+
+                # Texto diferente para alumno vs jurado
+                if rol == 'ALUMNO':
+                    intro_html = (
+                        '<p style="font-size:14px;color:#555;">Se le informa que se ha asignado '
+                        '<strong style="color:#0057B8;">fecha y lugar</strong> para su '
+                        'acto de recepci&oacute;n profesional.</p>'
+                    )
+                    alumno_row = ''
+                else:
+                    intro_html = (
+                        f'<p style="font-size:14px;color:#555;">Se le invita a participar como '
+                        f'<strong style="color:#0057B8;">{rol_display}</strong> en el acto de '
+                        f'recepci&oacute;n profesional del alumno(a):</p>'
+                    )
+                    alumno_row = (
+                        f'<tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Alumno(a)</td>'
+                        f'<td style="padding:6px 12px;font-size:14px;font-weight:700;">{expediente.alumno.get_full_name()}</td></tr>'
+                    )
+
+                html_body = f'''<!DOCTYPE html>
+<html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;">
+<div style="max-width:600px;margin:0 auto;padding:20px;">
+  <div style="background:linear-gradient(135deg,#0057B8,#003d82);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
+    <div style="font-size:36px;color:#fff;">&#x1F393;</div>
+    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Acto Protocolario</h2>
+    <p style="color:rgba(255,255,255,.8);margin:0;font-size:13px;">Instituto Tecnol&oacute;gico de Apizaco &mdash; TecNM</p>
+  </div>
+  <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
+    <p style="font-size:15px;color:#333;">Estimado(a) <strong>{nombre}</strong>,</p>
+    {intro_html}
+
+    <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin:20px 0;border-left:4px solid #0057B8;">
+      <table style="width:100%;border-collapse:collapse;">
+        {alumno_row}
+        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Carrera</td>
+            <td style="padding:6px 12px;font-size:14px;">{expediente.alumno.carrera or '&mdash;'}</td></tr>
+        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Modalidad</td>
+            <td style="padding:6px 12px;font-size:14px;">{expediente.modalidad or '&mdash;'}</td></tr>
+        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">T&iacute;tulo del trabajo</td>
+            <td style="padding:6px 12px;font-size:14px;">{expediente.titulo_trabajo or '&mdash;'}</td></tr>
+      </table>
+    </div>
+
+    <div style="background:linear-gradient(135deg,#f0f7ff,#f3e8ff);border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
+      <div style="font-size:12px;color:#6c757d;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Fecha y lugar probable</div>
+      <div style="font-size:20px;font-weight:700;color:#7c3aed;margin:8px 0;">{fecha_fmt}</div>
+      <div style="font-size:14px;color:#555;">&#128205; {acto.lugar}</div>
+    </div>
+
+    {'<div style="background:#dbeafe;border-radius:8px;padding:20px;margin:20px 0;text-align:center;">'
+      '<div style="font-size:14px;color:#1e40af;font-weight:700;margin-bottom:8px;">&#128232; Confirme su asistencia</div>'
+      '<p style="font-size:13px;color:#333;margin:0;">'
+      + ('Por favor confirme su asistencia ingresando a la '
+         '<strong>Plataforma de Titulaci&oacute;n</strong> del Instituto Tecnol&oacute;gico de Apizaco.'
+         if rol == 'ALUMNO' else
+         'Por favor comun&iacute;quese con el <strong>Jefe de Departamento</strong> '
+         'correspondiente para confirmar su asistencia.')
+      + '</p></div>'}
+
+    <div style="background:#fef3c7;border-radius:8px;padding:12px 16px;font-size:12px;color:#92400e;">
+      <strong>&#9888;&#65039; Importante:</strong> Si no se confirma la asistencia de todos los participantes,
+      el protocolo ser&aacute; reprogramado. Una vez confirmado por todos, recibir&aacute; un correo con los detalles completos.
+    </div>
+  </div>
+  <p style="text-align:center;font-size:11px;color:#999;margin-top:16px;">
+    Este mensaje fue generado autom&aacute;ticamente por el Sistema de Gesti&oacute;n de Titulaci&oacute;n.<br>
+    Instituto Tecnol&oacute;gico de Apizaco &mdash; TecNM.
+  </p>
+</div>
+</body></html>'''
+
+                if rol == 'ALUMNO':
+                    text_body = (
+                        f'Estimado(a) {nombre},\n\n'
+                        f'Se le ha asignado fecha para su acto de recepción profesional.\n'
+                        f'Fecha probable: {fecha_fmt}\nLugar: {acto.lugar}\n\n'
+                        f'Confirme su asistencia en: {confirm_url}\n\n'
+                        f'Instituto Tecnológico de Apizaco — TecNM'
+                    )
+                else:
+                    text_body = (
+                        f'Estimado(a) {nombre},\n\n'
+                        f'Se le invita como {rol_display} al acto protocolario.\n'
+                        f'Alumno: {expediente.alumno.get_full_name()}\n'
+                        f'Título: {expediente.titulo_trabajo or "N/A"}\n'
+                        f'Fecha probable: {fecha_fmt}\nLugar: {acto.lugar}\n\n'
+                        f'Confirme su asistencia en: {confirm_url}\n\n'
+                        f'Instituto Tecnológico de Apizaco — TecNM'
+                    )
+
+                try:
+                    msg = EmailMultiAlternatives(
+                        subject=f'[ITA Titulación] Confirme Asistencia — Acto Protocolario',
+                        body=text_body,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        to=[email],
+                    )
+                    msg.attach_alternative(html_body, "text/html")
+                    msg.send(fail_silently=True)
+                except Exception:
+                    pass
+
+        messages.success(self.request, 'Acto protocolario programado. Se enviaron correos de confirmación al jurado y al alumno.')
+        return redirect('academico:expediente_detalle', pk=expediente.pk)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['expediente'] = self.get_expediente()
+        return ctx
+
+
 class RegistrarResultadoActoView(AcademicoRequeridoMixin, UpdateView):
     model = ActoProtocolario
     template_name = 'academico/acto/resultado.html'
@@ -565,7 +754,7 @@ class RegistrarResultadoActoView(AcademicoRequeridoMixin, UpdateView):
             messages.warning(
                 request,
                 f'No puedes registrar el resultado aún. El acto está programado para el '
-                f'{acto.fecha_acto.strftime("%d/%m/%Y a las %H:%M")}.'
+                f'{acto.fecha_acto.strftime("%d/%m/%Y a las %H:%M")}'
             )
             return redirect('academico:expediente_detalle', pk=acto.expediente.pk)
         return super().dispatch(request, *args, **kwargs)
@@ -574,28 +763,28 @@ class RegistrarResultadoActoView(AcademicoRequeridoMixin, UpdateView):
         acto = form.save()
         expediente = acto.expediente
         if acto.resultado in ['APROBADO', 'APROBADO_MENCION']:
+            # Mantiene el estado en ACTO_PROGRAMADO para que Servicios Escolares pueda registrar el Acta
             registrar_cambio_estado(
                 expediente=expediente,
-                estado_nuevo=EstadoExpediente.CONCLUIDO,
+                estado_nuevo=EstadoExpediente.ACTO_PROGRAMADO,
                 realizado_por=self.request.user,
-                descripcion=f'Proceso concluido. Resultado del acto protocolario: {acto.get_resultado_display()}'
+                descripcion='Acto protocolario aprobado. El expediente pasa a cargo de Servicios Escolares para registro de acta.'
             )
-            expediente.fecha_conclusion = timezone.now()
-            expediente.save(update_fields=['fecha_conclusion'])
             notificar_alumno(
                 expediente=expediente,
                 tipo='APROBADO',
-                titulo='¡Felicidades! Proceso de titulación concluido',
-                mensaje=f'Has concluido exitosamente tu proceso de titulación. Resultado: {acto.get_resultado_display()}. ¡Enhorabuena!',
+                titulo='Acto Aprobado — Siguiente etapa en Servicios Escolares',
+                mensaje='¡Felicidades! Tu acto protocolario ha sido aprobado. El expediente ahora pasa a cargo de Servicios Escolares para continuar con el proceso de titulación.'
             )
-        elif acto.resultado in ['SUSPENDIDO', 'NO_PRESENTADO']:
+        else:
             notificar_alumno(
                 expediente=expediente,
                 tipo='RECHAZADO',
                 titulo='Resultado del Acto Protocolario',
                 mensaje=f'El resultado de tu acto protocolario fue: {acto.get_resultado_display()}. Contacta a División de Estudios para más información.',
             )
-        messages.success(self.request, f'Resultado registrado: {acto.get_resultado_display()}')
+        messages.success(self.request, f'Resultado registrado: {acto.get_resultado_display()}. Ahora Servicios Escolares está a cargo de la siguiente etapa.')
+
         return redirect('academico:expediente_detalle', pk=expediente.pk)
 
 
@@ -603,14 +792,11 @@ class MarcarFotografiaAcademicoView(AcademicoRequeridoMixin, View):
     """División de Estudios marca la fotografía física como entregada."""
     def post(self, request, pk):
         expediente = get_object_or_404(Expediente, pk=pk)
-        
         entregada = request.POST.get('entregada') == 'on'
         expediente.foto_fisica_division = entregada
         expediente.save(update_fields=['foto_fisica_division', 'fecha_ultima_actualizacion'])
-        
-        status_txt = 'RECIBIDA' if entregada else 'PENDIENTE'
-        messages.success(request, f'Fotografía física marcada como {status_txt} en División.')
-        
+        status_txt = 'ENTREGADA' if entregada else 'PENDIENTE'
+        messages.success(request, f'Fotografía física marcada como {status_txt} en División de Estudios.')
         # Auditoría
         registrar_cambio_estado(
             expediente=expediente,
@@ -618,16 +804,14 @@ class MarcarFotografiaAcademicoView(AcademicoRequeridoMixin, View):
             realizado_por=request.user,
             descripcion=f'Fotografía física marcada como {status_txt} por División de Estudios.'
         )
-        
+        # Notificar alumno
         notificar_alumno(
             expediente=expediente,
-            tipo='INFO',
-            titulo=f'Fotografía física en División: {status_txt.lower()}',
-            mensaje=f'División de Estudios ha marcado tu fotografía física como {status_txt.lower()}.',
+            tipo='INFO' if entregada else 'URGENTE',
+            titulo=f'Fotografía física {status_txt.lower()}',
+            mensaje=f'División de Estudios ha marcado tu fotografía física como {status_txt.lower()}.'
         )
-        
-        return redirect('academico:expediente_detalle', pk=pk)
-
+        return redirect('academico:expediente_detalle', pk=expediente.pk)
 
 class ToggleConfirmacionView(AcademicoRequeridoMixin, View):
     """
@@ -674,8 +858,68 @@ class ValidarConstanciaView(AcademicoRequeridoMixin, View):
     """División de Estudios valida la Constancia de No Inconveniencia subida por Escolares."""
 
     def post(self, request, pk):
-        expediente = get_object_or_404(Expediente, pk=pk)
+
         accion = request.POST.get('accion')
+        expediente = get_object_or_404(Expediente, pk=pk)
+        observaciones = request.POST.get('observaciones', '').strip()
+
+        if expediente.estado != EstadoExpediente.CONSTANCIA_EN_REVISION:
+            messages.error(request, 'El expediente no se encuentra en revisión de constancia.')
+            return redirect('academico:expediente_detalle', pk=pk)
+
+        if accion == 'APROBAR':
+            expediente.estado = EstadoExpediente.INTEGRADO
+            expediente.save(update_fields=['estado', 'fecha_ultima_actualizacion'])
+
+            registrar_cambio_estado(
+                expediente=expediente,
+                estado_nuevo=EstadoExpediente.INTEGRADO,
+                realizado_por=request.user,
+                descripcion='División de Estudios aprobó la Constancia de No Inconveniencia. Expediente integrado.'
+            )
+            
+            notificar_alumno(
+                expediente=expediente,
+                tipo='APROBADO',
+                titulo='Constancia Aprobada — Expediente Integrado',
+                mensaje='División de Estudios ha validado tu constancia. Tu expediente está completamente integrado y listo para continuar.',
+            )
+            messages.success(request, 'Constancia aprobada. El expediente avanza a la etapa de Integrado.')
+
+        elif accion == 'RECHAZAR':
+            if not observaciones:
+                messages.error(request, 'Debes escribir observaciones/motivo del rechazo.')
+                return redirect('academico:expediente_detalle', pk=pk)
+
+            # Se regresa a ESPERANDO_CONSTANCIA para que Escolares la vuelva a subir
+            expediente.estado = EstadoExpediente.ESPERANDO_CONSTANCIA
+            expediente.save(update_fields=['estado', 'fecha_ultima_actualizacion'])
+
+            registrar_cambio_estado(
+                expediente=expediente,
+                estado_nuevo=EstadoExpediente.ESPERANDO_CONSTANCIA,
+                realizado_por=request.user,
+                descripcion=f'División de Estudios rechazó la Constancia de No Inconveniencia. Motivo: {observaciones}'
+            )
+            
+            # Notificar a Escolares
+            from expediente.notifications import notificar_usuarios_escolares
+            notificar_usuarios_escolares(
+                expediente=expediente,
+                titulo='Constancia de No Inconveniencia Rechazada',
+                mensaje=f'División de Estudios ha rechazado la constancia de {expediente.alumno.get_full_name()}. Observaciones: {observaciones}',
+                url=reverse_lazy('escolares:expediente_detalle', kwargs={'pk': pk})
+            )
+            
+            notificar_alumno(
+                expediente=expediente,
+                tipo='RECHAZADO',
+                titulo='Constancia de No Inconveniencia Rechazada',
+                mensaje=f'División de Estudios rechazó tu constancia por observaciones. Servicios Escolares subirá una nueva.',
+            )
+            messages.success(request, 'Constancia rechazada. Se notificó a Servicios Escolares para que suba una nueva.')
+
+        expediente = get_object_or_404(Expediente, pk=pk)
         observaciones = request.POST.get('observaciones', '').strip()
 
         if expediente.estado != EstadoExpediente.CONSTANCIA_EN_REVISION:
@@ -737,4 +981,30 @@ class ValidarConstanciaView(AcademicoRequeridoMixin, View):
         else:
             messages.error(request, 'Acción no válida.')
 
+        return redirect('academico:expediente_detalle', pk=pk)
+
+class GenerarEmpastadoView(AcademicoRequeridoMixin, View):
+    def post(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+        if expediente.estado != EstadoExpediente.INTEGRADO:
+            messages.error(request, 'El expediente no está en estado INTEGRADO.')
+            return redirect('academico:expediente_detalle', pk=pk)
+            
+        expediente.estado = EstadoExpediente.EMPASTADO_PENDIENTE
+        expediente.save(update_fields=['estado', 'fecha_ultima_actualizacion'])
+        
+        registrar_cambio_estado(
+            expediente=expediente,
+            estado_nuevo=EstadoExpediente.EMPASTADO_PENDIENTE,
+            realizado_por=request.user,
+            descripcion='División de Estudios generó la autorización de empastado.'
+        )
+        
+        notificar_alumno(
+            expediente=expediente,
+            tipo='AVANCE',
+            titulo='Autorización de Empastado Generada',
+            mensaje='División de Estudios ha generado la autorización de empastado. Por favor procede con la entrega de tu empastado.',
+        )
+        messages.success(request, 'Se ha generado la autorización de empastado.')
         return redirect('academico:expediente_detalle', pk=pk)

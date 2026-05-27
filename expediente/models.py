@@ -244,6 +244,18 @@ class Expediente(models.Model):
     fecha_ultima_actualizacion = models.DateTimeField(auto_now=True)
     fecha_conclusion = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de conclusión')
     fecha_ultimo_recordatorio = models.DateTimeField(null=True, blank=True, verbose_name='Fecha del último recordatorio')
+
+    # Campos para el flujo de Acta de Exención y DGP
+    notificacion_dgp_enviada = models.BooleanField(
+        default=False, 
+        verbose_name='Notificación DGP enviada'
+    )
+    acta_exencion_pdf = models.FileField(
+        upload_to='actas_exencion/', 
+        null=True, blank=True,
+        verbose_name='Acta de Exención / Examen (PDF)'
+    )
+
     # Observaciones generales de División de Estudios
     observaciones_division = models.TextField(
         blank=True,

@@ -118,6 +118,17 @@
                 </div>
             </form>
 
+            {% elif expediente.estado == 'INTEGRADO' %}
+            <div class="alert alert-success py-2 small mb-3">
+                <i class="bi bi-check-circle-fill me-1"></i>El expediente está completamente integrado.
+            </div>
+            <form method="post" action="{% url 'academico:generar_empastado' expediente.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary btn-sm w-100">
+                    <i class="bi bi-journal-plus me-1"></i>Generar Autorización de Empastado
+                </button>
+            </form>
+
             {% elif expediente.estado == 'EMPASTADO_PENDIENTE' %}
             <a href="{% url 'academico:recibir_empastado' expediente.pk %}" class="btn btn-primary btn-sm w-100">
                 <i class="bi bi-journal-bookmark me-1"></i>Registrar Recepción de Empastado
@@ -130,9 +141,10 @@
             </div>
 
             {% elif expediente.estado == 'JURADO_ASIGNADO' %}
-            <a href="{% url 'academico:programar_acto' expediente.pk %}" class="btn btn-primary btn-sm w-100">
-                <i class="bi bi-calendar-event me-1"></i>Programar Acto Protocolario
-            </a>
+            <div class="alert alert-info py-2 small mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                Esperando a que el Jefe de Proyecto asigne fecha y lugar para el Acto Protocolario.
+            </div>
 
             {% elif expediente.estado == 'ACTO_PROGRAMADO' %}
                 {% if acto %}
@@ -167,23 +179,30 @@
                     </div>
                 </div>
 
-                {% if acto_expirado %}
-                    {% if confirmaciones_completas %}
-                    <a href="{% url 'academico:resultado_acto' acto.pk %}" class="btn btn-success btn-sm w-100 mb-2">
-                        <i class="bi bi-clipboard-check me-1"></i>Registrar Resultado Final
-                    </a>
-                    {% else %}
-                    <div class="alert alert-warning py-2 small mb-0">
-                        <i class="bi bi-exclamation-triangle me-1"></i>
-                        La fecha del acto ya pasó. El Jefe de Proyecto debe reprogramar el acto.
+                {% if acto.resultado != 'PENDIENTE' %}
+                    <div class="alert alert-success py-2 small mb-0">
+                        <i class="bi bi-check-circle-fill me-1"></i>
+                        Resultado registrado: <strong>{{ acto.get_resultado_display }}</strong>. El proceso continúa en Servicios Escolares.
                     </div>
-                    {% endif %}
                 {% else %}
-                    <div class="alert alert-warning py-2 small mb-0">
-                        <i class="bi bi-clock-history me-1"></i>
-                        El acto aún no se lleva a cabo. Podrás registrar el resultado después del
-                        <strong>{{ acto.fecha_acto|date:"d/m/Y" }}</strong>.
-                    </div>
+                    {% if acto_expirado %}
+                        {% if confirmaciones_completas %}
+                        <a href="{% url 'academico:resultado_acto' acto.pk %}" class="btn btn-success btn-sm w-100 mb-2">
+                            <i class="bi bi-clipboard-check me-1"></i>Registrar Resultado Final
+                        </a>
+                        {% else %}
+                        <div class="alert alert-warning py-2 small mb-0">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            La fecha del acto ya pasó. El Jefe de Proyecto debe reprogramar el acto.
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-warning py-2 small mb-0">
+                            <i class="bi bi-clock-history me-1"></i>
+                            El acto aún no se lleva a cabo. Podrás registrar el resultado después del
+                            <strong>{{ acto.fecha_acto|date:"d/m/Y" }}</strong>.
+                        </div>
+                    {% endif %}
                 {% endif %}
 
                 {% else %}
