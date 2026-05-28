@@ -211,6 +211,26 @@ class Usuario(AbstractUser):
         except Exception:
             return False
 
+    @property
+    def url_foto_perfil(self):
+        """Obtiene la URL de la foto de perfil, ya sea del modelo o del expediente del alumno."""
+        if self.foto_perfil:
+            return self.foto_perfil.url
+        
+        if self.es_alumno and self.tiene_expediente:
+            try:
+                from expediente.models import Documento
+                doc_foto = Documento.objects.filter(
+                    expediente=self.expediente, 
+                    tipo_documento__es_fotografia=True
+                ).exclude(archivo='').first()
+                if doc_foto and doc_foto.archivo:
+                    return doc_foto.archivo.url
+            except Exception:
+                pass
+                
+        return None
+
     def get_dashboard_url(self):
         from django.urls import reverse
         dashboards = {

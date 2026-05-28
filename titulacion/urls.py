@@ -49,6 +49,9 @@ urlpatterns = [
 
     # Redirección inteligente de dashboard
     path('dashboard/', login_required(dashboard_redirect), name='dashboard'),
+    
+    # Perfil de usuario genérico
+    path('perfil/', login_required(__import__('administracion.views_perfil', fromlist=['PerfilView']).PerfilView.as_view()), name='perfil'),
 
     # Módulos por rol
     path('admin-sistema/', include('administracion.urls')),

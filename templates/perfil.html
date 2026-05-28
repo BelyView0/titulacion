@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Mi Perfil{% endblock %}
+{% block page_title %}Mi Perfil de Usuario{% endblock %}
+
+{% block content %}
+<div class="row g-4 justify-content-center">
+    
+    <!-- Lado Izquierdo: Resumen y Foto -->
+    <div class="col-lg-4">
+        <div class="content-card p-4 text-center h-100">
+            <div class="mb-4">
+                {% if usuario.url_foto_perfil %}
+                    <img src="{{ usuario.url_foto_perfil }}" alt="Foto de Perfil" class="rounded-circle img-thumbnail shadow-sm" style="width: 150px; height: 150px; object-fit: cover;">
+                {% else %}
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white shadow-sm" style="width: 150px; height: 150px; font-size: 3rem; font-weight: 600;">
+                        {{ usuario.first_name|first|upper }}{{ usuario.last_name|first|upper }}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <h4 class="fw-bold mb-1" style="color: var(--ita-azul);">{{ usuario.get_full_name }}</h4>
+            <div class="badge bg-secondary mb-2 px-3 py-2 fs-6">{{ usuario.get_rol_display }}</div>
+            <p class="text-muted small mb-0"><i class="bi bi-envelope-fill me-1"></i> {{ usuario.email }}</p>
+            {% if usuario.telefono %}
+            <p class="text-muted small mb-0"><i class="bi bi-telephone-fill me-1"></i> {{ usuario.telefono }}</p>
+            {% endif %}
+            
+            {% if usuario.rol != 'ALUMNO' and foto_form %}
+            <button type="button" class="btn btn-sm btn-outline-primary mt-3" data-bs-toggle="modal" data-bs-target="#modalFoto">
+                <i class="bi bi-camera me-1"></i>Cambiar Foto
+            </button>
+
+            <!-- Modal para cambiar foto -->
+            <div class="modal fade" id="modalFoto" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content text-start">
+                        <div class="modal-header bg-primary bg-opacity-10">
+                            <h6 class="modal-title fw-bold">Actualizar Foto de Perfil</h6>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <form method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="modal-body">
+                                <label for="{{ foto_form.foto_perfil.id_for_label }}" class="form-label fw-semibold mb-1">
+                                    {{ foto_form.foto_perfil.label }}
+                                </label>
+                                {{ foto_form.foto_perfil }}
+                                {% if foto_form.foto_perfil.help_text %}
+                                    <div class="form-text">{{ foto_form.foto_perfil.help_text }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-primary btn-sm">Guardar Foto</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Lado Derecho: Detalles -->
+    <div class="col-lg-8">
+        <!-- Datos Personales (Solo Lectura) -->
+        <div class="content-card p-4 mb-4">
+            <div class="card-header-custom mb-3 border-bottom pb-2">
+                <i class="bi bi-person-lines-fill me-2"></i> Datos Personales
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <small class="text-muted fw-semibold">Nombre(s)</small>
+                    <div class="fw-bold">{{ usuario.first_name }}</div>
+                </div>
+                <div class="col-md-6">
+                    <small class="text-muted fw-semibold">Apellidos</small>
+                    <div class="fw-bold">{{ usuario.last_name }} {{ usuario.apellido_materno|default:"" }}</div>
+                </div>
+                <div class="col-md-6">
+                    <small class="text-muted fw-semibold">Número de Control / Empleado</small>
+                    <div class="fw-bold">{{ usuario.numero_control }}</div>
+                </div>
+                <div class="col-md-6">
+                    <small class="text-muted fw-semibold">Género</small>
+                    <div class="fw-bold">{{ usuario.get_genero_display|default:"No especificado" }}</div>
+                </div>
+                {% if usuario.carrera %}
+                <div class="col-md-6">
+                    <small class="text-muted fw-semibold">Carrera</small>
+                    <div class="fw-bold">{{ usuario.carrera.nombre }}</div>
+                </div>
+                {% endif %}
+                {% if usuario.departamento %}
+                <div class="col-md-6">
+                    <small class="text-muted fw-semibold">Departamento</small>
+                    <div class="fw-bold">{{ usuario.departamento.nombre }}</div>
+                </div>
+                {% endif %}
+                {% if usuario.generacion %}
+                <div class="col-md-6">
+                    <small class="text-muted fw-semibold">Generación</small>
+                    <div class="fw-bold">{{ usuario.generacion }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Datos del Expediente (Solo Alumnos) -->
+        {% if usuario.rol == 'ALUMNO' and expediente %}
+        <div class="content-card p-4">
+            <div class="card-header-custom mb-3 border-bottom pb-2">
+                <i class="bi bi-folder2-open me-2"></i> Información del Expediente
+            </div>
+            
+            <div class="mb-3 d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted fw-semibold">Estado Actual</small><br>
+                    <span class="badge bg-{{ expediente.get_estado_display_color }}">{{ expediente.get_estado_display }}</span>
+                </div>
+                <div class="text-end">
+                    <small class="text-muted fw-semibold">Fecha de Apertura</small><br>
+                    <span class="fw-bold">{{ expediente.fecha_apertura|date:"d/m/Y" }}</span>
+                </div>
+            </div>
+
+            {% if expediente.estado == 'BORRADOR' and form %}
+                <!-- Formulario Editable (BORRADOR) -->
+                <div class="alert alert-info py-2 small mb-4">
+                    <i class="bi bi-pencil-square me-1"></i> Como tu expediente está en estado <strong>Borrador</strong>, puedes editar tu modalidad de titulación, título del trabajo y empresa.
+                </div>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        {% for field in form %}
+                        <div class="col-12">
+                            <label for="{{ field.id_for_label }}" class="form-label fw-semibold mb-1">
+                                {{ field.label }}
+                                {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
+                            </label>
+                            {% if field.field.widget.input_type == 'select' %}
+                            <select name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+                                    class="form-select {% if field.errors %}is-invalid{% endif %}"
+                                    {% if field.field.required %}required{% endif %}>
+                                <option value="">— Selecciona —</option>
+                                {% for val, label in field.field.choices %}
+                                {% if val %}
+                                <option value="{{ val }}" {% if field.value == val|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                                {% endif %}
+                                {% endfor %}
+                            </select>
+                            {% else %}
+                            <input type="{{ field.field.widget.input_type|default:'text' }}"
+                                   name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+                                   value="{{ field.value|default:'' }}"
+                                   class="form-control {% if field.errors %}is-invalid{% endif %}"
+                                   {% if field.field.required %}required{% endif %}>
+                            {% endif %}
+                            {% if field.errors %}
+                            <div class="invalid-feedback">{{ field.errors.0 }}</div>
+                            {% endif %}
+                            {% if field.help_text %}
+                            <div class="form-text">{{ field.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mt-4 text-end">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-1"></i> Guardar Cambios
+                        </button>
+                    </div>
+                </form>
+
+            {% else %}
+                <!-- Solo Lectura -->
+                <div class="row g-3">
+                    <div class="col-12">
+                        <small class="text-muted fw-semibold">Modalidad de Titulación</small>
+                        <div class="fw-bold">{{ expediente.modalidad.nombre|default:"No definida" }}</div>
+                    </div>
+                    <div class="col-12">
+                        <small class="text-muted fw-semibold">Título del Trabajo / Proyecto</small>
+                        <div class="fw-bold">{{ expediente.titulo_trabajo|default:"No especificado" }}</div>
+                    </div>
+                    <div class="col-12">
+                        <small class="text-muted fw-semibold">Empresa / Organización</small>
+                        <div class="fw-bold">{{ expediente.nombre_empresa|default:"No aplica / No especificada" }}</div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
