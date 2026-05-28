@@ -1,6 +1,8 @@
 """
 Formularios del módulo de Administración.
 """
+from datetime import datetime
+
 from django import forms
 from django.core.exceptions import ValidationError
 from .models import Usuario, Carrera, Departamento, Rol, ConfiguracionInstitucional, JefeDepartamento
@@ -40,6 +42,9 @@ class UsuarioCreateForm(forms.ModelForm):
         self.fields['generacion'].required = False
         self.fields['genero'].required = False
 
+        # Valor por defecto de generación: año actual - 4.5 años
+        self.fields['generacion'].initial = int(datetime.now().year - 4.5)
+
         # Labels claros
         self.fields['first_name'].label = 'Nombre(s)'
         self.fields['last_name'].label = 'Apellido paterno'
@@ -47,6 +52,7 @@ class UsuarioCreateForm(forms.ModelForm):
         self.fields['username'].label = 'Nombre de usuario'
         self.fields['carrera'].label = 'Carrera'
         self.fields['departamento'].label = 'Departamento'
+
 
     def clean(self):
         cleaned_data = super().clean()
@@ -132,3 +138,55 @@ class JefeDepartamentoForm(forms.ModelForm):
             'apellido_materno': forms.TextInput(attrs={'class': 'form-control'}),
             'genero': forms.Select(attrs={'class': 'form-select'}),
         }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FORMULARIOS PARA EDICIÓN DE DATOS RELACIONADOS (vista de edición de usuario)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class PerfilAlumnoAdminForm(forms.ModelForm):
+    """Formulario para editar el perfil académico del alumno desde el admin."""
+
+    class Meta:
+        from alumnos.models import PerfilAlumno
+        model = PerfilAlumno
+        fields = ['plan_estudios', 'semestre_egreso', 'promedio', 'correo_institucional']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['plan_estudios'].required = False
+        self.fields['semestre_egreso'].required = False
+        self.fields['promedio'].required = False
+        self.fields['correo_institucional'].required = False
+
+
+class ExpedienteAdminForm(forms.ModelForm):
+    """Formulario para editar campos del expediente desde el admin."""
+
+    class Meta:
+        from expediente.models import Expediente
+        model = Expediente
+        fields = [
+            'estado', 'modalidad', 'titulo_trabajo', 'nombre_empresa',
+            'pago_validado', 'pago_observaciones',
+            'foto_fisica_division', 'foto_fisica_escolares',
+            'observaciones_division', 'observaciones_cedula',
+            'fecha_cita_entrega', 'instrucciones_cita',
+        ]
+        widgets = {
+            'pago_observaciones': forms.Textarea(attrs={'rows': 2}),
+            'observaciones_division': forms.Textarea(attrs={'rows': 2}),
+            'observaciones_cedula': forms.Textarea(attrs={'rows': 2}),
+            'instrucciones_cita': forms.Textarea(attrs={'rows': 2}),
+            'fecha_cita_entrega': forms.DateTimeInput(
+                attrs={'type': 'datetime-local'},
+                format='%Y-%m-%dT%H:%M'
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Solo estado es requerido
+        for name in self.fields:
+            if name != 'estado':
+                self.fields[name].required = False

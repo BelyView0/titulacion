@@ -352,10 +352,170 @@ class UsuarioUpdateView(AdminRequeridoMixin, UpdateView):
     template_name = 'administracion/usuarios/form.html'
     success_url = reverse_lazy('administracion:usuarios')
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        usuario = self.object
+
+        # ── Datos comunes ──
+        ctx['usuario_rol'] = usuario.rol
+
+        # ── ALUMNO: perfil, expediente, documentos, jurado, acto, historial ──
+        if usuario.rol == Rol.ALUMNO:
+            from alumnos.models import PerfilAlumno, Notificacion
+            from administracion.forms import PerfilAlumnoAdminForm, ExpedienteAdminForm
+
+            # Perfil extendido (form editable)
+            try:
+                perfil = usuario.perfil_alumno
+                ctx['perfil_alumno'] = perfil
+                if 'perfil_form' not in ctx:
+                    ctx['perfil_form'] = PerfilAlumnoAdminForm(
+                        instance=perfil, prefix='perfil'
+                    )
+            except PerfilAlumno.DoesNotExist:
+                ctx['perfil_alumno'] = None
+                ctx['perfil_form'] = None
+
+            # Expediente y todo lo relacionado (form editable)
+            try:
+                expediente = usuario.expediente
+                ctx['expediente'] = expediente
+                if 'expediente_form' not in ctx:
+                    ctx['expediente_form'] = ExpedienteAdminForm(
+                        instance=expediente, prefix='exp'
+                    )
+
+                ctx['documentos'] = expediente.documentos.select_related(
+                    'tipo_documento'
+                ).prefetch_related('validaciones').order_by('tipo_documento__orden')
+
+                # Jurado
+                ctx['jurado'] = AsignacionJurado.objects.filter(
+                    expediente=expediente
+                ).select_related(
+                    'presidente', 'secretario', 'vocal_propietario', 'vocal_suplente'
+                ).first()
+
+                # Acto protocolario
+                try:
+                    ctx['acto'] = expediente.acto_protocolario
+                except ActoProtocolario.DoesNotExist:
+                    ctx['acto'] = None
+
+                # Empastado
+                try:
+                    ctx['empastado'] = expediente.empastado
+                except Exception:
+                    ctx['empastado'] = None
+
+                # Historial
+                ctx['historial'] = expediente.historial.select_related(
+                    'realizado_por'
+                ).order_by('-fecha')[:10]
+
+            except Expediente.DoesNotExist:
+                ctx['expediente'] = None
+                ctx['expediente_form'] = None
+
+            # Notificaciones recientes
+            ctx['notificaciones'] = Notificacion.objects.filter(
+                destinatario=usuario
+            ).order_by('-fecha')[:5]
+
+        # ── ESCOLARES / ACADEMICO / JEFE_PROYECTO: actividad relacionada ──
+        elif usuario.rol in [Rol.ESCOLARES, Rol.ACADEMICO, Rol.JEFE_PROYECTO]:
+            from expediente.models import (
+                ValidacionDocumento, HistorialExpediente, RecepcionEmpastado
+            )
+            ctx['validaciones_realizadas'] = ValidacionDocumento.objects.filter(
+                validado_por=usuario
+            ).select_related('documento', 'documento__expediente').order_by('-fecha')[:10]
+
+            ctx['cambios_realizados'] = HistorialExpediente.objects.filter(
+                realizado_por=usuario
+            ).select_related('expediente').order_by('-fecha')[:10]
+
+            if usuario.rol == Rol.JEFE_PROYECTO:
+                ctx['jurados_asignados'] = AsignacionJurado.objects.filter(
+                    asignado_por=usuario
+                ).select_related('expediente', 'presidente', 'secretario').order_by('-fecha_oficio')[:10]
+
+            if usuario.rol == Rol.ACADEMICO:
+                ctx['actos_programados'] = ActoProtocolario.objects.filter(
+                    programado_por=usuario
+                ).select_related('expediente').order_by('-fecha_acto')[:10]
+                ctx['empastados_recibidos'] = RecepcionEmpastado.objects.filter(
+                    recibido_por=usuario
+                ).select_related('expediente').order_by('-fecha_recepcion')[:10]
+
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        form_type = request.POST.get('_form_type', 'usuario')
+
+        if form_type == 'perfil':
+            return self._save_perfil(request)
+        elif form_type == 'expediente':
+            return self._save_expediente(request)
+        else:
+            return super().post(request, *args, **kwargs)
+
+    def _save_perfil(self, request):
+        """Guarda el formulario de perfil académico del alumno."""
+        from alumnos.models import PerfilAlumno
+        from administracion.forms import PerfilAlumnoAdminForm
+
+        edit_url = redirect('administracion:usuario_editar', pk=self.object.pk)
+
+        try:
+            perfil = self.object.perfil_alumno
+        except PerfilAlumno.DoesNotExist:
+            messages.error(request, 'Este alumno no tiene un perfil académico para editar.')
+            return edit_url
+
+        perfil_form = PerfilAlumnoAdminForm(
+            request.POST, instance=perfil, prefix='perfil'
+        )
+        if perfil_form.is_valid():
+            perfil_form.save()
+            messages.success(request, 'Perfil académico actualizado exitosamente.')
+        else:
+            for field, errors in perfil_form.errors.items():
+                label = perfil_form.fields[field].label if field in perfil_form.fields else field
+                for error in errors:
+                    messages.error(request, f'{label}: {error}')
+        return edit_url
+
+    def _save_expediente(self, request):
+        """Guarda el formulario de expediente."""
+        from administracion.forms import ExpedienteAdminForm
+
+        edit_url = redirect('administracion:usuario_editar', pk=self.object.pk)
+
+        try:
+            expediente = self.object.expediente
+        except Expediente.DoesNotExist:
+            messages.error(request, 'Este alumno no tiene un expediente para editar.')
+            return edit_url
+
+        exp_form = ExpedienteAdminForm(
+            request.POST, instance=expediente, prefix='exp'
+        )
+        if exp_form.is_valid():
+            exp_form.save()
+            messages.success(request, 'Expediente actualizado exitosamente.')
+        else:
+            for field, errors in exp_form.errors.items():
+                label = exp_form.fields[field].label if field in exp_form.fields else field
+                for error in errors:
+                    messages.error(request, f'{label}: {error}')
+        return edit_url
+
     def form_valid(self, form):
         form.save()
-        messages.success(self.request, 'Usuario actualizado exitosamente.')
-        return redirect(self.success_url)
+        messages.success(self.request, 'Datos del usuario actualizados exitosamente.')
+        return redirect('administracion:usuario_editar', pk=self.object.pk)
 
 
 # ─── CARRERAS ────────────────────────────────────────────────

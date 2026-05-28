@@ -4,7 +4,11 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-lg-7">
+    <div class="col-lg-8">
+
+        {# ═══════════════════════════════════════════════════════════════ #}
+        {# FORMULARIO PRINCIPAL: DATOS DEL USUARIO                       #}
+        {# ═══════════════════════════════════════════════════════════════ #}
         <div class="content-card p-4">
             <div class="card-header-custom mb-4">
                 <i class="bi bi-person-{% if object %}gear{% else %}plus{% endif %}"></i>
@@ -12,6 +16,7 @@
             </div>
             <form method="post" id="form-usuario">
                 {% csrf_token %}
+                <input type="hidden" name="_form_type" value="usuario">
 
                 {% if form.non_field_errors %}
                 <div class="alert alert-danger">
@@ -21,64 +26,38 @@
                 </div>
                 {% endif %}
 
-                <!-- Sección: Datos personales -->
+                <!-- Datos personales -->
                 <p class="text-muted fw-semibold small mb-2 text-uppercase" style="letter-spacing:.08em">
                     <i class="bi bi-person me-1"></i> Datos personales
                 </p>
-
                 <div class="row g-3 mb-3">
-                    <div class="col-md-4">
-                        {% include '_field.html' with field=form.first_name %}
-                    </div>
-                    <div class="col-md-4">
-                        {% include '_field.html' with field=form.last_name %}
-                    </div>
-                    <div class="col-md-4">
-                        {% include '_field.html' with field=form.apellido_materno %}
-                    </div>
+                    <div class="col-md-4">{% include '_field.html' with field=form.first_name %}</div>
+                    <div class="col-md-4">{% include '_field.html' with field=form.last_name %}</div>
+                    <div class="col-md-4">{% include '_field.html' with field=form.apellido_materno %}</div>
                 </div>
-
                 <div class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        {% include '_field.html' with field=form.email %}
-                    </div>
-                    <div class="col-md-6">
-                        {% include '_field.html' with field=form.telefono %}
-                    </div>
+                    <div class="col-md-6">{% include '_field.html' with field=form.email %}</div>
+                    <div class="col-md-6">{% include '_field.html' with field=form.telefono %}</div>
                 </div>
-
                 <div class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        {% include '_field.html' with field=form.genero %}
-                    </div>
-                    <div class="col-md-6">
-                        {% include '_field.html' with field=form.generacion %}
-                    </div>
+                    <div class="col-md-6">{% include '_field.html' with field=form.genero %}</div>
+                    <div class="col-md-6">{% include '_field.html' with field=form.generacion %}</div>
                 </div>
 
                 <hr class="my-3 opacity-25">
 
-                <!-- Sección: Cuenta y rol -->
+                <!-- Cuenta y acceso -->
                 <p class="text-muted fw-semibold small mb-2 text-uppercase" style="letter-spacing:.08em">
                     <i class="bi bi-shield-lock me-1"></i> Cuenta y acceso
                 </p>
-
                 {% if not object %}
                 <div class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        {% include '_field.html' with field=form.username %}
-                    </div>
-                    <div class="col-md-6">
-                        {% include '_field.html' with field=form.numero_control %}
-                    </div>
+                    <div class="col-md-6">{% include '_field.html' with field=form.username %}</div>
+                    <div class="col-md-6">{% include '_field.html' with field=form.numero_control %}</div>
                 </div>
                 <div class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        {% include '_field.html' with field=form.password %}
-                    </div>
-                    <div class="col-md-6">
-                        {% include '_field.html' with field=form.password_confirm %}
-                    </div>
+                    <div class="col-md-6">{% include '_field.html' with field=form.password %}</div>
+                    <div class="col-md-6">{% include '_field.html' with field=form.password_confirm %}</div>
                 </div>
                 {% else %}
                 <div class="row g-3 mb-3">
@@ -89,20 +68,13 @@
                             <div class="form-text">El nombre de usuario no se puede cambiar.</div>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        {% include '_field.html' with field=form.numero_control %}
-                    </div>
+                    <div class="col-md-6">{% include '_field.html' with field=form.numero_control %}</div>
                 </div>
                 {% endif %}
-
                 <div class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        {% include '_field.html' with field=form.rol %}
-                    </div>
+                    <div class="col-md-6">{% include '_field.html' with field=form.rol %}</div>
                     {% if object %}
-                    <div class="col-md-6">
-                        {% include '_field.html' with field=form.is_active %}
-                    </div>
+                    <div class="col-md-6">{% include '_field.html' with field=form.is_active %}</div>
                     {% endif %}
                 </div>
 
@@ -127,12 +99,572 @@
                 <div class="d-flex gap-2 mt-4">
                     <button type="submit" class="btn btn-success px-4">
                         <i class="bi bi-check-circle me-1"></i>
-                        {% if object %}Guardar Cambios{% else %}Crear Usuario{% endif %}
+                        {% if object %}Guardar Datos del Usuario{% else %}Crear Usuario{% endif %}
                     </button>
                     <a href="{% url 'administracion:usuarios' %}" class="btn btn-outline-secondary">Cancelar</a>
                 </div>
             </form>
         </div>
+
+        {# ═══════════════════════════════════════════════════════════════ #}
+        {# DATOS RELACIONADOS (solo al editar)                           #}
+        {# ═══════════════════════════════════════════════════════════════ #}
+        {% if object %}
+
+        {# ─── ALUMNO ─────────────────────────────────────────────────── #}
+        {% if usuario_rol == 'ALUMNO' %}
+
+        {# ── Perfil Académico (EDITABLE) ── #}
+        <div class="content-card p-4 mt-4">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-person-badge"></i> Perfil Académico del Alumno
+            </div>
+            {% if perfil_form %}
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="_form_type" value="perfil">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">{% include '_field.html' with field=perfil_form.plan_estudios %}</div>
+                    <div class="col-md-6">{% include '_field.html' with field=perfil_form.semestre_egreso %}</div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">{% include '_field.html' with field=perfil_form.promedio %}</div>
+                    <div class="col-md-6">{% include '_field.html' with field=perfil_form.correo_institucional %}</div>
+                </div>
+                <button type="submit" class="btn btn-primary px-4">
+                    <i class="bi bi-save me-1"></i> Guardar Perfil Académico
+                </button>
+            </form>
+            {% else %}
+            <div class="alert alert-secondary mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                Este alumno aún no tiene un perfil académico extendido registrado.
+            </div>
+            {% endif %}
+        </div>
+
+        {# ── Expediente de Titulación (EDITABLE) ── #}
+        <div class="content-card p-4 mt-4">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-folder2-open"></i> Expediente de Titulación
+            </div>
+            {% if expediente_form %}
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="_form_type" value="expediente">
+
+                <!-- Estado y Modalidad -->
+                <p class="text-muted fw-semibold small mb-2 text-uppercase" style="letter-spacing:.08em">
+                    <i class="bi bi-gear me-1"></i> Estado y Modalidad
+                </p>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">{% include '_field.html' with field=expediente_form.estado %}</div>
+                    <div class="col-md-6">{% include '_field.html' with field=expediente_form.modalidad %}</div>
+                </div>
+
+                <hr class="my-3 opacity-25">
+
+                <!-- Proyecto / Empresa -->
+                <p class="text-muted fw-semibold small mb-2 text-uppercase" style="letter-spacing:.08em">
+                    <i class="bi bi-briefcase me-1"></i> Datos del Proyecto
+                </p>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">{% include '_field.html' with field=expediente_form.titulo_trabajo %}</div>
+                    <div class="col-md-6">{% include '_field.html' with field=expediente_form.nombre_empresa %}</div>
+                </div>
+
+                <hr class="my-3 opacity-25">
+
+                <!-- Pago -->
+                <p class="text-muted fw-semibold small mb-2 text-uppercase" style="letter-spacing:.08em">
+                    <i class="bi bi-credit-card me-1"></i> Pago de Titulación
+                </p>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">{% include '_field.html' with field=expediente_form.pago_validado %}</div>
+                    <div class="col-md-6">{% include '_field.html' with field=expediente_form.pago_observaciones %}</div>
+                </div>
+
+                <hr class="my-3 opacity-25">
+
+                <!-- Fotografías Físicas -->
+                <p class="text-muted fw-semibold small mb-2 text-uppercase" style="letter-spacing:.08em">
+                    <i class="bi bi-camera me-1"></i> Fotografías Físicas
+                </p>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">{% include '_field.html' with field=expediente_form.foto_fisica_division %}</div>
+                    <div class="col-md-6">{% include '_field.html' with field=expediente_form.foto_fisica_escolares %}</div>
+                </div>
+
+                <hr class="my-3 opacity-25">
+
+                <!-- Observaciones -->
+                <p class="text-muted fw-semibold small mb-2 text-uppercase" style="letter-spacing:.08em">
+                    <i class="bi bi-chat-text me-1"></i> Observaciones
+                </p>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">{% include '_field.html' with field=expediente_form.observaciones_division %}</div>
+                    <div class="col-md-6">{% include '_field.html' with field=expediente_form.observaciones_cedula %}</div>
+                </div>
+
+                <hr class="my-3 opacity-25">
+
+                <!-- Cita de Entrega -->
+                <p class="text-muted fw-semibold small mb-2 text-uppercase" style="letter-spacing:.08em">
+                    <i class="bi bi-calendar-check me-1"></i> Cita de Entrega
+                </p>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">{% include '_field.html' with field=expediente_form.fecha_cita_entrega %}</div>
+                    <div class="col-md-6">{% include '_field.html' with field=expediente_form.instrucciones_cita %}</div>
+                </div>
+
+                <!-- Archivos actuales (solo lectura) -->
+                <hr class="my-3 opacity-25">
+                <p class="text-muted fw-semibold small mb-2 text-uppercase" style="letter-spacing:.08em">
+                    <i class="bi bi-file-earmark me-1"></i> Archivos del Expediente (solo lectura)
+                </p>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <div class="p-3 rounded" style="background:var(--bg-secondary, #f8f9fa);">
+                            <small class="text-muted d-block mb-1">Foto Digital</small>
+                            {% if expediente.fotografia_digital %}
+                                <span class="text-success"><i class="bi bi-check-circle"></i> Cargada</span>
+                            {% else %}
+                                <span class="text-muted"><i class="bi bi-x-circle"></i> No cargada</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded" style="background:var(--bg-secondary, #f8f9fa);">
+                            <small class="text-muted d-block mb-1">Constancia No Inconveniencia</small>
+                            {% if expediente.constancia_no_inconveniencia %}
+                                <span class="text-success"><i class="bi bi-check-circle"></i> Cargada</span>
+                            {% else %}
+                                <span class="text-muted"><i class="bi bi-x-circle"></i> Pendiente</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded" style="background:var(--bg-secondary, #f8f9fa);">
+                            <small class="text-muted d-block mb-1">Cédula Profesional</small>
+                            {% if expediente.cedula_profesional_pdf %}
+                                <span class="text-success"><i class="bi bi-check-circle"></i> Cargada</span>
+                            {% else %}
+                                <span class="text-muted"><i class="bi bi-x-circle"></i> Pendiente</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary px-4">
+                    <i class="bi bi-save me-1"></i> Guardar Expediente
+                </button>
+            </form>
+
+            {% else %}
+            <div class="alert alert-secondary mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                Este alumno aún no ha iniciado su proceso de titulación (sin expediente).
+            </div>
+            {% endif %}
+        </div>
+
+        {# ── Documentos del Expediente (solo lectura) ── #}
+        {% if expediente and documentos %}
+        <div class="content-card p-4 mt-4">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-file-earmark-text"></i> Documentos del Expediente
+                <span class="badge bg-primary ms-2">{{ documentos|length }}</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Documento</th>
+                            <th class="text-center">Estado</th>
+                            <th class="text-center">Versión</th>
+                            <th>Fecha de Carga</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc in documentos %}
+                        <tr>
+                            <td>
+                                <i class="bi bi-file-earmark{% if doc.archivo %}-check{% endif %} me-1"></i>
+                                {{ doc.tipo_documento.nombre }}
+                                {% if doc.tipo_documento.es_obligatorio %}
+                                    <span class="text-danger" title="Obligatorio">*</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-{{ doc.get_estado_color }}">{{ doc.get_estado_display }}</span>
+                            </td>
+                            <td class="text-center">v{{ doc.version }}</td>
+                            <td>{{ doc.fecha_carga|date:"d/M/Y H:i"|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {# ── Jurado Asignado (solo lectura) ── #}
+        {% if expediente and jurado %}
+        <div class="content-card p-4 mt-4">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-people"></i> Jurado Asignado
+            </div>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <div class="p-3 rounded" style="background:var(--bg-secondary, #f8f9fa);">
+                        <small class="text-muted d-block mb-1">Presidente</small>
+                        <strong>{{ jurado.presidente.get_full_name }}</strong>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 rounded" style="background:var(--bg-secondary, #f8f9fa);">
+                        <small class="text-muted d-block mb-1">Secretario/a</small>
+                        <strong>{{ jurado.secretario.get_full_name }}</strong>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 rounded" style="background:var(--bg-secondary, #f8f9fa);">
+                        <small class="text-muted d-block mb-1">Vocal Propietario/a</small>
+                        <strong>{{ jurado.vocal_propietario.get_full_name|default:"No asignado" }}</strong>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 rounded" style="background:var(--bg-secondary, #f8f9fa);">
+                        <small class="text-muted d-block mb-1">Vocal Suplente</small>
+                        <strong>{{ jurado.vocal_suplente.get_full_name|default:"No asignado" }}</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="p-3 rounded" style="background:var(--bg-secondary, #f8f9fa);">
+                        <small class="text-muted d-block mb-1">No. de Oficio</small>
+                        <strong>{{ jurado.numero_oficio|default:"—" }}</strong>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-3 rounded" style="background:var(--bg-secondary, #f8f9fa);">
+                        <small class="text-muted d-block mb-1">Fecha del Acto</small>
+                        <strong>{{ jurado.fecha_acto|date:"d/M/Y H:i"|default:"—" }}</strong>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-3 rounded" style="background:var(--bg-secondary, #f8f9fa);">
+                        <small class="text-muted d-block mb-1">Lugar</small>
+                        <strong>{{ jurado.lugar_acto|default:"—" }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {# ── Acto Protocolario (solo lectura) ── #}
+        {% if expediente and acto %}
+        <div class="content-card p-4 mt-4">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-calendar-event"></i> Acto Protocolario
+            </div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="p-3 rounded" style="background:var(--bg-secondary, #f8f9fa);">
+                        <small class="text-muted d-block mb-1">Fecha y Hora</small>
+                        <strong>{{ acto.fecha_acto|date:"d/M/Y H:i" }}</strong>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-3 rounded" style="background:var(--bg-secondary, #f8f9fa);">
+                        <small class="text-muted d-block mb-1">Lugar</small>
+                        <strong>{{ acto.lugar }}</strong>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-3 rounded" style="background:var(--bg-secondary, #f8f9fa);">
+                        <small class="text-muted d-block mb-1">Resultado</small>
+                        <span class="badge bg-{% if acto.resultado == 'APROBADO' or acto.resultado == 'APROBADO_MENCION' %}success{% elif acto.resultado == 'SUSPENDIDO' %}danger{% elif acto.resultado == 'NO_PRESENTADO' %}warning{% else %}secondary{% endif %} px-3 py-2">
+                            {{ acto.get_resultado_display }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% if acto.calificacion %}
+            <div class="row g-3 mt-1">
+                <div class="col-md-4">
+                    <div class="p-3 rounded" style="background:var(--bg-secondary, #f8f9fa);">
+                        <small class="text-muted d-block mb-1">Calificación</small>
+                        <strong>{{ acto.calificacion }}</strong>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {# ── Empastado (solo lectura) ── #}
+        {% if expediente and empastado %}
+        <div class="content-card p-4 mt-4">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-book"></i> Recepción de Empastado
+            </div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="p-3 rounded" style="background:var(--bg-secondary, #f8f9fa);">
+                        <small class="text-muted d-block mb-1">Fecha de Recepción</small>
+                        <strong>{{ empastado.fecha_recepcion|date:"d/M/Y" }}</strong>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-3 rounded" style="background:var(--bg-secondary, #f8f9fa);">
+                        <small class="text-muted d-block mb-1">Estado</small>
+                        <strong>{{ empastado.get_estado_display }}</strong>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-3 rounded" style="background:var(--bg-secondary, #f8f9fa);">
+                        <small class="text-muted d-block mb-1">Recibido por</small>
+                        <strong>{{ empastado.recibido_por.get_full_name|default:"—" }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {# ── Historial del Expediente (solo lectura) ── #}
+        {% if expediente and historial %}
+        <div class="content-card p-4 mt-4">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-clock-history"></i> Historial del Expediente
+                <small class="text-muted ms-2">(últimos 10)</small>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Estado</th>
+                            <th>Descripción</th>
+                            <th>Realizado por</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for h in historial %}
+                        <tr>
+                            <td class="text-nowrap">{{ h.fecha|date:"d/M/Y H:i" }}</td>
+                            <td><span class="badge bg-{{ h.get_estado_nuevo_color }}">{{ h.get_estado_nuevo_display }}</span></td>
+                            <td><small>{{ h.descripcion|truncatechars:80 }}</small></td>
+                            <td>{{ h.realizado_por.get_full_name|default:"Sistema" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {# ── Notificaciones Recientes (solo lectura) ── #}
+        {% if notificaciones %}
+        <div class="content-card p-4 mt-4">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-bell"></i> Notificaciones Recientes
+                <small class="text-muted ms-2">(últimas 5)</small>
+            </div>
+            <div class="list-group list-group-flush">
+                {% for n in notificaciones %}
+                <div class="list-group-item px-0 d-flex align-items-start gap-2">
+                    <i class="bi {{ n.get_tipo_icono }} text-{{ n.get_tipo_color }} mt-1"></i>
+                    <div>
+                        <strong class="d-block">{{ n.titulo }}</strong>
+                        <small class="text-muted">{{ n.fecha|date:"d/M/Y H:i" }} — {{ n.get_tipo_display }}</small>
+                        {% if not n.leida %}
+                            <span class="badge bg-primary ms-1">Sin leer</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% endif %} {# fin ALUMNO #}
+
+        {# ─── PERSONAL: Actividad del Usuario (solo lectura) ─────────── #}
+        {% if usuario_rol == 'ESCOLARES' or usuario_rol == 'ACADEMICO' or usuario_rol == 'JEFE_PROYECTO' %}
+
+        {% if validaciones_realizadas %}
+        <div class="content-card p-4 mt-4">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-clipboard-check"></i> Validaciones Realizadas
+                <small class="text-muted ms-2">(últimas 10)</small>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Documento</th>
+                            <th>Alumno</th>
+                            <th class="text-center">Resultado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for v in validaciones_realizadas %}
+                        <tr>
+                            <td class="text-nowrap">{{ v.fecha|date:"d/M/Y H:i" }}</td>
+                            <td>{{ v.documento.tipo_documento.nombre|truncatechars:40 }}</td>
+                            <td>{{ v.documento.expediente.alumno.get_full_name }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-{% if v.estado == 'APROBADO' %}success{% elif v.estado == 'RECHAZADO' %}danger{% elif v.estado == 'REQUIERE_CORRECCION' %}warning{% else %}secondary{% endif %}">
+                                    {{ v.get_estado_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if cambios_realizados %}
+        <div class="content-card p-4 mt-4">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-arrow-left-right"></i> Cambios de Estado Realizados
+                <small class="text-muted ms-2">(últimos 10)</small>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Expediente</th>
+                            <th>Nuevo Estado</th>
+                            <th>Descripción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in cambios_realizados %}
+                        <tr>
+                            <td class="text-nowrap">{{ c.fecha|date:"d/M/Y H:i" }}</td>
+                            <td>{{ c.expediente }}</td>
+                            <td><span class="badge bg-{{ c.get_estado_nuevo_color }}">{{ c.get_estado_nuevo_display }}</span></td>
+                            <td><small>{{ c.descripcion|truncatechars:60 }}</small></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if jurados_asignados %}
+        <div class="content-card p-4 mt-4">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-people"></i> Jurados Asignados
+                <small class="text-muted ms-2">(últimos 10)</small>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Fecha Oficio</th>
+                            <th>Alumno</th>
+                            <th>Presidente</th>
+                            <th>Secretario</th>
+                            <th>No. Oficio</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for j in jurados_asignados %}
+                        <tr>
+                            <td class="text-nowrap">{{ j.fecha_oficio|date:"d/M/Y"|default:"—" }}</td>
+                            <td>{{ j.expediente.alumno.get_full_name }}</td>
+                            <td>{{ j.presidente.get_full_name }}</td>
+                            <td>{{ j.secretario.get_full_name }}</td>
+                            <td>{{ j.numero_oficio|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if actos_programados %}
+        <div class="content-card p-4 mt-4">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-calendar-event"></i> Actos Protocolarios Programados
+                <small class="text-muted ms-2">(últimos 10)</small>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Alumno</th>
+                            <th>Lugar</th>
+                            <th class="text-center">Resultado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in actos_programados %}
+                        <tr>
+                            <td class="text-nowrap">{{ a.fecha_acto|date:"d/M/Y H:i" }}</td>
+                            <td>{{ a.expediente.alumno.get_full_name }}</td>
+                            <td>{{ a.lugar }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-{% if a.resultado == 'APROBADO' or a.resultado == 'APROBADO_MENCION' %}success{% elif a.resultado == 'SUSPENDIDO' %}danger{% else %}secondary{% endif %}">
+                                    {{ a.get_resultado_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if empastados_recibidos %}
+        <div class="content-card p-4 mt-4">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-book"></i> Empastados Recibidos
+                <small class="text-muted ms-2">(últimos 10)</small>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Alumno</th>
+                            <th class="text-center">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for e in empastados_recibidos %}
+                        <tr>
+                            <td class="text-nowrap">{{ e.fecha_recepcion|date:"d/M/Y" }}</td>
+                            <td>{{ e.expediente.alumno.get_full_name }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-{% if e.estado == 'REVISADO' %}success{% elif e.estado == 'RECHAZADO' %}danger{% else %}warning{% endif %}">
+                                    {{ e.get_estado_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {% endif %} {# fin PERSONAL #}
+
+        {% endif %} {# fin object (editar) #}
+
     </div>
 </div>
 
@@ -144,7 +676,6 @@
     const inputCarrera = document.getElementById('id_carrera');
     const inputDepartamento = document.getElementById('id_departamento');
 
-    // Referencias a los labels para agregar/quitar asterisco
     const labelCarrera = campoCarrera ? campoCarrera.querySelector('label') : null;
     const labelDepartamento = campoDepartamento ? campoDepartamento.querySelector('label') : null;
 
@@ -152,7 +683,6 @@
         if (!input) return;
         if (requerido) {
             input.required = true;
-            // Agregar asterisco si no existe
             if (label && !label.querySelector('.req-star')) {
                 const star = document.createElement('span');
                 star.className = 'text-danger ms-1 req-star';
@@ -161,7 +691,6 @@
             }
         } else {
             input.required = false;
-            // Quitar asterisco
             if (label) {
                 const star = label.querySelector('.req-star');
                 if (star) star.remove();
@@ -171,8 +700,6 @@
 
     function actualizarCampos() {
         const rol = rolSelect ? rolSelect.value : '';
-
-        // Ocultar ambos y quitar required
         campoCarrera.style.display = 'none';
         campoDepartamento.style.display = 'none';
         setRequired(inputCarrera, labelCarrera, false);
@@ -189,7 +716,7 @@
 
     if (rolSelect) {
         rolSelect.addEventListener('change', actualizarCampos);
-        actualizarCampos(); // Ejecutar al cargar para preservar valor al editar
+        actualizarCampos();
     }
 })();
 </script>
