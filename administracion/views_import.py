@@ -3,6 +3,9 @@ Vistas de Importación y Exportación Masiva vía Excel para el Sistema de Titul
 Proporciona lógica de generación de plantillas individuales/grupales (vacías o con datos)
 y un procesador transaccional atómico tipo Upsert para evitar la duplicación de registros.
 """
+import csv
+import io
+import zipfile
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -52,9 +55,40 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
     ya sea vacío (con instrucciones) o pre-relleno con datos actuales (Upsert).
     """
 
+    def get_data_for_key(self, key):
+        rows_data = []
+        if key == 'departamentos':
+            for d in Departamento.objects.all().order_by('clave'):
+                rows_data.append([d.clave, d.nombre, d.rol_responsable])
+        elif key == 'carreras':
+            for c in Carrera.objects.select_related('departamento').all().order_by('clave'):
+                rows_data.append([c.clave, c.nombre, 'Si' if c.activa else 'No', c.departamento.clave if c.departamento else ''])
+        elif key == 'planes':
+            for p in PlanEstudios.objects.all().order_by('-nombre'):
+                rows_data.append([p.nombre, p.descripcion, 'Si' if p.activo else 'No'])
+        elif key == 'modalidades':
+            for m in Modalidad.objects.select_related('plan_estudios').all().order_by('plan_estudios__nombre', 'clave'):
+                rows_data.append([m.plan_estudios.nombre, m.clave, m.nombre, m.descripcion, 'Si' if m.activa else 'No'])
+        elif key == 'profesores':
+            for p in Profesor.objects.select_related('departamento').all().order_by('cedula'):
+                rows_data.append([p.cedula, p.first_name, p.last_name, p.apellido_materno, p.titulo_academico, p.email, p.departamento.clave if p.departamento else '', 'Si' if p.activo else 'No'])
+        elif key == 'alumnos':
+            for u in Usuario.objects.filter(rol=Rol.ALUMNO).select_related('carrera').order_by('username'):
+                p = getattr(u, 'perfil_alumno', None)
+                rows_data.append([
+                    u.username, u.first_name, u.last_name, u.apellido_materno, u.email,
+                    u.carrera.clave if u.carrera else '',
+                    p.plan_estudios.nombre if (p and p.plan_estudios) else '',
+                    p.semestre_egreso if p else '',
+                    str(p.promedio) if (p and p.promedio) else '',
+                    u.telefono, u.genero, u.generacion or ''
+                ])
+        return rows_data
+
     def get(self, request):
         tipo = request.GET.get('tipo', 'todo')
         con_datos = request.GET.get('con_datos', 'false') == 'true'
+        formato = request.GET.get('formato', 'excel')
 
         wb = openpyxl.Workbook()
         # Eliminar hoja activa por defecto
@@ -137,6 +171,55 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
         if not all(k in sheets_def for k in active_keys):
             raise Http404("Catálogo no soportado.")
 
+        if formato == 'csv':
+            if tipo == 'todo':
+                # Return a ZIP with multiple CSVs
+                zip_buffer = io.BytesIO()
+                with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                    for key in active_keys:
+                        sheet_meta = sheets_def[key]
+                        csv_buffer = io.StringIO()
+                        writer = csv.writer(csv_buffer)
+                        
+                        writer.writerow(sheet_meta['headers'])
+                        if con_datos:
+                            for row in self.get_data_for_key(key):
+                                writer.writerow(row)
+                        else:
+                            for row in sheet_meta['help_rows']:
+                                writer.writerow(row)
+                        
+                        zip_file.writestr(f"{sheet_meta['title']}.csv", csv_buffer.getvalue().encode('utf-8-sig'))
+                
+                response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+                filename = f'plantilla_{tipo}.zip' if not con_datos else f'datos_respaldo_{tipo}.zip'
+                response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                return response
+            else:
+                # Return a single CSV
+                response = HttpResponse(content_type='text/csv')
+                response.charset = 'utf-8-sig' # Set BOM for Excel compatibility
+                filename = f'plantilla_{tipo}.csv' if not con_datos else f'datos_respaldo_{tipo}.csv'
+                response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                
+                writer = csv.writer(response)
+                # Ensure BOM is written
+                response.write('\ufeff')
+                
+                key = tipo
+                sheet_meta = sheets_def[key]
+                writer.writerow(sheet_meta['headers'])
+                
+                if con_datos:
+                    for row in self.get_data_for_key(key):
+                        writer.writerow(row)
+                else:
+                    for row in sheet_meta['help_rows']:
+                        writer.writerow(row)
+                        
+                return response
+
+        # Logic for 'excel' format
         for key in active_keys:
             sheet_meta = sheets_def[key]
             ws = wb.create_sheet(title=sheet_meta['title'])
@@ -160,35 +243,7 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
 
             # 2. Agregar contenido (Datos)
             if con_datos:
-                # Cargar datos existentes del sistema
-                rows_data = []
-                if key == 'departamentos':
-                    for d in Departamento.objects.all().order_by('clave'):
-                        rows_data.append([d.clave, d.nombre, d.rol_responsable])
-                elif key == 'carreras':
-                    for c in Carrera.objects.select_related('departamento').all().order_by('clave'):
-                        rows_data.append([c.clave, c.nombre, 'Si' if c.activa else 'No', c.departamento.clave if c.departamento else ''])
-                elif key == 'planes':
-                    for p in PlanEstudios.objects.all().order_by('-nombre'):
-                        rows_data.append([p.nombre, p.descripcion, 'Si' if p.activo else 'No'])
-                elif key == 'modalidades':
-                    for m in Modalidad.objects.select_related('plan_estudios').all().order_by('plan_estudios__nombre', 'clave'):
-                        rows_data.append([m.plan_estudios.nombre, m.clave, m.nombre, m.descripcion, 'Si' if m.activa else 'No'])
-                elif key == 'profesores':
-                    for p in Profesor.objects.select_related('departamento').all().order_by('cedula'):
-                        rows_data.append([p.cedula, p.first_name, p.last_name, p.apellido_materno, p.titulo_academico, p.email, p.departamento.clave if p.departamento else '', 'Si' if p.activo else 'No'])
-                elif key == 'alumnos':
-                    for u in Usuario.objects.filter(rol=Rol.ALUMNO).select_related('carrera').order_by('username'):
-                        p = getattr(u, 'perfil_alumno', None)
-                        rows_data.append([
-                            u.username, u.first_name, u.last_name, u.apellido_materno, u.email,
-                            u.carrera.clave if u.carrera else '',
-                            p.plan_estudios.nombre if (p and p.plan_estudios) else '',
-                            p.semestre_egreso if p else '',
-                            str(p.promedio) if (p and p.promedio) else '',
-                            u.telefono, u.genero, u.generacion or ''
-                        ])
-
+                rows_data = self.get_data_for_key(key)
                 # Escribir filas en la hoja
                 for row_idx, row_values in enumerate(rows_data, 2):
                     for col_idx, value in enumerate(row_values, 1):
@@ -196,6 +251,10 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
                         cell.font = data_font
                         cell.alignment = data_align
                         cell.border = thin_border
+            else:
+                for row_idx, row_values in enumerate(sheet_meta['help_rows'], 2):
+                    for col_idx, value in enumerate(row_values, 1):
+                        ws.cell(row=row_idx, column=col_idx, value=value)
 
         # Preparar respuesta HTTP de descarga de Excel
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -204,25 +263,30 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
         wb.save(response)
         return response
 
-
-class SubirExcelView(AdminRequeridoMixin, View):
+class SubirArchivoMasivoView(AdminRequeridoMixin, View):
     """
-    Recibe el archivo Excel cargado por el administrador, valida la integridad,
+    Recibe el archivo Excel o CSV cargado por el administrador, valida la integridad,
     relaciones de llaves foráneas y ejecuta un Upsert atómico por transacción.
     """
 
     def post(self, request):
         tipo = request.POST.get('tipo', 'todo')
-        excel_file = request.FILES.get('archivo_excel')
+        uploaded_file = request.FILES.get('archivo_excel')
 
-        if not excel_file:
-            messages.error(request, "Por favor, selecciona un archivo de Excel para subir.")
+        if not uploaded_file:
+            messages.error(request, "Por favor, selecciona un archivo para subir.")
+            return redirect(reverse('administracion:importar_exportar') + f'?tab={tipo}')
+            
+        filename = uploaded_file.name.lower()
+        is_csv = filename.endswith('.csv')
+        is_excel = filename.endswith('.xlsx')
+
+        if not (is_csv or is_excel):
+            messages.error(request, "Formato de archivo inválido. Sube un archivo .xlsx o .csv")
             return redirect(reverse('administracion:importar_exportar') + f'?tab={tipo}')
 
-        try:
-            wb = openpyxl.load_workbook(excel_file, data_only=True)
-        except Exception as e:
-            messages.error(request, f"No se pudo leer el archivo Excel. Asegúrate de que sea un formato válido (.xlsx). Detalles: {e}")
+        if tipo == 'todo' and is_csv:
+            messages.error(request, "Para cargar todo el sistema a la vez, por favor sube un archivo Excel (.xlsx) con todas las pestañas. No se soporta CSV masivo unificado.")
             return redirect(reverse('administracion:importar_exportar') + f'?tab={tipo}')
 
         # Definir mapeo de pestañas
@@ -235,38 +299,53 @@ class SubirExcelView(AdminRequeridoMixin, View):
             'alumnos': 'Alumnos',
         }
 
-        # Validar existencia de hojas requeridas
         active_keys = sheet_mapping.keys() if tipo == 'todo' else [tipo]
         errors = []
         stats = {k: {'creados': 0, 'actualizados': 0} for k in sheet_mapping.keys()}
         self.newly_created_users = []
 
-        # Ejecución transaccional atómica
         try:
             with transaction.atomic():
-                for key in active_keys:
-                    sheet_name = sheet_mapping[key]
+                if is_csv:
+                    # Logic for single CSV file
+                    decoded_file = uploaded_file.read().decode('utf-8-sig').splitlines()
+                    reader = csv.reader(decoded_file)
+                    # Skip header
+                    rows = list(reader)[1:]
+                    
+                    # Convert empty strings to None to match openpyxl behavior
+                    normalized_rows = []
+                    for row in rows:
+                        normalized_rows.append([val if val != "" else None for val in row])
+                        
+                    self.procesar_hoja(tipo, normalized_rows, errors, stats, sheet_mapping[tipo])
+                else:
+                    # Logic for Excel file
+                    try:
+                        wb = openpyxl.load_workbook(uploaded_file, data_only=True)
+                    except Exception as e:
+                        raise ValidationError(f"No se pudo leer el archivo Excel. Detalles: {e}")
 
-                    # Buscar la hoja adecuada (por nombre exacto o fallar si no hay hojas válidas)
-                    if sheet_name in wb.sheetnames:
-                        ws = wb[sheet_name]
-                    elif len(wb.sheetnames) == 1 and tipo != 'todo':
-                        # Si es importación unitaria y hay una sola hoja, usar esa (flexibilidad para plantillas sueltas)
-                        ws = wb.active
-                    else:
-                        if tipo == 'todo':
-                            errors.append({
-                                'hoja': 'General', 'fila': 'N/A', 'columna': 'N/A',
-                                'error': f"Falta la pestaña '{sheet_name}' en el archivo."
-                            })
-                            continue
+                    for key in active_keys:
+                        sheet_name = sheet_mapping[key]
+
+                        if sheet_name in wb.sheetnames:
+                            ws = wb[sheet_name]
+                        elif len(wb.sheetnames) == 1 and tipo != 'todo':
+                            ws = wb.active
                         else:
-                            raise ValueError(f"No se encontró la pestaña correspondiente en el archivo Excel.")
+                            if tipo == 'todo':
+                                errors.append({
+                                    'hoja': 'General', 'fila': 'N/A', 'columna': 'N/A',
+                                    'error': f"Falta la pestaña '{sheet_name}' en el archivo."
+                                })
+                                continue
+                            else:
+                                raise ValueError("No se encontró la pestaña correspondiente en el archivo Excel.")
 
-                    # Procesar hoja renglón por renglón
-                    self.procesar_hoja(key, ws, errors, stats)
+                        rows = list(ws.iter_rows(min_row=2, values_only=True))
+                        self.procesar_hoja(key, rows, errors, stats, ws.title)
 
-                # Si se acumularon errores de validación lógica, lanzar excepción para forzar Rollback
                 if errors:
                     raise ValidationError("Errores de consistencia en datos.")
 
@@ -399,12 +478,10 @@ Instituto Tecnológico de Apizaco — TecNM.
         messages.success(request, success_msg)
         return redirect(reverse('administracion:importar_exportar') + f'?tab={tipo}')
 
-    def procesar_hoja(self, key, ws, errors, stats):
+    def procesar_hoja(self, key, rows, errors, stats, sheet_name):
         """
         Deriva el procesamiento del renglón al método correspondiente de acuerdo a la hoja procesada.
         """
-        rows = list(ws.iter_rows(min_row=2, values_only=True))
-
         for idx, row in enumerate(rows, 2):
             # Saltar filas completamente vacías
             if not any(val is not None for val in row):
@@ -425,7 +502,7 @@ Instituto Tecnológico de Apizaco — TecNM.
                     self.procesar_alumno(row, idx, stats['alumnos'])
             except ValueError as e:
                 errors.append({
-                    'hoja': ws.title,
+                    'hoja': sheet_name,
                     'fila': idx,
                     'columna': 'Varios',
                     'error': str(e)
@@ -654,6 +731,7 @@ Instituto Tecnológico de Apizaco — TecNM.
                 telefono=telefono,
                 genero=genero,
                 generacion=generacion,
+                correo_institucional=email,
                 debe_cambiar_password=True  # Forzar cambio de contraseña en su primer login
             )
             # Contraseña por defecto siguiendo el patrón corporativo seguro: Ita.[Control]!
@@ -687,6 +765,7 @@ Instituto Tecnológico de Apizaco — TecNM.
                 user.genero = genero
                 user.generacion = generacion
                 user.numero_control = control
+                user.correo_institucional = email
                 user.save()
                 cambio = True
 
@@ -698,22 +777,20 @@ Instituto Tecnológico de Apizaco — TecNM.
                 'carrera': carrera,
                 'plan_estudios': plan,
                 'semestre_egreso': semestre_egreso,
-                'promedio': promedio,
-                'correo_institucional': email
+                'promedio': promedio
             }
         )
         if not p_created:
             p_cambio = False
             if (perfil.numero_control != control or perfil.carrera != carrera or
                 perfil.plan_estudios != plan or perfil.semestre_egreso != semestre_egreso or
-                perfil.promedio != promedio or perfil.correo_institucional != email):
+                perfil.promedio != promedio):
                 
                 perfil.numero_control = control
                 perfil.carrera = carrera
                 perfil.plan_estudios = plan
                 perfil.semestre_egreso = semestre_egreso
                 perfil.promedio = promedio
-                perfil.correo_institucional = email
                 perfil.save()
                 p_cambio = True
             

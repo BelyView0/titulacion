@@ -21,38 +21,90 @@
             
             <h4 class="fw-bold mb-1" style="color: var(--ita-azul);">{{ usuario.get_full_name }}</h4>
             <div class="badge bg-secondary mb-2 px-3 py-2 fs-6">{{ usuario.get_rol_display }}</div>
-            <p class="text-muted small mb-0"><i class="bi bi-envelope-fill me-1"></i> {{ usuario.email }}</p>
-            {% if usuario.telefono %}
-            <p class="text-muted small mb-0"><i class="bi bi-telephone-fill me-1"></i> {{ usuario.telefono }}</p>
-            {% endif %}
             
-            {% if usuario.rol != 'ALUMNO' and foto_form %}
-            <button type="button" class="btn btn-sm btn-outline-primary mt-3" data-bs-toggle="modal" data-bs-target="#modalFoto">
-                <i class="bi bi-camera me-1"></i>Cambiar Foto
+            <div class="text-start mt-3">
+                <div class="mb-2">
+                    <small class="text-muted fw-bold d-block"><i class="bi bi-envelope me-1"></i> Correo Personal</small>
+                    <span class="d-block">{{ usuario.email }}</span>
+                    {% if usuario.email %}
+                        {% if usuario.email_verificado %}
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 mt-1"><i class="bi bi-check-circle me-1"></i> Verificado</span>
+                        {% else %}
+                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 mt-1"><i class="bi bi-exclamation-triangle me-1"></i> Pendiente</span>
+                            <a href="{% url 'perfil_verificar_enviar' tipo='personal' %}" class="btn btn-link btn-sm p-0 ms-1 text-decoration-none">Verificar</a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+
+                <div class="mb-2">
+                    <small class="text-muted fw-bold d-block"><i class="bi bi-building me-1"></i> Correo Institucional</small>
+                    <span class="d-block">{{ usuario.correo_institucional|default:"<em class='text-muted'>No asignado</em>" }}</span>
+                    {% if usuario.correo_institucional %}
+                        {% if usuario.correo_institucional_verificado %}
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 mt-1"><i class="bi bi-check-circle me-1"></i> Verificado</span>
+                        {% else %}
+                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 mt-1"><i class="bi bi-exclamation-triangle me-1"></i> Pendiente</span>
+                            <a href="{% url 'perfil_verificar_enviar' tipo='institucional' %}" class="btn btn-link btn-sm p-0 ms-1 text-decoration-none">Verificar</a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                
+                {% if usuario.telefono %}
+                <div class="mb-2">
+                    <small class="text-muted fw-bold d-block"><i class="bi bi-telephone me-1"></i> Teléfono</small>
+                    <span class="d-block">{{ usuario.telefono }}</span>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if perfil_basico_form %}
+            <button type="button" class="btn btn-sm btn-outline-primary mt-3 w-100" data-bs-toggle="modal" data-bs-target="#modalPerfilBasico">
+                <i class="bi bi-pencil-square me-1"></i> Editar Perfil
             </button>
 
-            <!-- Modal para cambiar foto -->
-            <div class="modal fade" id="modalFoto" tabindex="-1" aria-hidden="true">
+            <!-- Modal para editar perfil básico -->
+            <div class="modal fade" id="modalPerfilBasico" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content text-start">
                         <div class="modal-header bg-primary bg-opacity-10">
-                            <h6 class="modal-title fw-bold">Actualizar Foto de Perfil</h6>
+                            <h6 class="modal-title fw-bold">Actualizar Datos de Contacto</h6>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                         </div>
                         <form method="post" enctype="multipart/form-data">
                             {% csrf_token %}
+                            <input type="hidden" name="perfil_basico" value="1">
                             <div class="modal-body">
-                                <label for="{{ foto_form.foto_perfil.id_for_label }}" class="form-label fw-semibold mb-1">
-                                    {{ foto_form.foto_perfil.label }}
-                                </label>
-                                {{ foto_form.foto_perfil }}
-                                {% if foto_form.foto_perfil.help_text %}
-                                    <div class="form-text">{{ foto_form.foto_perfil.help_text }}</div>
-                                {% endif %}
+                                <div class="mb-3">
+                                    <label for="{{ perfil_basico_form.foto_perfil.id_for_label }}" class="form-label fw-semibold mb-1">
+                                        {{ perfil_basico_form.foto_perfil.label }}
+                                    </label>
+                                    {{ perfil_basico_form.foto_perfil }}
+                                </div>
+                                <div class="mb-3">
+                                    <label for="{{ perfil_basico_form.email.id_for_label }}" class="form-label fw-semibold mb-1">
+                                        {{ perfil_basico_form.email.label }}
+                                    </label>
+                                    {{ perfil_basico_form.email }}
+                                </div>
+                                <div class="mb-3">
+                                    <label for="{{ perfil_basico_form.correo_institucional.id_for_label }}" class="form-label fw-semibold mb-1">
+                                        {{ perfil_basico_form.correo_institucional.label }}
+                                    </label>
+                                    {{ perfil_basico_form.correo_institucional }}
+                                    {% if perfil_basico_form.correo_institucional.help_text %}
+                                        <div class="form-text">{{ perfil_basico_form.correo_institucional.help_text }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="mb-3">
+                                    <label for="{{ perfil_basico_form.telefono.id_for_label }}" class="form-label fw-semibold mb-1">
+                                        {{ perfil_basico_form.telefono.label }}
+                                    </label>
+                                    {{ perfil_basico_form.telefono }}
+                                </div>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                                <button type="submit" class="btn btn-primary btn-sm">Guardar Foto</button>
+                                <button type="submit" class="btn btn-primary btn-sm">Guardar Cambios</button>
                             </div>
                         </form>
                     </div>

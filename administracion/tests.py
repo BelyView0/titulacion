@@ -128,7 +128,7 @@ class ExcelImportExportTestCase(TestCase):
 
         # 2. Realizar POST de subida (Modo Completo / Todo)
         response = self.client.post(
-            reverse('administracion:subir_excel'),
+            reverse('administracion:subir_archivo_masivo'),
             {'tipo': 'todo', 'archivo_excel': excel_file}
         )
         self.assertRedirects(response, reverse('administracion:importar_exportar') + '?tab=todo')
@@ -169,7 +169,7 @@ class ExcelImportExportTestCase(TestCase):
 
         # Subir hoja específica de Alumnos
         response_update = self.client.post(
-            reverse('administracion:subir_excel'),
+            reverse('administracion:subir_archivo_masivo'),
             {'tipo': 'alumnos', 'archivo_excel': excel_file_update}
         )
         self.assertRedirects(response_update, reverse('administracion:importar_exportar') + '?tab=alumnos')
@@ -177,9 +177,10 @@ class ExcelImportExportTestCase(TestCase):
         # Comprobar que no se duplicaron registros
         self.assertEqual(Usuario.objects.filter(rol=Rol.ALUMNO).count(), 1)
         # Comprobar que se actualizaron los campos
+        usuario_actualizado = Usuario.objects.get(numero_control='20141720')
         perfil = PerfilAlumno.objects.get(numero_control='20141720')
         self.assertEqual(perfil.promedio, 98.00)
-        self.assertEqual(perfil.correo_institucional, 'daniela.nuevo@test.com')
+        self.assertEqual(usuario_actualizado.correo_institucional, 'daniela.nuevo@test.com')
 
     def test_rollback_transaccional_por_error_referencial(self):
         """
@@ -208,7 +209,7 @@ class ExcelImportExportTestCase(TestCase):
 
         # Realizar POST
         response = self.client.post(
-            reverse('administracion:subir_excel'),
+            reverse('administracion:subir_archivo_masivo'),
             {'tipo': 'todo', 'archivo_excel': excel_file}
         )
 

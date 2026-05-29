@@ -24,8 +24,7 @@ class UsuarioCreateForm(forms.ModelForm):
     class Meta:
         model = Usuario
         fields = [
-            'username', 'first_name', 'last_name', 'apellido_materno',
-            'email', 'rol', 'carrera', 'departamento',
+            'email', 'correo_institucional', 'rol', 'carrera', 'departamento',
             'numero_control', 'telefono', 'genero', 'generacion',
         ]
 
@@ -41,6 +40,7 @@ class UsuarioCreateForm(forms.ModelForm):
         self.fields['departamento'].required = False
         self.fields['generacion'].required = False
         self.fields['genero'].required = False
+        self.fields['correo_institucional'].required = False
 
         # Valor por defecto de generación: año actual - 4.5 años
         self.fields['generacion'].initial = int(datetime.now().year - 4.5)
@@ -71,6 +71,13 @@ class UsuarioCreateForm(forms.ModelForm):
         if rol == Rol.JEFE_PROYECTO and not departamento:
             self.add_error('departamento', 'El departamento es obligatorio para los Jefes de Proyecto.')
 
+        correo_institucional = cleaned_data.get('correo_institucional')
+        if correo_institucional:
+            config = ConfiguracionInstitucional.objects.first()
+            dominio = config.dominio_institucional if config else 'apizaco.tecnm.mx'
+            if not correo_institucional.endswith(f'@{dominio}'):
+                self.add_error('correo_institucional', f'El correo institucional debe terminar en @{dominio}')
+
         return cleaned_data
 
 
@@ -81,7 +88,7 @@ class UsuarioUpdateForm(forms.ModelForm):
         model = Usuario
         fields = [
             'first_name', 'last_name', 'apellido_materno',
-            'email', 'rol', 'carrera', 'departamento',
+            'email', 'correo_institucional', 'rol', 'carrera', 'departamento',
             'numero_control', 'telefono', 'genero', 'generacion', 'is_active',
         ]
 
@@ -95,6 +102,7 @@ class UsuarioUpdateForm(forms.ModelForm):
         self.fields['departamento'].required = False
         self.fields['generacion'].required = False
         self.fields['genero'].required = False
+        self.fields['correo_institucional'].required = False
 
         self.fields['first_name'].label = 'Nombre(s)'
         self.fields['last_name'].label = 'Apellido paterno'
@@ -113,14 +121,22 @@ class UsuarioUpdateForm(forms.ModelForm):
         if rol == Rol.JEFE_PROYECTO and not departamento:
             self.add_error('departamento', 'El departamento es obligatorio para los Jefes de Proyecto.')
 
+        correo_institucional = cleaned_data.get('correo_institucional')
+        if correo_institucional:
+            config = ConfiguracionInstitucional.objects.first()
+            dominio = config.dominio_institucional if config else 'apizaco.tecnm.mx'
+            if not correo_institucional.endswith(f'@{dominio}'):
+                self.add_error('correo_institucional', f'El correo institucional debe terminar en @{dominio}')
+
         return cleaned_data
 
 
 class ConfiguracionInstitucionalForm(forms.ModelForm):
     class Meta:
         model = ConfiguracionInstitucional
-        fields = ['imagen_encabezado', 'imagen_pie_pagina']
+        fields = ['dominio_institucional', 'imagen_encabezado', 'imagen_pie_pagina']
         widgets = {
+            'dominio_institucional': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ej: apizaco.tecnm.mx'}),
             'imagen_encabezado': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'imagen_pie_pagina': forms.ClearableFileInput(attrs={'class': 'form-control'}),
         }
@@ -150,14 +166,13 @@ class PerfilAlumnoAdminForm(forms.ModelForm):
     class Meta:
         from alumnos.models import PerfilAlumno
         model = PerfilAlumno
-        fields = ['plan_estudios', 'semestre_egreso', 'promedio', 'correo_institucional']
+        fields = ['plan_estudios', 'semestre_egreso', 'promedio']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['plan_estudios'].required = False
         self.fields['semestre_egreso'].required = False
         self.fields['promedio'].required = False
-        self.fields['correo_institucional'].required = False
 
 
 class ExpedienteAdminForm(forms.ModelForm):
@@ -190,3 +205,47 @@ class ExpedienteAdminForm(forms.ModelForm):
         for name in self.fields:
             if name != 'estado':
                 self.fields[name].required = False
+
+
+class UsuarioPerfilBasicoForm(forms.ModelForm):
+    """
+    Formulario para la edición del perfil de usuario (mis datos).
+    Maneja la edición de correos, teléfono y foto de perfil.
+    """
+    class Meta:
+        model = Usuario
+        fields = ['email', 'correo_institucional', 'telefono', 'foto_perfil']
+        widgets = {
+            'foto_perfil': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'})
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['email'].label = 'Correo Personal'
+        self.fields['correo_institucional'].label = 'Correo Institucional'
+        self.fields['telefono'].label = 'Teléfono'
+        
+        # Si ya tiene correo institucional, es de solo lectura (según la regla de negocio)
+        if self.instance and self.instance.correo_institucional:
+            self.fields['correo_institucional'].widget.attrs['readonly'] = True
+            self.fields['correo_institucional'].help_text = 'No puedes modificar tu correo institucional una vez asignado. Contacta a Soporte/Admin en caso de error.'
+        else:
+            config = ConfiguracionInstitucional.objects.first()
+            dominio = config.dominio_institucional if config else 'apizaco.tecnm.mx'
+            self.fields['correo_institucional'].help_text = f'Debe terminar en @{dominio}'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        correo_institucional = cleaned_data.get('correo_institucional')
+        
+        # Validación de solo lectura
+        if self.instance and self.instance.correo_institucional and correo_institucional != self.instance.correo_institucional:
+            self.add_error('correo_institucional', 'No puedes modificar el correo institucional una vez asignado.')
+
+        if correo_institucional and (not self.instance or not self.instance.correo_institucional):
+            config = ConfiguracionInstitucional.objects.first()
+            dominio = config.dominio_institucional if config else 'apizaco.tecnm.mx'
+            if not correo_institucional.endswith(f'@{dominio}'):
+                self.add_error('correo_institucional', f'El correo institucional debe terminar en @{dominio}')
+
+        return cleaned_data

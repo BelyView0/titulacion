@@ -30,7 +30,7 @@ urlpatterns = [
     # Importación y Exportación Masiva vía Excel
     path('importar-exportar/', views_import.ImportarExportarHubView.as_view(), name='importar_exportar'),
     path('importar-exportar/descargar/', views_import.DescargarPlantillaView.as_view(), name='descargar_plantilla'),
-    path('importar-exportar/subir/', views_import.SubirExcelView.as_view(), name='subir_excel'),
+    path('importar-exportar/subir/', views_import.SubirArchivoMasivoView.as_view(), name='subir_archivo_masivo'),
 
     # ─── Jefe de Proyecto (administración por carrera) ────────
     path('jefe/', views.DashboardJefeProyectoView.as_view(), name='jefe_dashboard'),

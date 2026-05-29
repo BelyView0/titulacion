@@ -52,6 +52,8 @@ urlpatterns = [
     
     # Perfil de usuario genérico
     path('perfil/', login_required(__import__('administracion.views_perfil', fromlist=['PerfilView']).PerfilView.as_view()), name='perfil'),
+    path('perfil/verificar/<str:tipo>/enviar/', login_required(__import__('administracion.views_perfil', fromlist=['EnviarVerificacionEmailView']).EnviarVerificacionEmailView.as_view()), name='perfil_verificar_enviar'),
+    path('perfil/verificar/<str:tipo>/validar/', login_required(__import__('administracion.views_perfil', fromlist=['ValidarVerificacionEmailView']).ValidarVerificacionEmailView.as_view()), name='perfil_verificar_validar'),
 
     # Módulos por rol
     path('admin-sistema/', include('administracion.urls')),

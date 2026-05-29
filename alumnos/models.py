@@ -39,11 +39,6 @@ class PerfilAlumno(models.Model):
         null=True, blank=True,
         verbose_name='Promedio general'
     )
-    correo_institucional = models.EmailField(
-        blank=True,
-        verbose_name='Correo institucional',
-        help_text='Correo @apizaco.tecnm.mx o institucional para notificaciones'
-    )
     fecha_registro = models.DateTimeField(auto_now_add=True)
 
     class Meta:

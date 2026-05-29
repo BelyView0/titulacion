@@ -37,7 +37,11 @@
                 </div>
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">{% include '_field.html' with field=form.email %}</div>
+                    <div class="col-md-6">{% include '_field.html' with field=form.correo_institucional %}</div>
+                </div>
+                <div class="row g-3 mb-3">
                     <div class="col-md-6">{% include '_field.html' with field=form.telefono %}</div>
+                    <div class="col-md-6">{% include '_field.html' with field=form.genero %}</div>
                 </div>
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">{% include '_field.html' with field=form.genero %}</div>
@@ -128,8 +132,7 @@
                     <div class="col-md-6">{% include '_field.html' with field=perfil_form.semestre_egreso %}</div>
                 </div>
                 <div class="row g-3 mb-3">
-                    <div class="col-md-6">{% include '_field.html' with field=perfil_form.promedio %}</div>
-                    <div class="col-md-6">{% include '_field.html' with field=perfil_form.correo_institucional %}</div>
+                    <div class="col-md-12">{% include '_field.html' with field=perfil_form.promedio %}</div>
                 </div>
                 <button type="submit" class="btn btn-primary px-4">
                     <i class="bi bi-save me-1"></i> Guardar Perfil Académico

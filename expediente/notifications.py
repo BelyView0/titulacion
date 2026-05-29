@@ -100,8 +100,7 @@ def _enviar_correo_alumno(alumno, expediente, titulo, mensaje):
     """Envía correo electrónico al alumno (correo institucional o email registrado)."""
     # Preferencia: correo institucional del perfil, luego email del usuario
     try:
-        perfil = alumno.perfil_alumno
-        correo_destino = perfil.correo_institucional or alumno.email
+        correo_destino = alumno.correo_institucional or alumno.email
     except Exception:
         correo_destino = alumno.email
 

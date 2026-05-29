@@ -46,8 +46,14 @@ class ExpedienteCreateView(AlumnoRequeridoMixin, CreateView):
     template_name = 'alumnos/expediente/crear.html'
 
     def dispatch(self, request, *args, **kwargs):
+        # Verificar que el usuario tenga al menos un correo verificado
+        user = request.user
+        if not user.email_verificado and not user.correo_institucional_verificado:
+            messages.warning(request, 'Debes verificar al menos uno de tus correos (Personal o Institucional) en tu perfil para poder aperturar tu expediente de titulación y asegurar la recepción de notificaciones.')
+            return redirect('perfil')
+
         # Si ya tiene expediente, redirigir al detalle
-        if hasattr(request.user, 'expediente'):
+        if hasattr(user, 'expediente'):
             return redirect('alumnos:expediente')
         return super().dispatch(request, *args, **kwargs)
 

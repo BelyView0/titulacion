@@ -167,6 +167,19 @@ class Usuario(AbstractUser):
         verbose_name='Debe cambiar contrasena',
         help_text='Si es True, el usuario sera forzado a cambiar su contrasena al iniciar sesion.'
     )
+    correo_institucional = models.EmailField(
+        blank=True, null=True,
+        verbose_name='Correo institucional',
+        help_text='Correo @apizaco.tecnm.mx o institucional para notificaciones'
+    )
+    correo_institucional_verificado = models.BooleanField(
+        default=False,
+        verbose_name='Correo institucional verificado'
+    )
+    email_verificado = models.BooleanField(
+        default=False,
+        verbose_name='Correo personal verificado'
+    )
 
     class Meta:
         verbose_name = 'Usuario'
@@ -253,6 +266,12 @@ class ConfiguracionInstitucional(models.Model):
         help_text="Ej: 2026",
         default=2026
     )
+    dominio_institucional = models.CharField(
+        max_length=100,
+        verbose_name="Dominio Institucional",
+        help_text="Dominio requerido para el correo institucional (ej: apizaco.tecnm.mx)",
+        default="apizaco.tecnm.mx"
+    )
     imagen_encabezado = models.ImageField(
         upload_to='configuracion/',
         blank=True, null=True,
@@ -332,4 +351,26 @@ class PasswordResetOTP(models.Model):
 
     def __str__(self):
         return f"OTP para {self.usuario.username} - {self.creado_en}"
+
+class EmailVerificationOTP(models.Model):
+    """
+    Almacena los códigos de 6 dígitos (OTP) para verificación de correos.
+    """
+    TIPO_CORREO_CHOICES = [
+        ('INSTITUCIONAL', 'Institucional'),
+        ('PERSONAL', 'Personal'),
+    ]
+    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='email_otps')
+    email_a_verificar = models.EmailField(verbose_name="Correo a verificar")
+    tipo_correo = models.CharField(max_length=15, choices=TIPO_CORREO_CHOICES)
+    codigo = models.CharField(max_length=6, verbose_name="Código de 6 dígitos")
+    creado_en = models.DateTimeField(auto_now_add=True)
+    usado = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "OTP de Verificación de Correo"
+        verbose_name_plural = "OTPs de Verificación de Correos"
+
+    def __str__(self):
+        return f"Verificación para {self.email_a_verificar} - {self.codigo}"
 
