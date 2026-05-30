@@ -5,6 +5,7 @@ Panel principal, expediente, documentos, timeline, notificaciones.
 from django.views.generic import (
     TemplateView, CreateView, UpdateView, ListView, View, DetailView
 )
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy, reverse
 from django.contrib import messages
 from django.shortcuts import redirect, get_object_or_404
@@ -306,7 +307,7 @@ class SubirComprobantePagoView(ExpedientePropioMixin, View):
         return redirect('alumnos:expediente')
 
 
-class NotificacionListView(AlumnoRequeridoMixin, ListView):
+class NotificacionListView(LoginRequiredMixin, ListView):
     model = Notificacion
     template_name = 'alumnos/notificaciones/lista.html'
     context_object_name = 'notificaciones'

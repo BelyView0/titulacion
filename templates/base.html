@@ -685,7 +685,7 @@
             <span class="text-muted" style="font-size:.78rem;">
                 <i class="bi bi-building me-1"></i>ITA — TecNM
             </span>
-            {% if user.is_authenticated and user.es_alumno %}
+            {% if user.is_authenticated %}
             <a href="{% url 'alumnos:notificaciones' %}" class="btn btn-sm btn-light position-relative">
                 <i class="bi bi-bell"></i>
                 {% if notificaciones_no_leidas %}
@@ -702,7 +702,7 @@
         {% for message in messages %}
         <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
             <i class="bi bi-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' or message.tags == 'danger' %}x-circle{% elif message.tags == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %} me-2"></i>
-            {{ message }}
+            {{ message|safe }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         {% endfor %}
