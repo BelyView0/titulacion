@@ -263,7 +263,7 @@ class UsuarioCreateView(AdminRequeridoMixin, CreateView):
         email = usuario.email
         if email:
             subject = "[ITA Titulación] Tu cuenta ha sido creada — Datos de Acceso"
-            full_name = usuario.get_full_name() or usuario.username
+            full_name = usuario.get_full_name() or usuario.numero_control
             
             html_content = f"""<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
@@ -285,8 +285,8 @@ class UsuarioCreateView(AdminRequeridoMixin, CreateView):
       <h3 style="margin-top:0;color:#1B396A;font-size:15px;">Datos de Acceso:</h3>
       <table style="width:100%;border-collapse:collapse;font-size:14px;">
         <tr>
-          <td style="padding:6px 0;font-weight:700;color:#6c757d;width:150px;">Nombre de usuario:</td>
-          <td style="padding:6px 0;font-weight:700;color:#333;">{usuario.username}</td>
+          <td style="padding:6px 0;font-weight:700;color:#6c757d;width:150px;">Número de control / empleado:</td>
+          <td style="padding:6px 0;font-weight:700;color:#333;">{usuario.numero_control}</td>
         </tr>
         <tr>
           <td style="padding:6px 0;font-weight:700;color:#6c757d;">Contraseña de acceso:</td>
@@ -321,7 +321,7 @@ class UsuarioCreateView(AdminRequeridoMixin, CreateView):
 Te informamos que tu cuenta de acceso para la plataforma de titulación del Instituto Tecnológico de Apizaco ha sido creada.
 
 Datos de Acceso:
-- Nombre de usuario: {usuario.username}
+- Número de control / empleado: {usuario.numero_control}
 - Contraseña: {password_clear}
 
 Puedes ingresar a la plataforma abriendo tu navegador web e introduciendo la dirección habitual de la institución.

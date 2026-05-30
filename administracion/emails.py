@@ -122,7 +122,7 @@ def enviar_codigo_otp(user, codigo, context='reset'):
         mensaje = f'Has solicitado cambiar tu contraseña. Tu código de seguridad es:\n\n{codigo}\n\nEste código expirará en 5 minutos.'
         
     text_content = (
-        f'Hola {user.get_full_name() or user.username},\n\n'
+        f'Hola {user.get_full_name() or user.numero_control},\n\n'
         f'{mensaje}\n\n'
         f'Si no solicitaste esto, ignora este mensaje y tu contraseña seguirá siendo la misma.\n\n'
         f'Atentamente,\nSistema de Titulación — ITA'
@@ -136,7 +136,7 @@ def enviar_codigo_otp(user, codigo, context='reset'):
                 <h1 style="margin: 0; font-size: 20px;">Sistema de Titulación ITA</h1>
             </div>
             <div style="padding: 30px 20px; text-align: center;">
-                <p style="font-size: 16px;">Hola <strong>{user.get_full_name() or user.username}</strong>,</p>
+                <p style="font-size: 16px;">Hola <strong>{user.get_full_name() or user.numero_control}</strong>,</p>
                 <p style="font-size: 16px;">{mensaje.split('.')[0]}. Tu código de seguridad es:</p>
                 
                 <div style="margin: 30px 0;">
@@ -170,7 +170,7 @@ def enviar_alerta_cambio_password(user):
     Envía una notificación de seguridad después de un cambio de contraseña exitoso.
     """
     text_content = (
-        f'Hola {user.get_full_name() or user.username},\n\n'
+        f'Hola {user.get_full_name() or user.numero_control},\n\n'
         f'Te confirmamos que tu contraseña ha sido modificada exitosamente.\n\n'
         f'Si no realizaste este cambio, por favor contacta al administrador del sistema inmediatamente.\n\n'
         f'Atentamente,\nSistema de Titulación — ITA'
@@ -183,7 +183,7 @@ def enviar_alerta_cambio_password(user):
                 <h1 style="margin: 0; font-size: 20px;">🛡️ Alerta de Seguridad</h1>
             </div>
             <div style="padding: 30px 20px; text-align: center;">
-                <p style="font-size: 16px;">Hola <strong>{user.get_full_name() or user.username}</strong>,</p>
+                <p style="font-size: 16px;">Hola <strong>{user.get_full_name() or user.numero_control}</strong>,</p>
                 <p style="font-size: 16px; color: #198754; font-weight: bold;">Tu contraseña ha sido modificada exitosamente.</p>
                 
                 <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">

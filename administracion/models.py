@@ -194,7 +194,12 @@ class Usuario(AbstractUser):
         return ' '.join(p.strip() for p in partes if p and p.strip()) or self.username
 
     def get_short_name(self):
-        return self.first_name or self.username
+        return self.first_name or self.numero_control or self.username
+
+    def save(self, *args, **kwargs):
+        if self.numero_control:
+            self.username = self.numero_control
+        super().save(*args, **kwargs)
 
     @property
     def es_admin(self):
@@ -373,4 +378,10 @@ class EmailVerificationOTP(models.Model):
 
     def __str__(self):
         return f"Verificación para {self.email_a_verificar} - {self.codigo}"
+
+    def is_valid(self):
+        from django.utils import timezone
+        import datetime
+        # Válido si no ha sido usado y han pasado menos de 15 minutos
+        return not self.usado and (timezone.now() - self.creado_en) < datetime.timedelta(minutes=15)
 

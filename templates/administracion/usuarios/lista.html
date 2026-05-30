@@ -72,7 +72,7 @@
                 {% for u in usuarios %}
                 <tr>
                     <td>
-                        <span class="fw-semibold" style="color:#1a1a2e;">{{ u.username }}</span><br>
+                        <span class="fw-semibold" style="color:#1a1a2e;">{{ u.numero_control }}</span><br>
                         <small class="text-muted">{{ u.email|default:"—" }}</small>
                     </td>
                     <td class="fw-semibold" style="color:#1a1a2e;">{{ u.get_full_name|default:"—" }}</td>

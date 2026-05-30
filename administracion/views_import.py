@@ -403,7 +403,7 @@ class SubirArchivoMasivoView(AdminRequeridoMixin, View):
       <h3 style="margin-top:0;color:#1B396A;font-size:15px;">Datos de Acceso:</h3>
       <table style="width:100%;border-collapse:collapse;font-size:14px;">
         <tr>
-          <td style="padding:6px 0;font-weight:700;color:#6c757d;width:150px;">Nombre de usuario:</td>
+          <td style="padding:6px 0;font-weight:700;color:#6c757d;width:150px;">Número de control / empleado:</td>
           <td style="padding:6px 0;font-weight:700;color:#333;">{u_data['username']}</td>
         </tr>
         <tr>
@@ -439,7 +439,7 @@ class SubirArchivoMasivoView(AdminRequeridoMixin, View):
 Te informamos que tu cuenta de acceso para la plataforma de titulación del Instituto Tecnológico de Apizaco ha sido creada.
 
 Datos de Acceso:
-- Nombre de usuario: {u_data['username']}
+- Número de control / empleado: {u_data['username']}
 - Contraseña temporal: {u_data['password']}
 
 Puedes ingresar a la plataforma abriendo tu navegador web e introduciendo la dirección habitual de la institución.

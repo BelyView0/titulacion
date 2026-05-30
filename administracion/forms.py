@@ -31,7 +31,7 @@ class UsuarioCreateForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Campos siempre obligatorios
-        for f in ['username', 'first_name', 'last_name', 'apellido_materno',
+        for f in ['first_name', 'last_name', 'apellido_materno',
                   'email', 'rol', 'telefono', 'numero_control']:
             self.fields[f].required = True
 
@@ -49,7 +49,6 @@ class UsuarioCreateForm(forms.ModelForm):
         self.fields['first_name'].label = 'Nombre(s)'
         self.fields['last_name'].label = 'Apellido paterno'
         self.fields['apellido_materno'].label = 'Apellido materno'
-        self.fields['username'].label = 'Nombre de usuario'
         self.fields['carrera'].label = 'Carrera'
         self.fields['departamento'].label = 'Departamento'
 
