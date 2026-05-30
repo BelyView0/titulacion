@@ -187,6 +187,17 @@
 
             {% elif expediente.estado == 'ACTO_PROGRAMADO' %}
             <div class="mb-3">
+                {% if expediente.acto_protocolario and expediente.acto_protocolario.resultado == 'PENDIENTE' %}
+                <div class="alert alert-warning py-2 mb-0 small text-start">
+                    <i class="bi bi-hourglass-split me-1"></i>
+                    <strong>Acto Protocolario Pendiente:</strong> El acto está programado para el <strong>{{ expediente.acto_protocolario.fecha_acto|date:"d/m/Y \a \l\a\s H:i" }}</strong> en <strong>{{ expediente.acto_protocolario.lugar }}</strong>. Esperando que el Jefe de Proyecto confirme que el acto se llevó a cabo.
+                </div>
+                {% elif expediente.acto_protocolario and expediente.acto_protocolario.resultado == 'SUSPENDIDO' or expediente.acto_protocolario and expediente.acto_protocolario.resultado == 'NO_PRESENTADO' %}
+                <div class="alert alert-danger py-2 mb-0 small text-start">
+                    <i class="bi bi-x-circle me-1"></i>
+                    <strong>Acto no Aprobado:</strong> El resultado del acto protocolario es <strong>{{ expediente.acto_protocolario.get_resultado_display }}</strong>. Contacta al Jefe de Proyecto para resolver este caso.
+                </div>
+                {% else %}
                 {% if not expediente.notificacion_dgp_enviada %}
                 <p class="small text-muted mb-2"><i class="bi bi-calendar-event me-1"></i>El Acto Protocolario ya fue registrado. Envía las instrucciones DGP al alumno.</p>
                 <form action="{% url 'escolares:enviar_notificacion_dgp' expediente.pk %}" method="post">
@@ -196,38 +207,145 @@
                     </button>
                 </form>
                 {% else %}
-                <div class="alert alert-success py-2 small mb-3">
+                <div class="alert alert-success py-2 small mb-2">
                     <i class="bi bi-check-circle-fill me-1"></i>Notificación DGP enviada al alumno.
                 </div>
-                <p class="small text-muted mb-2"><i class="bi bi-file-earmark-pdf me-1"></i>Sube el acta firmada para continuar:</p>
-                <form action="{% url 'escolares:subir_acta_exencion' expediente.pk %}" method="post" enctype="multipart/form-data">
-                    {% csrf_token %}
-                    <div class="mb-2">
-                        <input class="form-control form-control-sm" type="file" name="acta_pdf" accept="application/pdf" required>
+                {% if not expediente.datos_dgp_confirmados %}
+                <div class="alert alert-warning py-2 small mb-0 text-start">
+                    <i class="bi bi-hourglass-split me-1"></i>
+                    <strong>Esperando confirmación:</strong> El alumno debe verificar que sus datos de título sean correctos y confirmarlo desde su portal antes de que puedas subir el Acta.
+                </div>
+                {% else %}
+                <div class="alert alert-success py-2 small mb-3 text-start">
+                    <i class="bi bi-patch-check-fill me-1"></i>
+                    <strong>Datos confirmados:</strong> El alumno ha confirmado que sus datos son correctos.
+                </div>
+
+                <!-- SECCIÓN 1: ACTA DE EXENCIÓN -->
+                <div class="card bg-light border-0 shadow-none mb-3">
+                    <div class="card-body p-2 text-start">
+                        <h6 class="fw-bold text-dark mb-2 small"><i class="bi bi-file-earmark-pdf me-1"></i>Acta de Exención</h6>
+                        {% if expediente.acta_exencion_pdf %}
+                        <div class="alert alert-success p-2 small mb-2 text-start">
+                            <i class="bi bi-check-circle-fill me-1"></i>Acta firmada ya registrada.
+                            <br>
+                            <a href="{{ expediente.acta_exencion_pdf.url }}" target="_blank" class="fw-bold text-success text-decoration-underline">
+                                <i class="bi bi-eye-fill me-1"></i>Ver Acta actual
+                            </a>
+                        </div>
+                        <p class="small text-muted mb-1" style="font-size: 0.8rem;"><i class="bi bi-arrow-repeat me-1"></i>Reemplazar archivo:</p>
+                        {% else %}
+                        <p class="small text-muted mb-2"><i class="bi bi-upload me-1"></i>Sube el acta firmada para continuar:</p>
+                        {% endif %}
+                        <form action="{% url 'escolares:subir_acta_exencion' expediente.pk %}" method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="mb-2">
+                                <input class="form-control form-control-sm" type="file" name="acta_pdf" accept="application/pdf" required>
+                            </div>
+                            <button type="submit" class="btn btn-success btn-sm w-100 fw-semibold">
+                                <i class="bi bi-cloud-arrow-up me-1"></i>{% if expediente.acta_exencion_pdf %}Reemplazar Acta{% else %}Mandar Acta de Exención / Examen{% endif %}
+                            </button>
+                        </form>
                     </div>
-                    <button type="submit" class="btn btn-success btn-sm w-100 fw-semibold">
-                        <i class="bi bi-upload me-1"></i>Mandar Acta de Exención de Examen Profesional y/o Acta de Examen Profesional
-                    </button>
-                </form>
+                </div>
+
+                <!-- SECCIÓN 2: INICIAR PROCESO DGP -->
+                <div class="card bg-light border-0 shadow-none text-start">
+                    <div class="card-body p-2">
+                        <h6 class="fw-bold text-dark mb-2 small"><i class="bi bi-bank me-1"></i>Proceso DGP</h6>
+                        <p class="small text-muted mb-2">Inicia el Proceso de Captura y Validación ante la DGP para que el alumno pueda proceder:</p>
+                        <form action="{% url 'escolares:iniciar_dgp' expediente.pk %}" method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary btn-sm w-100 fw-semibold">
+                                <i class="bi bi-play-fill me-1"></i>Iniciar Proceso DGP (Captura y Validación)
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endif %}
+                {% endif %}
                 {% endif %}
             </div>
 
             {% elif expediente.estado == 'ACTA_EXENCION' %}
             <div class="mb-3">
-                <p class="small text-muted mb-2"><i class="bi bi-journal-check me-1"></i>Acta registrada. Listo para iniciar trámite en DGP.</p>
-                <form action="{% url 'escolares:iniciar_dgp' expediente.pk %}" method="post">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-primary btn-sm w-100">
-                        <i class="bi bi-bank me-1"></i>Iniciar Proceso DGP (Captura y Validación)
-                    </button>
-                </form>
+                <!-- SECCIÓN 1: ACTA DE EXENCIÓN -->
+                <div class="card bg-light border-0 shadow-none mb-3 text-start">
+                    <div class="card-body p-2">
+                        <h6 class="fw-bold text-dark mb-2 small"><i class="bi bi-file-earmark-pdf me-1"></i>Acta de Exención</h6>
+                        {% if expediente.acta_exencion_pdf %}
+                        <div class="alert alert-success p-2 small mb-2 text-start">
+                            <i class="bi bi-check-circle-fill me-1"></i>Acta firmada ya registrada.
+                            <br>
+                            <a href="{{ expediente.acta_exencion_pdf.url }}" target="_blank" class="fw-bold text-success text-decoration-underline">
+                                <i class="bi bi-eye-fill me-1"></i>Ver Acta actual
+                            </a>
+                        </div>
+                        <p class="small text-muted mb-1" style="font-size: 0.8rem;"><i class="bi bi-arrow-repeat me-1"></i>Reemplazar archivo:</p>
+                        {% else %}
+                        <p class="small text-muted mb-2"><i class="bi bi-upload me-1"></i>Sube el acta firmada para continuar:</p>
+                        {% endif %}
+                        <form action="{% url 'escolares:subir_acta_exencion' expediente.pk %}" method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="mb-2">
+                                <input class="form-control form-control-sm" type="file" name="acta_pdf" accept="application/pdf" required>
+                            </div>
+                            <button type="submit" class="btn btn-success btn-sm w-100 fw-semibold">
+                                <i class="bi bi-cloud-arrow-up me-1"></i>{% if expediente.acta_exencion_pdf %}Reemplazar Acta{% else %}Mandar Acta de Exención / Examen{% endif %}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 2: INICIAR PROCESO DGP -->
+                <div class="card bg-light border-0 shadow-none text-start">
+                    <div class="card-body p-2">
+                        <h6 class="fw-bold text-dark mb-2 small"><i class="bi bi-bank me-1"></i>Proceso DGP</h6>
+                        <p class="small text-muted mb-2">Inicia el Proceso de Captura y Validación ante la DGP para que el alumno pueda proceder:</p>
+                        <form action="{% url 'escolares:iniciar_dgp' expediente.pk %}" method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary btn-sm w-100 fw-semibold">
+                                <i class="bi bi-play-fill me-1"></i>Iniciar Proceso DGP (Captura y Validación)
+                            </button>
+                        </form>
+                    </div>
+                </div>
             </div>
 
             {% elif expediente.estado == 'TRAMITE_DGP' %}
-            <div class="mb-3">
-                <p class="small text-muted mb-2">
-                    <i class="bi bi-hourglass-split me-1"></i>El alumno ha sido notificado para revisar eTitulos y se encuentra en periodo de monitoreo (50 días DGP). Esperando a que el alumno suba su Cédula Profesional Electrónica.
-                </p>
+            <div class="mb-3 text-start">
+                <!-- SECCIÓN 1: ACTA DE EXENCIÓN -->
+                <div class="card bg-light border-0 shadow-none mb-3">
+                    <div class="card-body p-2">
+                        <h6 class="fw-bold text-dark mb-2 small"><i class="bi bi-file-earmark-pdf me-1"></i>Acta de Exención</h6>
+                        {% if expediente.acta_exencion_pdf %}
+                        <div class="alert alert-success p-2 small mb-2 text-start">
+                            <i class="bi bi-check-circle-fill me-1"></i>Acta firmada ya registrada.
+                            <br>
+                            <a href="{{ expediente.acta_exencion_pdf.url }}" target="_blank" class="fw-bold text-success text-decoration-underline">
+                                <i class="bi bi-eye-fill me-1"></i>Ver Acta actual
+                            </a>
+                        </div>
+                        <p class="small text-muted mb-1" style="font-size: 0.8rem;"><i class="bi bi-arrow-repeat me-1"></i>Reemplazar archivo:</p>
+                        {% else %}
+                        <p class="small text-muted mb-2"><i class="bi bi-upload me-1"></i>Sube el acta firmada para continuar:</p>
+                        {% endif %}
+                        <form action="{% url 'escolares:subir_acta_exencion' expediente.pk %}" method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="mb-2">
+                                <input class="form-control form-control-sm" type="file" name="acta_pdf" accept="application/pdf" required>
+                            </div>
+                            <button type="submit" class="btn btn-success btn-sm w-100 fw-semibold">
+                                <i class="bi bi-cloud-arrow-up me-1"></i>{% if expediente.acta_exencion_pdf %}Reemplazar Acta{% else %}Mandar Acta de Exención / Examen{% endif %}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="alert alert-success py-2 small mb-0 text-start">
+                    <i class="bi bi-check-circle-fill me-1"></i>
+                    <strong>Trámite DGP Iniciado:</strong> El alumno ha sido notificado para revisar eTitulos y se encuentra en periodo de monitoreo (50 días DGP). Esperando a que el alumno suba su Cédula Profesional Electrónica.
+                </div>
             </div>
 
             {% elif expediente.estado == 'CEDULA_EN_REVISION' %}

@@ -250,6 +250,10 @@ class Expediente(models.Model):
         default=False, 
         verbose_name='Notificación DGP enviada'
     )
+    datos_dgp_confirmados = models.BooleanField(
+        default=False,
+        verbose_name='Datos DGP confirmados por el alumno'
+    )
     acta_exencion_pdf = models.FileField(
         upload_to='actas_exencion/', 
         null=True, blank=True,

@@ -16,4 +16,5 @@ urlpatterns = [
     path('notificaciones/', views.NotificacionListView.as_view(), name='notificaciones'),
     path('confirmar-asistencia/', views.ConfirmarAsistenciaAlumnoView.as_view(), name='confirmar_asistencia'),
     path('expediente/subir-cedula/', views.SubirCedulaAlumnoView.as_view(), name='subir_cedula'),
+    path('expediente/confirmar-datos/', views.ConfirmarDatosDGPAlumnoView.as_view(), name='confirmar_datos_dgp'),
 ]

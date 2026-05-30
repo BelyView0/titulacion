@@ -20,6 +20,7 @@ from escolares.views import (
     ConcluirProcesoView,
     IntegrarExpedienteView,
     EstadisticasEscolaresView,
+    ExportarEstadisticasDatosExcelView,
 )
 
 app_name = 'escolares'
@@ -27,6 +28,7 @@ app_name = 'escolares'
 urlpatterns = [
     path('', DashboardEscolaresView.as_view(), name='dashboard'),
     path('estadisticas/', EstadisticasEscolaresView.as_view(), name='estadisticas'),
+    path('estadisticas/exportar-excel/', ExportarEstadisticasDatosExcelView.as_view(), name='exportar_estadisticas_excel'),
     path('expedientes/', ExpedienteListaEscolaresView.as_view(), name='expedientes'),
     path('calendario/', CalendarioEscolaresView.as_view(), name='calendario'),
     path('expedientes/<int:pk>/', ExpedienteDetalleEscolaresView.as_view(), name='expediente_detalle'),

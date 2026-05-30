@@ -4,222 +4,418 @@
 {% block title %}Estadísticas - Servicios Escolares{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="h3 mb-0 text-gray-800">
-                <i class="fas fa-chart-bar text-primary me-2"></i>Estadísticas de Titulación
-            </h1>
-            <p class="text-muted">Indicadores generales y seguimiento de alumnos</p>
-        </div>
-        <div>
-            <form method="get" class="d-flex gap-2">
-                <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
-                    {% for y in years %}
-                    <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>Año {{ y }}</option>
-                    {% endfor %}
-                </select>
-                <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
-            </form>
-        </div>
-    </div>
+<style>
+    /* Premium Dashboard Styles */
+    .dashboard-container {
+        background-color: #F8FAFC;
+        min-height: 100vh;
+    }
+    
+    .stat-card {
+        border: none;
+        border-radius: 16px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+        background: #ffffff;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+        position: relative;
+    }
+    
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 6px;
+        height: 100%;
+    }
+    
+    .stat-card-primary::before {
+        background: linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%);
+    }
+    
+    .stat-card-success::before {
+        background: linear-gradient(180deg, #10B981 0%, #047857 100%);
+    }
+    
+    .stat-card-warning::before {
+        background: linear-gradient(180deg, #F59E0B 0%, #B45309 100%);
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 12px 25px rgba(0, 0, 0, 0.08);
+    }
+    
+    .icon-wrapper {
+        width: 52px;
+        height: 52px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card-primary .icon-wrapper {
+        background: rgba(59, 130, 246, 0.1);
+        color: #2563EB;
+    }
+    
+    .stat-card-success .icon-wrapper {
+        background: rgba(16, 185, 129, 0.1);
+        color: #059669;
+    }
+    
+    .stat-card-warning .icon-wrapper {
+        background: rgba(245, 158, 11, 0.1);
+        color: #D97706;
+    }
+    
+    .stat-card:hover .icon-wrapper {
+        transform: scale(1.1) rotate(5deg);
+    }
+    
+    /* Premium Cards & Tables */
+    .premium-card {
+        border: none;
+        border-radius: 18px;
+        background: #ffffff;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.02);
+        overflow: hidden;
+    }
+    
+    .premium-header {
+        background: #ffffff;
+        border-bottom: 1px solid #F1F5F9;
+        padding: 20px 24px !important;
+    }
+    
+    .premium-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #1E293B;
+        margin: 0;
+        display: flex;
+        align-items: center;
+    }
+    
+    .premium-table {
+        margin: 0;
+    }
+    
+    .premium-table thead th {
+        background-color: #F8FAFC;
+        color: #64748B;
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid #E2E8F0;
+        padding: 14px 18px;
+        text-align: center;
+    }
+    
+    .premium-table tbody td {
+        padding: 14px 18px;
+        vertical-align: middle;
+        font-size: 0.88rem;
+        color: #334155;
+        border-bottom: 1px solid #F1F5F9;
+    }
+    
+    .premium-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .premium-table tbody tr {
+        transition: background-color 0.2s ease;
+    }
+    
+    .premium-table tbody tr:hover {
+        background-color: #F8FAFC;
+    }
+    
+    /* Custom Progress Bar */
+    .custom-progress {
+        height: 8px !important;
+        border-radius: 10px;
+        background-color: #E2E8F0;
+        overflow: hidden;
+    }
+    
+    .custom-progress-bar {
+        border-radius: 10px;
+        background: linear-gradient(90deg, #10B981 0%, #059669 100%) !important;
+    }
+    
+    /* Filters */
+    .filter-select {
+        border-radius: 10px;
+        border: 1px solid #E2E8F0;
+        padding: 8px 16px;
+        font-size: 0.88rem;
+        font-weight: 500;
+        color: #334155;
+        background-color: #ffffff;
+        transition: all 0.2s ease;
+    }
+    
+    .filter-select:focus {
+        border-color: #3B82F6;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+    
+    .btn-premium {
+        border-radius: 10px;
+        font-weight: 600;
+        padding: 8px 20px;
+        font-size: 0.88rem;
+        transition: all 0.2s ease;
+    }
+</style>
 
-    <!-- Tarjetas de Resumen -->
-    <div class="row mb-4">
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-primary shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                Expedientes Abiertos ({{ selected_year }})
+<div class="dashboard-container py-4">
+    <div class="container-fluid">
+        
+        <!-- Header -->
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+            <div>
+                <h1 class="h3 mb-1 text-slate-900 fw-bold" style="letter-spacing: -0.02em;">
+                    <i class="fas fa-chart-pie text-primary me-2"></i>Estadísticas de Titulación
+                </h1>
+                <p class="text-muted mb-0">Indicadores clave de eficiencia y analíticas generales del alumnado</p>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+                <form method="get" class="d-flex gap-2 mb-0">
+                    <select name="year" class="filter-select shadow-sm" onchange="this.form.submit()">
+                        {% for y in years %}
+                        <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>Año {{ y }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-primary btn-premium shadow-sm mb-0"><i class="fas fa-filter me-1"></i>Filtrar</button>
+                </form>
+                <a href="{% url 'escolares:exportar_estadisticas_excel' %}?tipo=metricas&year={{ selected_year }}" class="btn btn-outline-success btn-premium shadow-sm"><i class="fas fa-file-excel me-1"></i>Exportar Excel</a>
+            </div>
+        </div>
+
+        <!-- Tarjetas de Resumen -->
+        <div class="row mb-4">
+            <!-- Tarjeta 1 -->
+            <div class="col-xl-4 col-md-6 mb-4">
+                <div class="card stat-card stat-card-primary shadow-sm h-100 py-3">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-3">
+                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1" style="font-size: 0.75rem; letter-spacing: 0.05em; font-weight: 700;">
+                                    Expedientes Abiertos ({{ selected_year }})
+                                </div>
+                                <div class="h3 mb-1 font-weight-bold text-slate-900">{{ stats.abiertos_year }}</div>
+                                <span class="text-muted small fw-semibold"><i class="fas fa-history me-1"></i>Histórico Total: {{ stats.abiertos_total }}</span>
                             </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.abiertos_year }}</div>
-                            <small class="text-muted">Histórico Total: {{ stats.abiertos_total }}</small>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-folder-open fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-success shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                Procesos Concluidos ({{ selected_year }})
+                            <div class="col-auto">
+                                <div class="icon-wrapper">
+                                    <i class="fas fa-folder-open"></i>
+                                </div>
                             </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.concluidos_year }}</div>
-                            <small class="text-muted">Histórico Total: {{ stats.concluidos_total }}</small>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-warning shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                Procesos Inconclusos ({{ selected_year }})
+            <!-- Tarjeta 2 -->
+            <div class="col-xl-4 col-md-6 mb-4">
+                <div class="card stat-card stat-card-success shadow-sm h-100 py-3">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-3">
+                                <div class="text-xs font-weight-bold text-success text-uppercase mb-1" style="font-size: 0.75rem; letter-spacing: 0.05em; font-weight: 700;">
+                                    Procesos Concluidos ({{ selected_year }})
+                                </div>
+                                <div class="h3 mb-1 font-weight-bold text-slate-900">{{ stats.concluidos_year }}</div>
+                                <span class="text-muted small fw-semibold"><i class="fas fa-history me-1"></i>Histórico Total: {{ stats.concluidos_total }}</span>
                             </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.inconclusos_year }}</div>
-                            <small class="text-muted">Histórico Total: {{ stats.inconclusos_total }}</small>
+                            <div class="col-auto">
+                                <div class="icon-wrapper">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-auto">
-                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tarjeta 3 -->
+            <div class="col-xl-4 col-md-6 mb-4">
+                <div class="card stat-card stat-card-warning shadow-sm h-100 py-3">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-3">
+                                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1" style="font-size: 0.75rem; letter-spacing: 0.05em; font-weight: 700;">
+                                    Procesos Inconclusos ({{ selected_year }})
+                                </div>
+                                <div class="h3 mb-1 font-weight-bold text-slate-900">{{ stats.inconclusos_year }}</div>
+                                <span class="text-muted small fw-semibold"><i class="fas fa-history me-1"></i>Histórico Total: {{ stats.inconclusos_total }}</span>
+                            </div>
+                            <div class="col-auto">
+                                <div class="icon-wrapper">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <div class="row">
-        <!-- Tabla Histórico -->
-        <div class="col-lg-5 mb-4">
-            <div class="card shadow mb-4">
-                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                    <h6 class="m-0 font-weight-bold text-primary">Histórico Anual (Últimos 5 años)</h6>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-sm text-center">
-                            <thead class="bg-light">
-                                <tr>
-                                    <th>Año</th>
-                                    <th>Abiertos</th>
-                                    <th>Concluidos</th>
-                                    <th>Eficiencia</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in historico_anual %}
-                                <tr>
-                                    <td><strong>{{ item.year }}</strong></td>
-                                    <td>{{ item.abiertos }}</td>
-                                    <td>{{ item.concluidos }}</td>
-                                    <td>
-                                        {% if item.abiertos > 0 %}
-                                            <div class="progress" style="height: 20px;">
-                                                <div class="progress-bar bg-success" role="progressbar" 
-                                                     style="width: {% widthratio item.concluidos item.abiertos 100 %}%" 
-                                                     aria-valuenow="{% widthratio item.concluidos item.abiertos 100 %}" 
-                                                     aria-valuemin="0" aria-valuemax="100">
-                                                    {% widthratio item.concluidos item.abiertos 100 %}%
-                                                </div>
-                                            </div>
-                                        {% else %}
-                                            <span class="text-muted">0%</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="4" class="text-muted">No hay datos históricos.</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+        <div class="row">
+            <!-- Tabla Histórico -->
+            <div class="col-lg-5 mb-4">
+                <div class="card premium-card shadow-sm mb-4">
+                    <div class="premium-header py-3">
+                        <h6 class="premium-title text-primary">
+                            <i class="fas fa-history me-2"></i>Histórico Anual (Últimos 5 años)
+                        </h6>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tabla Alumnos Inconclusos -->
-        <div class="col-lg-7 mb-4">
-            <div class="card shadow mb-4">
-                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                    <h6 class="m-0 font-weight-bold text-warning">Alumnos con Proceso Inconcluso ({{ selected_year }})</h6>
-                </div>
-                <div class="card-body">
-                    {% if page_obj %}
+                    <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table table-hover table-sm">
-                                <thead class="table-light">
+                            <table class="table premium-table text-center align-middle">
+                                <thead>
                                     <tr>
-                                        <th>No. Control</th>
-                                        <th>Alumno</th>
-                                        <th>Carrera</th>
-                                        <th>Estado Actual</th>
-                                        <th>Acciones</th>
+                                        <th>Año</th>
+                                        <th>Abiertos</th>
+                                        <th>Concluidos</th>
+                                        <th>Eficiencia</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for exp in page_obj %}
+                                    {% for item in historico_anual %}
                                     <tr>
-                                        <td>{{ exp.alumno.username }}</td>
-                                        <td>{{ exp.alumno.get_full_name }}</td>
-                                        <td>{{ exp.alumno.carrera.nombre|default:"N/A"|truncatechars:20 }}</td>
+                                        <td><strong>{{ item.year }}</strong></td>
+                                        <td><span class="badge bg-light text-dark px-2 py-1">{{ item.abiertos }}</span></td>
+                                        <td><span class="badge bg-light text-dark px-2 py-1">{{ item.concluidos }}</span></td>
                                         <td>
-                                            <span class="badge bg-{{ exp.get_estado_display_color }}">
-                                                {{ exp.get_estado_display }}
-                                            </span>
+                                            {% if item.abiertos > 0 %}
+                                                <div class="d-flex align-items-center justify-content-center gap-2">
+                                                    <div class="progress custom-progress flex-grow-1" style="max-width: 80px;">
+                                                        <div class="progress-bar custom-progress-bar" role="progressbar" 
+                                                             style="width: {% widthratio item.concluidos item.abiertos 100 %}%" 
+                                                             aria-valuenow="{% widthratio item.concluidos item.abiertos 100 %}" 
+                                                             aria-valuemin="0" aria-valuemax="100">
+                                                        </div>
+                                                    </div>
+                                                    <span class="fw-bold text-success" style="font-size: 0.8rem;">{% widthratio item.concluidos item.abiertos 100 %}%</span>
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">0%</span>
+                                            {% endif %}
                                         </td>
-                                        <td class="text-center">
-                                            <a href="{% url 'escolares:expediente_detalle' exp.pk %}" class="btn btn-sm btn-outline-primary" title="Ver Expediente">
-                                                <i class="fas fa-eye"></i>
-                                            </a>
-                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="4" class="text-muted py-4">No hay datos históricos.</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+                </div>
+            </div>
 
-                        <!-- Paginación -->
-                        {% if page_obj.has_other_pages %}
-                        <nav aria-label="Navegación de páginas">
-                            <ul class="pagination justify-content-center mt-3 mb-0">
-                                {% if page_obj.has_previous %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?year={{ selected_year }}&page={{ page_obj.previous_page_number }}">&laquo;</a>
-                                </li>
-                                {% else %}
-                                <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
-                                {% endif %}
-                                
-                                {% for num in page_obj.paginator.page_range %}
-                                    {% if page_obj.number == num %}
-                                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                                        <li class="page-item"><a class="page-link" href="?year={{ selected_year }}&page={{ num }}">{{ num }}</a></li>
+            <!-- Tabla Alumnos Inconclusos -->
+            <div class="col-lg-7 mb-4">
+                <div class="card premium-card shadow-sm mb-4">
+                    <div class="premium-header py-3 d-flex justify-content-between align-items-center">
+                        <h6 class="premium-title text-warning mb-0">
+                            <i class="fas fa-user-clock me-2"></i>Alumnos con Proceso Inconcluso ({{ selected_year }})
+                        </h6>
+                        <a href="{% url 'escolares:exportar_estadisticas_excel' %}?tipo=alumnos&year={{ selected_year }}" class="btn btn-xs btn-outline-success rounded-pill px-3 fw-bold shadow-none" style="font-size: 0.8rem;">
+                            <i class="fas fa-file-excel me-1"></i>Exportar Excel
+                        </a>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if page_obj %}
+                            <div class="table-responsive">
+                                <table class="table premium-table align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-start">No. Control</th>
+                                            <th class="text-start">Alumno</th>
+                                            <th class="text-start">Carrera</th>
+                                            <th>Estado Actual</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for exp in page_obj %}
+                                        <tr>
+                                            <td class="text-start"><strong>{{ exp.alumno.username }}</strong></td>
+                                            <td class="text-start fw-semibold text-slate-800">{{ exp.alumno.get_full_name }}</td>
+                                            <td class="text-start text-muted">{{ exp.alumno.carrera.nombre|default:"N/A"|truncatechars:20 }}</td>
+                                            <td class="text-center">
+                                                <span class="badge bg-{{ exp.get_estado_display_color }} rounded-pill px-2.5 py-1.5 fw-semibold" style="font-size: 0.75rem;">
+                                                    {{ exp.get_estado_display }}
+                                                </span>
+                                            </td>
+                                            <td class="text-center">
+                                                <a href="{% url 'escolares:expediente_detalle' exp.pk %}" class="btn btn-sm btn-outline-primary rounded-3 px-2 py-1" title="Ver Expediente">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Paginación -->
+                            {% if page_obj.has_other_pages %}
+                            <nav aria-label="Navegación de páginas">
+                                <ul class="pagination justify-content-center py-3 m-0">
+                                    {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link shadow-none" href="?year={{ selected_year }}&page={{ page_obj.previous_page_number }}">&laquo;</a>
+                                    </li>
+                                    {% else %}
+                                    <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
                                     {% endif %}
-                                {% endfor %}
-                                
-                                {% if page_obj.has_next %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?year={{ selected_year }}&page={{ page_obj.next_page_number }}">&raquo;</a>
-                                </li>
-                                {% else %}
-                                <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
-                                {% endif %}
-                            </ul>
-                        </nav>
+                                    
+                                    {% for num in page_obj.paginator.page_range %}
+                                        {% if page_obj.number == num %}
+                                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                            <li class="page-item"><a class="page-link" href="?year={{ selected_year }}&page={{ num }}">{{ num }}</a></li>
+                                        {% endif %}
+                                    {% endfor %}
+                                    
+                                    {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link shadow-none" href="?year={{ selected_year }}&page={{ page_obj.next_page_number }}">&raquo;</a>
+                                    </li>
+                                    {% else %}
+                                    <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                            {% endif %}
+                        {% else %}
+                            <div class="alert alert-info text-center m-4 rounded-3">
+                                <i class="fas fa-info-circle me-1"></i>No se encontraron alumnos con procesos inconclusos para el año {{ selected_year }}.
+                            </div>
                         {% endif %}
-                    {% else %}
-                        <div class="alert alert-info text-center m-0">
-                            No se encontraron alumnos con procesos inconclusos para el año {{ selected_year }}.
-                        </div>
-                    {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Fila de Gráficos: Índice de Titulación por Carrera -->
+    <!-- Fila de Gráficos: Índice por Carrera y Distribución por Género -->
     <div class="row mb-4">
-        <div class="col-12">
-            <div class="card shadow">
+        <!-- Carreras -->
+        <div class="col-lg-8 mb-4 mb-lg-0">
+            <div class="card shadow h-100">
                 <div class="card-header py-3">
                     <h6 class="m-0 font-weight-bold text-primary">
                         <i class="fas fa-graduation-cap me-1"></i> Índice de Alumnos Titulados por Carrera (Top 10)
@@ -227,6 +423,62 @@
                 </div>
                 <div class="card-body">
                     <div id="chart-carreras" style="min-height: 380px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Género -->
+        <div class="col-lg-4">
+            <div class="card premium-card shadow-sm h-100">
+                <div class="premium-header py-3">
+                    <h6 class="premium-title text-primary">
+                        <i class="fas fa-venus-mars me-2"></i>Distribución por Género
+                    </h6>
+                </div>
+                <div class="card-body d-flex flex-column justify-content-center p-4">
+                    <!-- Femenino Row -->
+                    <div class="d-flex align-items-center justify-content-between mb-4">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="icon-wrapper shadow-none" style="background: rgba(236, 72, 153, 0.1); color: #EC4899; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-female" style="font-size: 1.4rem;"></i>
+                            </div>
+                            <div class="text-start">
+                                <h6 class="mb-0 fw-bold text-slate-800" style="font-size: 0.95rem;">Femenino</h6>
+                                <span class="text-muted small" style="font-size: 0.8rem;">Alumnas registradas</span>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <span class="h4 mb-0 fw-bold text-slate-900" style="font-size: 1.25rem;">{{ genero_stats.femenino_count }}</span>
+                            <br>
+                            <span class="small fw-bold" style="color: #EC4899; font-size: 0.85rem;">{{ genero_stats.femenino_pct }}%</span>
+                        </div>
+                    </div>
+
+                    <!-- Masculino Row -->
+                    <div class="d-flex align-items-center justify-content-between mb-4">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="icon-wrapper shadow-none" style="background: rgba(59, 130, 246, 0.1); color: #3B82F6; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-male" style="font-size: 1.4rem;"></i>
+                            </div>
+                            <div class="text-start">
+                                <h6 class="mb-0 fw-bold text-slate-800" style="font-size: 0.95rem;">Masculino</h6>
+                                <span class="text-muted small" style="font-size: 0.8rem;">Alumnos registrados</span>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <span class="h4 mb-0 fw-bold text-slate-900" style="font-size: 1.25rem;">{{ genero_stats.masculino_count }}</span>
+                            <br>
+                            <span class="small fw-bold" style="color: #3B82F6; font-size: 0.85rem;">{{ genero_stats.masculino_pct }}%</span>
+                        </div>
+                    </div>
+
+                    <hr class="text-slate-200 my-3">
+
+                    <!-- Total Row -->
+                    <div class="d-flex align-items-center justify-content-between px-2">
+                        <span class="fw-semibold text-muted" style="font-size: 0.88rem;">Total Registrados</span>
+                        <span class="h5 mb-0 fw-bold text-slate-900" style="font-size: 1.15rem;">{{ genero_stats.total }}</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -293,6 +545,7 @@
             legend: { show: false }
         };
         new ApexCharts(document.querySelector("#chart-carreras"), carOptions).render();
+
     });
 </script>
 {% endblock %}

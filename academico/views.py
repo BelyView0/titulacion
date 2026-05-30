@@ -742,50 +742,7 @@ class ActoProtocolarioView(AcademicoRequeridoMixin, CreateView):
         return ctx
 
 
-class RegistrarResultadoActoView(AcademicoRequeridoMixin, UpdateView):
-    model = ActoProtocolario
-    template_name = 'academico/acto/resultado.html'
-    fields = ['resultado', 'calificacion', 'observaciones']
 
-    def dispatch(self, request, *args, **kwargs):
-        acto = self.get_object()
-        # Solo permitir registrar resultado si la fecha del acto ya pasó
-        if acto.fecha_acto > timezone.now():
-            messages.warning(
-                request,
-                f'No puedes registrar el resultado aún. El acto está programado para el '
-                f'{acto.fecha_acto.strftime("%d/%m/%Y a las %H:%M")}'
-            )
-            return redirect('academico:expediente_detalle', pk=acto.expediente.pk)
-        return super().dispatch(request, *args, **kwargs)
-
-    def form_valid(self, form):
-        acto = form.save()
-        expediente = acto.expediente
-        if acto.resultado in ['APROBADO', 'APROBADO_MENCION']:
-            # Mantiene el estado en ACTO_PROGRAMADO para que Servicios Escolares pueda registrar el Acta
-            registrar_cambio_estado(
-                expediente=expediente,
-                estado_nuevo=EstadoExpediente.ACTO_PROGRAMADO,
-                realizado_por=self.request.user,
-                descripcion='Acto protocolario aprobado. El expediente pasa a cargo de Servicios Escolares para registro de acta.'
-            )
-            notificar_alumno(
-                expediente=expediente,
-                tipo='APROBADO',
-                titulo='Acto Aprobado — Siguiente etapa en Servicios Escolares',
-                mensaje='¡Felicidades! Tu acto protocolario ha sido aprobado. El expediente ahora pasa a cargo de Servicios Escolares para continuar con el proceso de titulación.'
-            )
-        else:
-            notificar_alumno(
-                expediente=expediente,
-                tipo='RECHAZADO',
-                titulo='Resultado del Acto Protocolario',
-                mensaje=f'El resultado de tu acto protocolario fue: {acto.get_resultado_display()}. Contacta a División de Estudios para más información.',
-            )
-        messages.success(self.request, f'Resultado registrado: {acto.get_resultado_display()}. Ahora Servicios Escolares está a cargo de la siguiente etapa.')
-
-        return redirect('academico:expediente_detalle', pk=expediente.pk)
 
 
 class MarcarFotografiaAcademicoView(AcademicoRequeridoMixin, View):

@@ -179,30 +179,23 @@
                     </div>
                 </div>
 
-                {% if acto.resultado != 'PENDIENTE' %}
-                    <div class="alert alert-success py-2 small mb-0">
+                {% if acto_expirado %}
+                    {% if confirmaciones_completas %}
+                    <div class="alert alert-success py-2 small mb-0 text-start">
                         <i class="bi bi-check-circle-fill me-1"></i>
-                        Resultado registrado: <strong>{{ acto.get_resultado_display }}</strong>. El proceso continúa en Servicios Escolares.
+                        <strong>Acto realizado:</strong> El examen o acto ha concluido. El proceso continúa en Servicios Escolares.
                     </div>
-                {% else %}
-                    {% if acto_expirado %}
-                        {% if confirmaciones_completas %}
-                        <a href="{% url 'academico:resultado_acto' acto.pk %}" class="btn btn-success btn-sm w-100 mb-2">
-                            <i class="bi bi-clipboard-check me-1"></i>Registrar Resultado Final
-                        </a>
-                        {% else %}
-                        <div class="alert alert-warning py-2 small mb-0">
-                            <i class="bi bi-exclamation-triangle me-1"></i>
-                            La fecha del acto ya pasó. El Jefe de Proyecto debe reprogramar el acto.
-                        </div>
-                        {% endif %}
                     {% else %}
-                        <div class="alert alert-warning py-2 small mb-0">
-                            <i class="bi bi-clock-history me-1"></i>
-                            El acto aún no se lleva a cabo. Podrás registrar el resultado después del
-                            <strong>{{ acto.fecha_acto|date:"d/m/Y" }}</strong>.
-                        </div>
+                    <div class="alert alert-warning py-2 small mb-0">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        La fecha del acto ya pasó. El Jefe de Proyecto debe reprogramar el acto por falta de confirmaciones.
+                    </div>
                     {% endif %}
+                {% else %}
+                    <div class="alert alert-info py-2 small mb-0 text-start">
+                        <i class="bi bi-clock-history me-1"></i>
+                        El acto aún no se lleva a cabo. Está programado para el <strong>{{ acto.fecha_acto|date:"d/m/Y \a \l\a\s H:i" }}</strong>.
+                    </div>
                 {% endif %}
 
                 {% else %}

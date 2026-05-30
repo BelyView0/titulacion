@@ -282,7 +282,7 @@
                 <div class="text-center mb-3">
                     <img src="{% static 'img/qr_etitulos.png' %}" alt="QR Validación Títulos" class="img-thumbnail shadow-sm" style="width: 120px;">
                 </div>
-                <p>Verificar que la información capturada es correcta y responder al correo electrónico <strong>se_auxiliartitulacion@apizaco.tecnm.mx</strong> que los datos concentrados están bien.</p>
+                <p>Una vez que verifiques los datos confirma que los datos son correctos enviando un mensaje a servicios escolares.</p>
                 
                 <p><strong>b) Validar y revisar:</strong> Realizar el monitoreo durante los <strong>50 días hábiles</strong>, tiempo que dura el proceso en captura de información, revisión y expedición del documento Título Profesional, por la Dirección General de Profesiones (DGP), para observar el progreso del estatus del Título.</p>
                 <p class="text-info"><i class="bi bi-info-circle me-1"></i> * Si el estatus es <strong>5. Registrado</strong> en la plataforma de títulos electrónicos de la DGP, esto te permite tramitar tu cédula profesional en el paso c.</p>
@@ -295,6 +295,32 @@
                 <p>Descargar el archivo y enviar a servicios escolares, para programar la cita de entrega de documentación original y Título Profesional.</p>
             </div>
 
+            {% if not expediente.datos_dgp_confirmados %}
+            <div class="p-3 rounded-3 border border-warning bg-warning bg-opacity-10 text-center animate__animated animate__pulse mb-2">
+                <h6 class="fw-bold text-warning-emphasis mb-2">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>Confirmación de Datos Requerida
+                </h6>
+                <p class="small text-muted mb-3">
+                    Una vez que hayas ingresado a la plataforma de Validación de Títulos y verificado que tus datos capturados sean correctos, confírmalo aquí para que Servicios Escolares pueda proceder a generar y subir tu Acta de Exención.
+                </p>
+                <form method="post" action="{% url 'alumnos:confirmar_datos_dgp' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-warning btn-sm text-dark fw-bold px-4">
+                        <i class="bi bi-check-circle-fill me-1"></i>Mis datos son correctos
+                    </button>
+                </form>
+            </div>
+            {% else %}
+            <div class="p-3 rounded-3 border border-success bg-success bg-opacity-10 text-center mb-2">
+                <h6 class="fw-bold text-success mb-1">
+                    <i class="bi bi-check-circle-fill me-1"></i>Datos Confirmados Exitosamente
+                </h6>
+                <p class="small text-muted mb-0">
+                    Has confirmado que tus datos son correctos. Servicios Escolares ha sido notificado y se encuentra generando tu Acta de Exención / Examen.
+                </p>
+            </div>
+            {% endif %}
+
             {% if expediente.estado == 'CEDULA_RECHAZADA' %}
             <div class="alert alert-danger py-2 small mb-3">
                 <i class="bi bi-exclamation-triangle me-1"></i>
@@ -306,9 +332,9 @@
                 {% csrf_token %}
                 <div class="mb-3">
                     <label for="cedula_pdf" class="form-label small fw-semibold">Subir Cédula Profesional (PDF)</label>
-                    <input class="form-control form-control-sm" type="file" id="cedula_pdf" name="cedula_pdf" accept=".pdf" {% if expediente.estado == 'ACTA_EXENCION' %}disabled title="Aún no puedes subir la cédula, el trámite ante DGP debe iniciar primero"{% else %}required{% endif %}>
+                    <input class="form-control form-control-sm" type="file" id="cedula_pdf" name="cedula_pdf" accept=".pdf" {% if expediente.estado == 'ACTO_PROGRAMADO' or expediente.estado == 'ACTA_EXENCION' %}disabled title="Aún no puedes subir la cédula, el trámite ante DGP debe iniciar primero"{% else %}required{% endif %}>
                 </div>
-                <button type="submit" class="btn btn-primary w-100 btn-sm" {% if expediente.estado == 'ACTA_EXENCION' %}disabled{% endif %}>
+                <button type="submit" class="btn btn-primary w-100 btn-sm" {% if expediente.estado == 'ACTO_PROGRAMADO' or expediente.estado == 'ACTA_EXENCION' %}disabled{% endif %}>
                     <i class="bi bi-cloud-arrow-up me-1"></i>Enviar Cédula a Revisión
                 </button>
             </form>

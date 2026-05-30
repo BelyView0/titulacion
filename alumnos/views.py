@@ -447,3 +447,36 @@ class SubirCedulaAlumnoView(ExpedientePropioMixin, View):
 
         messages.success(request, 'Tu Cédula Profesional ha sido cargada y enviada a revisión.')
         return redirect('alumnos:expediente')
+
+
+class ConfirmarDatosDGPAlumnoView(ExpedientePropioMixin, View):
+    """El alumno confirma que sus datos de título DGP son correctos."""
+
+    def post(self, request):
+        expediente = self.get_expediente()
+        if not expediente:
+            messages.error(request, 'No tienes expediente activo.')
+            return redirect('alumnos:dashboard')
+
+        if not expediente.notificacion_dgp_enviada:
+            messages.error(request, 'Aún no se ha enviado la notificación DGP.')
+            return redirect('alumnos:expediente')
+
+        if expediente.datos_dgp_confirmados:
+            messages.info(request, 'Ya confirmaste que tus datos son correctos anteriormente.')
+            return redirect('alumnos:expediente')
+
+        expediente.datos_dgp_confirmados = True
+        expediente.save(update_fields=['datos_dgp_confirmados', 'fecha_ultima_actualizacion'])
+
+        from expediente.notifications import registrar_cambio_estado
+        registrar_cambio_estado(
+            expediente=expediente,
+            estado_nuevo=expediente.estado,
+            realizado_por=request.user,
+            descripcion='El alumno confirmó que sus datos concentrados de DGP son correctos.'
+        )
+
+        messages.success(request, 'Has confirmado que tus datos son correctos. Servicios Escolares ha sido notificado para continuar.')
+        return redirect('alumnos:expediente')
+

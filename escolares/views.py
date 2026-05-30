@@ -454,8 +454,12 @@ class IniciarTramiteDGPView(EscolaresRequeridoMixin, View):
     def post(self, request, pk):
         expediente = get_object_or_404(Expediente, pk=pk)
 
-        if expediente.estado != EstadoExpediente.ACTA_EXENCION:
-            messages.error(request, 'El expediente debe tener Acta de Exención registrada para iniciar el trámite DGP.')
+        if expediente.estado not in [EstadoExpediente.ACTA_EXENCION, EstadoExpediente.ACTO_PROGRAMADO]:
+            messages.error(request, 'El expediente debe estar en Acto Programado o tener Acta de Exención para iniciar el trámite DGP.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        if expediente.estado == EstadoExpediente.ACTO_PROGRAMADO and not expediente.datos_dgp_confirmados:
+            messages.error(request, 'El alumno aún no ha verificado y confirmado que sus datos de título sean correctos.')
             return redirect('escolares:expediente_detalle', pk=pk)
 
         registrar_cambio_estado(
@@ -706,8 +710,7 @@ class EnviarNotificacionDGPView(EscolaresRequeridoMixin, View):
             'a) Captura, durante un tiempo transcurrido de 10 días hábiles, a partir de la fecha de protocolo, '
             'ingresar a la plataforma que indica el Estatus del Título (Validación Títulos):\n'
             'https://etitulos.tecnm.mx/validacion\n'
-            'Verificar que la información capturada es correcta y responder al correo electrónico '
-            'se_auxiliartitulacion@apizaco.tecnm.mx que los datos concentrados están bien.\n\n'
+            'Una vez que verifiques los datos confirma que los datos son correctos enviando un mensaje a servicios escolares.\n\n'
             'b) Validar y revisar, realizando el monitoreo durante los 50 días hábiles, tiempo que dura el proceso '
             'en captura de información, revisión y expedición del documento Título Profesional, por la Dirección '
             'General de Profesiones (DGP), para observar el progreso del estatus del Título.\n'
@@ -744,8 +747,12 @@ class SubirActaExencionView(EscolaresRequeridoMixin, View):
     def post(self, request, pk):
         expediente = get_object_or_404(Expediente, pk=pk)
 
-        if expediente.estado != EstadoExpediente.ACTO_PROGRAMADO:
-            messages.error(request, 'El expediente debe estar en Acto Programado para subir el acta.')
+        if expediente.estado not in [EstadoExpediente.ACTO_PROGRAMADO, EstadoExpediente.ACTA_EXENCION, EstadoExpediente.TRAMITE_DGP]:
+            messages.error(request, 'El expediente debe estar en Acto Programado, Acta de Exención o Trámite DGP para subir el acta.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        if not expediente.datos_dgp_confirmados:
+            messages.error(request, 'El alumno aún no ha verificado y confirmado que sus datos de título sean correctos.')
             return redirect('escolares:expediente_detalle', pk=pk)
 
         archivo_pdf = request.FILES.get('acta_pdf')
@@ -758,14 +765,16 @@ class SubirActaExencionView(EscolaresRequeridoMixin, View):
             return redirect('escolares:expediente_detalle', pk=pk)
 
         expediente.acta_exencion_pdf = archivo_pdf
-        expediente.estado = EstadoExpediente.ACTA_EXENCION
+        estado_anterior = expediente.estado
+        if expediente.estado == EstadoExpediente.ACTO_PROGRAMADO:
+            expediente.estado = EstadoExpediente.ACTA_EXENCION
         expediente.save(update_fields=['acta_exencion_pdf', 'estado', 'fecha_ultima_actualizacion'])
 
         registrar_cambio_estado(
             expediente=expediente,
-            estado_nuevo=EstadoExpediente.ACTA_EXENCION,
+            estado_nuevo=expediente.estado,
             realizado_por=request.user,
-            descripcion='Acta de Exención/Examen subida exitosamente.'
+            descripcion=f'Acta de Exención/Examen subida exitosamente. Estado anterior: {estado_anterior}.'
         )
 
         notificar_alumno(
@@ -775,7 +784,7 @@ class SubirActaExencionView(EscolaresRequeridoMixin, View):
             mensaje='Tu Acta de Exención de Examen Profesional (y/o Acta de Examen) ha sido generada y está disponible en el sistema. Si requieres el documento físico, favor de pasar a Servicios Escolares por él.',
         )
 
-        messages.success(request, 'Acta subida y enviada al alumno. El expediente ha avanzado a la etapa Acta de Exención.')
+        messages.success(request, f'Acta subida y enviada al alumno. El expediente está en etapa: {expediente.get_estado_display()}.')
         return redirect('escolares:expediente_detalle', pk=pk)
 
 
@@ -1008,4 +1017,165 @@ class EstadisticasEscolaresView(EscolaresRequeridoMixin, TemplateView):
             'values': json.dumps(carreras_totales),
         }
         
+        # Distribución por Género (Alumnos en expedientes)
+        femenino_count = qs_base.filter(alumno__genero='F').count()
+        masculino_count = qs_base.filter(alumno__genero='M').count()
+        total_gender = femenino_count + masculino_count
+        
+        femenino_pct = round((femenino_count / total_gender * 100), 1) if total_gender > 0 else 0
+        masculino_pct = round((masculino_count / total_gender * 100), 1) if total_gender > 0 else 0
+        
+        ctx['genero_stats'] = {
+            'femenino_count': femenino_count,
+            'masculino_count': masculino_count,
+            'femenino_pct': femenino_pct,
+            'masculino_pct': masculino_pct,
+            'total': total_gender,
+        }
+        
         return ctx
+
+
+class ExportarEstadisticasDatosExcelView(EscolaresRequeridoMixin, View):
+    """Exporta estadísticas o lista de alumnos inconclusos a formato Excel."""
+
+    def get(self, request):
+        import openpyxl
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from django.http import HttpResponse
+        
+        tipo = request.GET.get('tipo', 'metricas')
+        year = request.GET.get('year', str(timezone.now().year))
+        
+        qs_base = Expediente.objects.exclude(estado=EstadoExpediente.BORRADOR)
+        qs_year = qs_base.filter(fecha_apertura__year=year)
+        
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        
+        # Styles
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="1B396A", end_color="1B396A", fill_type="solid")
+        header_alignment = Alignment(horizontal="center", vertical="center")
+        thin_border = Border(left=Side(style='thin'), right=Side(style='thin'),
+                             top=Side(style='thin'), bottom=Side(style='thin'))
+        
+        if tipo == 'alumnos':
+            # Exportar alumnos inconclusos
+            ws.title = "Alumnos Inconclusos"
+            
+            headers = ["No. Control", "Nombre Completo", "Carrera", "Modalidad", "Estado Actual", "Fecha de Apertura"]
+            for col_num, header_title in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col_num, value=header_title)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = header_alignment
+                cell.border = thin_border
+                
+            qs_inconclusos = qs_year.exclude(
+                estado__in=[EstadoExpediente.CONCLUIDO, EstadoExpediente.CANCELADO]
+            ).select_related('alumno', 'alumno__carrera', 'modalidad').order_by('fecha_apertura')
+            
+            for row_num, exp in enumerate(qs_inconclusos, 2):
+                ws.cell(row=row_num, column=1, value=exp.alumno.username).border = thin_border
+                ws.cell(row=row_num, column=2, value=exp.alumno.get_full_name()).border = thin_border
+                ws.cell(row=row_num, column=3, value=exp.alumno.carrera.nombre if exp.alumno.carrera else "N/A").border = thin_border
+                ws.cell(row=row_num, column=4, value=exp.modalidad.nombre if exp.modalidad else "N/A").border = thin_border
+                ws.cell(row=row_num, column=5, value=exp.get_estado_display()).border = thin_border
+                ws.cell(row=row_num, column=6, value=exp.fecha_apertura.strftime("%d/%m/%Y") if exp.fecha_apertura else "").border = thin_border
+                
+            # Auto-fit columns
+            for col in ws.columns:
+                max_len = max(len(str(cell.value or '')) for cell in col)
+                col_letter = openpyxl.utils.get_column_letter(col[0].column)
+                ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+                
+            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="Alumnos_Inconclusos_{year}.xlsx"'
+            wb.save(response)
+            return response
+            
+        else:
+            # Exportar métricas generales
+            ws.title = "Resumen de Estadísticas"
+            
+            # KPI Cards
+            ws.cell(row=1, column=1, value="Indicador").font = header_font
+            ws.cell(row=1, column=1).fill = header_fill
+            ws.cell(row=1, column=2, value="Año Seleccionado").font = header_font
+            ws.cell(row=1, column=2).fill = header_fill
+            ws.cell(row=1, column=3, value="Histórico Total").font = header_font
+            ws.cell(row=1, column=3).fill = header_fill
+            
+            abiertos_total = qs_base.count()
+            abiertos_year = qs_year.count()
+            concluidos_total = qs_base.filter(estado=EstadoExpediente.CONCLUIDO).count()
+            concluidos_year = qs_year.filter(estado=EstadoExpediente.CONCLUIDO).count()
+            inconclusos_total = abiertos_total - concluidos_total - qs_base.filter(estado=EstadoExpediente.CANCELADO).count()
+            inconclusos_year = abiertos_year - concluidos_year - qs_year.filter(estado=EstadoExpediente.CANCELADO).count()
+            
+            metrics = [
+                ("Expedientes Abiertos", abiertos_year, abiertos_total),
+                ("Procesos Concluidos", concluidos_year, concluidos_total),
+                ("Procesos Inconclusos", inconclusos_year, inconclusos_total)
+            ]
+            
+            for row_num, (name, val_y, val_t) in enumerate(metrics, 2):
+                ws.cell(row=row_num, column=1, value=name).border = thin_border
+                ws.cell(row=row_num, column=2, value=val_y).border = thin_border
+                ws.cell(row=row_num, column=3, value=val_t).border = thin_border
+                
+            # Gender distribution
+            femenino_count = qs_base.filter(alumno__genero='F').count()
+            masculino_count = qs_base.filter(alumno__genero='M').count()
+            total_gender = femenino_count + masculino_count
+            femenino_pct = round((femenino_count / total_gender * 100), 1) if total_gender > 0 else 0
+            masculino_pct = round((masculino_count / total_gender * 100), 1) if total_gender > 0 else 0
+            
+            ws.cell(row=6, column=1, value="Distribución por Género").font = Font(bold=True)
+            ws.cell(row=7, column=1, value="Género").font = header_font
+            ws.cell(row=7, column=1).fill = header_fill
+            ws.cell(row=7, column=2, value="Cantidad").font = header_font
+            ws.cell(row=7, column=2).fill = header_fill
+            ws.cell(row=7, column=3, value="Porcentaje").font = header_font
+            ws.cell(row=7, column=3).fill = header_fill
+            
+            ws.cell(row=8, column=1, value="Femenino").border = thin_border
+            ws.cell(row=8, column=2, value=femenino_count).border = thin_border
+            ws.cell(row=8, column=3, value=f"{femenino_pct}%").border = thin_border
+            
+            ws.cell(row=9, column=1, value="Masculino").border = thin_border
+            ws.cell(row=9, column=2, value=masculino_count).border = thin_border
+            ws.cell(row=9, column=3, value=f"{masculino_pct}%").border = thin_border
+            
+            ws.cell(row=10, column=1, value="Total").border = thin_border
+            ws.cell(row=10, column=2, value=total_gender).border = thin_border
+            ws.cell(row=10, column=3, value="100%").border = thin_border
+            
+            # History
+            ws.cell(row=12, column=1, value="Histórico Anual (Últimos 5 años)").font = Font(bold=True)
+            ws.cell(row=13, column=1, value="Año").font = header_font
+            ws.cell(row=13, column=1).fill = header_fill
+            ws.cell(row=13, column=2, value="Abiertos").font = header_font
+            ws.cell(row=13, column=2).fill = header_fill
+            ws.cell(row=13, column=3, value="Concluidos").font = header_font
+            ws.cell(row=13, column=3).fill = header_fill
+            
+            current_year = timezone.now().year
+            row_idx = 14
+            for y in range(current_year - 4, current_year + 1):
+                qs_y = qs_base.filter(fecha_apertura__year=y)
+                ws.cell(row=row_idx, column=1, value=y).border = thin_border
+                ws.cell(row=row_idx, column=2, value=qs_y.count()).border = thin_border
+                ws.cell(row=row_idx, column=3, value=qs_y.filter(estado=EstadoExpediente.CONCLUIDO).count()).border = thin_border
+                row_idx += 1
+                
+            for col in ws.columns:
+                max_len = max(len(str(cell.value or '')) for cell in col)
+                col_letter = openpyxl.utils.get_column_letter(col[0].column)
+                ws.column_dimensions[col_letter].width = max(max_len + 3, 16)
+                
+            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="Estadisticas_Titulacion_{year}.xlsx"'
+            wb.save(response)
+            return response

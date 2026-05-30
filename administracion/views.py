@@ -1419,3 +1419,38 @@ class ReprogramarActoView(JefeProyectoRequeridoMixin, View):
 
         messages.success(request, f'Acto protocolario reprogramado. Se notificó a {len(destinatarios)} participantes por correo.')
         return redirect('administracion:jefe_detalle', pk=expediente.pk)
+
+
+class ConfirmarActoLlevadoAcaboJefeView(JefeProyectoRequeridoMixin, View):
+    """Jefe de Proyecto confirma que el acto protocolario se llevó a cabo."""
+    def post(self, request, pk):
+        acto = get_object_or_404(ActoProtocolario, pk=pk)
+        expediente = acto.expediente
+
+        # Cambiar el resultado a APROBADO para indicar que ya se llevó a cabo
+        acto.resultado = 'APROBADO'
+        acto.save(update_fields=['resultado'])
+
+        # Registrar el cambio en el historial
+        registrar_cambio_estado(
+            expediente=expediente,
+            estado_nuevo=expediente.estado,
+            realizado_por=request.user,
+            descripcion='El Jefe de Proyecto confirmó que el acto protocolario se llevó a cabo.'
+        )
+
+        # Notificar al alumno
+        notificar_alumno(
+            expediente=expediente,
+            tipo='AVANCE',
+            titulo='Acto Protocolario Concluido',
+            mensaje='El Jefe de Proyecto ha confirmado la realización de tu acto protocolario. Tu expediente pasa a cargo de Servicios Escolares para continuar con el trámite.'
+        )
+
+        messages.success(request, 'Se ha confirmado la realización del acto protocolario. Servicios Escolares ya puede continuar con el trámite.')
+        return redirect('administracion:jefe_detalle', pk=expediente.pk)
+
+
+
+
+
