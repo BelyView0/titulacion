@@ -97,15 +97,19 @@ Por favor no responda a este correo.
 
 
 def _enviar_correo_alumno(alumno, expediente, titulo, mensaje):
-    """Envía correo electrónico al alumno (correo institucional o email registrado)."""
-    # Preferencia: correo institucional del perfil, luego email del usuario
-    try:
-        correo_destino = alumno.correo_institucional or alumno.email
-    except Exception:
-        correo_destino = alumno.email
+    correos_destino = set()
+    
+    # 1. Correo institucional (Siempre debería enviarse si existe, porque es el obligatorio)
+    if alumno.correo_institucional:
+        correos_destino.add(alumno.correo_institucional)
+        
+    # 2. Correo personal (Opcional, solo si el usuario lo verificó para recibir copias)
+    if getattr(alumno, 'email_verificado', False) and alumno.email:
+        correos_destino.add(alumno.email)
 
-    if not correo_destino:
-        return  # sin correo configurado, no enviar
+    correos_destino = list(correos_destino)
+    if not correos_destino:
+        return  # sin correos configurados, no enviar
 
     cuerpo = f"""
 Estimado(a) {alumno.get_full_name()},
@@ -128,7 +132,7 @@ Por favor no responda a este correo.
             subject=f'[ITA Titulación] {titulo}',
             message=cuerpo,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[correo_destino],
+            recipient_list=correos_destino,
             fail_silently=True,  # El proceso no debe fallar por problemas de correo
         )
     except Exception:

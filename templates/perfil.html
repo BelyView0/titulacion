@@ -34,16 +34,20 @@
             <div class="badge bg-secondary mb-2 px-3 py-2 fs-6">{{ usuario.get_rol_display }}</div>
             
             <div class="text-start mt-3">
-                <div class="mb-2">
+                <div class="mb-3">
                     <small class="text-muted fw-bold d-block"><i class="bi bi-envelope me-1"></i> Correo Personal</small>
-                    <span class="d-block">{{ usuario.email }}</span>
+                    <span class="d-block">{{ usuario.email|default:"<em class='text-muted'>No asignado</em>" }}</span>
                     {% if usuario.email %}
                         {% if usuario.email_verificado %}
                             <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 mt-1"><i class="bi bi-check-circle me-1"></i> Verificado</span>
+                            <div class="form-text mt-1 text-muted" style="font-size: 0.75rem;"><i class="bi bi-info-circle me-1"></i> Recibirás notificaciones en ambas cuentas.</div>
                         {% else %}
                             <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 mt-1"><i class="bi bi-exclamation-triangle me-1"></i> Pendiente</span>
                             <a href="{% url 'perfil_verificar_enviar' tipo='personal' %}" class="btn btn-link btn-sm p-0 ms-1 text-decoration-none">Verificar</a>
+                            <div class="form-text mt-1 text-muted" style="font-size: 0.75rem;"><i class="bi bi-info-circle me-1"></i> <strong>Opcional:</strong> Verifica este correo si deseas que las notificaciones de avance de tu proceso te lleguen a ambos correos.</div>
                         {% endif %}
+                    {% else %}
+                        <div class="form-text mt-1 text-muted" style="font-size: 0.75rem;"><i class="bi bi-info-circle me-1"></i> <strong>Opcional:</strong> Agrega un correo personal y verifícalo si deseas recibir notificaciones en ambas cuentas.</div>
                     {% endif %}
                 </div>
 
