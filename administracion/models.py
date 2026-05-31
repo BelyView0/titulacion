@@ -178,8 +178,26 @@ class Usuario(AbstractUser):
     )
     email_verificado = models.BooleanField(
         default=False,
-        verbose_name='Correo personal verificado'
+        verbose_name='Correo alternativo verificado'
     )
+
+    @property
+    def username_visual(self):
+        if self.numero_control:
+            return self.numero_control
+        
+        if not self.first_name:
+            return self.username
+            
+        nombres = self.first_name.strip().split()
+        primer_nombre = nombres[0].capitalize()
+        inicial_segundo = nombres[1][0].upper() if len(nombres) > 1 and nombres[1] else ""
+        
+        inicial_paterno = self.last_name.strip()[0].upper() if self.last_name and self.last_name.strip() else ""
+        inicial_materno = self.apellido_materno.strip()[0].upper() if self.apellido_materno and self.apellido_materno.strip() else ""
+        
+        generado = f"{primer_nombre}{inicial_segundo}{inicial_paterno}{inicial_materno}"
+        return generado if len(generado) > 1 else self.username
 
     class Meta:
         verbose_name = 'Usuario'
