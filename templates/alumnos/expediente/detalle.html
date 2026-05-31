@@ -75,11 +75,11 @@
                 <div class="d-flex gap-2">
                     <span class="badge bg-{% if expediente.foto_fisica_division %}success{% else %}secondary{% endif %} flex-fill py-2">
                         <i class="bi {% if expediente.foto_fisica_division %}bi-check{% else %}bi-clock{% endif %} me-1"></i>
-                        División
+                        División de Estudios Profesionales
                     </span>
                     <span class="badge bg-{% if expediente.foto_fisica_escolares %}success{% else %}secondary{% endif %} flex-fill py-2">
                         <i class="bi {% if expediente.foto_fisica_escolares %}bi-check{% else %}bi-clock{% endif %} me-1"></i>
-                        Escolares
+                        Servicios Escolares
                     </span>
                 </div>
             </div>
@@ -87,7 +87,7 @@
             {% if expediente.observaciones_division %}
             <hr>
             <div>
-                <small class="text-muted fw-semibold">Observaciones División</small>
+                <small class="text-muted fw-semibold">Observaciones de División de Estudios Profesionales</small>
                 <div class="alert alert-warning mt-1 p-2 small">
                     <i class="bi bi-exclamation-triangle me-1"></i>
                     {{ expediente.observaciones_division }}

@@ -99,7 +99,7 @@
             {% if not expediente.foto_fisica_division or not expediente.foto_fisica_escolares %}
             <div class="alert alert-warning p-2 small mb-2">
                 <i class="bi bi-exclamation-triangle me-1"></i>
-                <strong>Atención:</strong> Falta confirmar la entrega física de fotografías en {% if not expediente.foto_fisica_division %}División{% endif %}{% if not expediente.foto_fisica_division and not expediente.foto_fisica_escolares %} y {% endif %}{% if not expediente.foto_fisica_escolares %}Escolares{% endif %}.
+                <strong>Atención:</strong> Falta confirmar la entrega física de fotografías en {% if not expediente.foto_fisica_division %}División de Estudios Profesionales{% endif %}{% if not expediente.foto_fisica_division and not expediente.foto_fisica_escolares %} y {% endif %}{% if not expediente.foto_fisica_escolares %}Servicios Escolares{% endif %}.
             </div>
             <button type="button" class="btn btn-secondary btn-sm w-100" disabled title="Faltan fotografías físicas">
                 <i class="bi bi-layers me-1"></i>Integrar (Bloqueado)
@@ -483,11 +483,11 @@
                 <div class="d-flex flex-column gap-1">
                     <span class="badge bg-{% if expediente.foto_fisica_division %}success{% else %}secondary{% endif %} text-start py-2">
                         <i class="bi {% if expediente.foto_fisica_division %}bi-check-circle{% else %}bi-clock{% endif %} me-1"></i>
-                        En División: {% if expediente.foto_fisica_division %}Entregada{% else %}Pendiente{% endif %}
+                        En División de Estudios Profesionales: {% if expediente.foto_fisica_division %}Entregada{% else %}Pendiente{% endif %}
                     </span>
                     <span class="badge bg-{% if expediente.foto_fisica_escolares %}success{% else %}secondary{% endif %} text-start py-2">
                         <i class="bi {% if expediente.foto_fisica_escolares %}bi-check-circle{% else %}bi-clock{% endif %} me-1"></i>
-                        En Escolares: {% if expediente.foto_fisica_escolares %}Entregada{% else %}Pendiente{% endif %}
+                        En Servicios Escolares: {% if expediente.foto_fisica_escolares %}Entregada{% else %}Pendiente{% endif %}
                     </span>
                 </div>
             </div>
@@ -501,7 +501,7 @@
                                {% if expediente.foto_fisica_escolares %}checked{% endif %}
                                onchange="this.form.submit()">
                         <label class="form-check-label small fw-semibold" for="flexSwitchFoto" style="cursor: pointer;">
-                            Marcar como recibida en Escolares
+                            Marcar como recibida en Servicios Escolares
                         </label>
                     </div>
                 </form>
@@ -653,8 +653,8 @@
 
         <!-- Observaciones de División -->
         {% if expediente.observaciones_division %}
-        <div class="content-card p-3 mb-3">
-            <div class="card-header-custom mb-2"><i class="bi bi-chat-left-text"></i> Observaciones de División</div>
+        <div class="content-card mt-3">
+            <div class="card-header-custom mb-2"><i class="bi bi-chat-left-text"></i> Observaciones de División de Estudios Profesionales</div>
             <div class="small">{{ expediente.observaciones_division }}</div>
         </div>
         {% endif %}
