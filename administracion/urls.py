@@ -1,7 +1,7 @@
 from django.urls import path
 from . import views
 from . import views_import
-
+from . import views_jefe
 app_name = 'administracion'
 
 urlpatterns = [
@@ -19,14 +19,14 @@ urlpatterns = [
     path('configuracion/email/revelar/', views.RevelarPasswordSMTPView.as_view(), name='configuracion_email_revelar'),
 
     # Jefes de Departamento
-    path('jefes/', views.JefeDepartamentoListView.as_view(), name='jefes'),
-    path('jefes/nuevo/', views.JefeDepartamentoCreateView.as_view(), name='jefe_crear'),
-    path('jefes/<int:pk>/editar/', views.JefeDepartamentoUpdateView.as_view(), name='jefe_editar'),
-    path('jefes/<int:pk>/eliminar/', views.JefeDepartamentoDeleteView.as_view(), name='jefe_eliminar'),
+    path('jefes/', views_jefe.JefeDepartamentoListView.as_view(), name='jefes'),
+    path('jefes/nuevo/', views_jefe.JefeDepartamentoCreateView.as_view(), name='jefe_crear'),
+    path('jefes/<int:pk>/editar/', views_jefe.JefeDepartamentoUpdateView.as_view(), name='jefe_editar'),
+    path('jefes/<int:pk>/eliminar/', views_jefe.JefeDepartamentoDeleteView.as_view(), name='jefe_eliminar'),
     
     # Solicitudes de cambio
-    path('jefes/solicitudes/', views.SolicitudesCambioJefeListView.as_view(), name='solicitudes_jefe'),
-    path('jefes/solicitudes/<int:pk>/<str:accion>/', views.ResolucionSolicitudView.as_view(), name='resolucion_solicitud'),
+    path('jefes/solicitudes/', views_jefe.SolicitudesCambioJefeListView.as_view(), name='solicitudes_jefe'),
+    path('jefes/solicitudes/<int:pk>/<str:accion>/', views_jefe.ResolucionSolicitudView.as_view(), name='resolucion_solicitud'),
 
     # Carreras
     path('carreras/', views.CarreraListView.as_view(), name='carreras'),

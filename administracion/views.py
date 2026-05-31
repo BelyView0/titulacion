@@ -18,7 +18,7 @@ from django.http import HttpResponse
 from django.utils import timezone
 
 from expediente.mixins import AdminRequeridoMixin, JefeProyectoRequeridoMixin
-from administracion.models import Carrera, Departamento, Usuario, Rol, ConfiguracionInstitucional, JefeDepartamento
+from administracion.models import Carrera, Departamento, Usuario, Rol, ConfiguracionInstitucional, JefeDepartamento, SolicitudCambioJefe
 from administracion.forms import UsuarioCreateForm, UsuarioUpdateForm, ConfiguracionInstitucionalForm, JefeDepartamentoForm
 from expediente.models import (
     Expediente, Documento, AsignacionJurado,
@@ -1456,5 +1456,14 @@ class ConfirmarActoLlevadoAcaboJefeView(JefeProyectoRequeridoMixin, View):
 
 
 
+class SolicitarCambioJefeView(JefeProyectoRequeridoMixin, CreateView):
+    model = SolicitudCambioJefe
+    template_name = 'administracion/jefe_proyecto/solicitar_cambio.html'
+    fields = ['titulo_academico_nuevo', 'nombre_nuevo', 'apellido_paterno_nuevo', 'apellido_materno_nuevo', 'genero_nuevo', 'motivo']
+    success_url = reverse_lazy('administracion:jefe_dashboard')
 
-
+    def form_valid(self, form):
+        form.instance.departamento = self.request.user.departamento
+        form.instance.solicitante = self.request.user
+        messages.success(self.request, 'Solicitud de cambio de Jefe enviada al administrador. Se utilizarán estos datos para documentos urgentes mientras se revisa.')
+        return super().form_valid(form)
