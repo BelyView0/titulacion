@@ -141,6 +141,47 @@ class ConfiguracionInstitucionalForm(forms.ModelForm):
         }
 
 
+class ConfiguracionEmailForm(forms.ModelForm):
+    """Formulario para configurar el servidor SMTP y credenciales de correo."""
+    class Meta:
+        model = ConfiguracionInstitucional
+        fields = ['email_host', 'email_port', 'email_use_tls', 'email_remitente', 'email_password']
+        widgets = {
+            'email_host': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ej: smtp.gmail.com'}),
+            'email_port': forms.NumberInput(attrs={'class': 'form-control'}),
+            'email_use_tls': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'email_remitente': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'ej: mi_cuenta@gmail.com'}),
+            'email_password': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Contraseña de aplicación de 16 caracteres'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.email_password:
+            self.initial['email_password'] = '********'
+
+    def clean_email_password(self):
+        pwd = self.cleaned_data.get('email_password')
+        if pwd and pwd != '********':
+            # Removemos los espacios por si el usuario la pega con el formato "xxxx xxxx xxxx xxxx"
+            pwd = pwd.replace(' ', '')
+        return pwd
+
+    def save(self, commit=True):
+        from administracion.crypto import encrypt
+        instance = super().save(commit=False)
+        pwd = self.cleaned_data.get('email_password')
+        
+        if pwd and pwd != '********':
+            instance.email_password = encrypt(pwd)
+        elif pwd == '********':
+            # No modificar la contraseña original si no cambió el valor oculto
+            pass
+            
+        if commit:
+            instance.save()
+        return instance
+
+
 class JefeDepartamentoForm(forms.ModelForm):
     class Meta:
         model = JefeDepartamento
