@@ -537,6 +537,14 @@ class UsuarioDeleteView(AdminRequeridoMixin, DeleteView):
     template_name = 'administracion/usuarios/eliminar.html'
     success_url = reverse_lazy('administracion:usuarios')
 
+    def post(self, request, *args, **kwargs):
+        from django.http import Http404
+        try:
+            return self.delete(request, *args, **kwargs)
+        except Http404:
+            messages.info(request, 'El usuario ya ha sido eliminado.')
+            return redirect(self.success_url)
+
     def delete(self, request, *args, **kwargs):
         usuario = self.get_object()
         if usuario.pk == request.user.pk:
