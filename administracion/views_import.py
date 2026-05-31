@@ -20,7 +20,7 @@ from django.contrib.auth import get_user_model
 
 from expediente.mixins import AdminRequeridoMixin
 from administracion.models import Carrera, Departamento, Profesor, Rol, Genero, Usuario, JefeDepartamento
-from expediente.models import PlanEstudios, Modalidad
+from expediente.models import PlanEstudios, Modalidad, TipoDocumento
 from alumnos.models import PerfilAlumno
 import json
 
@@ -43,6 +43,7 @@ class ImportarExportarHubView(AdminRequeridoMixin, TemplateView):
             'carreras': Carrera.objects.count(),
             'planes': PlanEstudios.objects.count(),
             'modalidades': Modalidad.objects.count(),
+            'tipos_documento': TipoDocumento.objects.count(),
             'profesores': Profesor.objects.count(),
             'alumnos': Usuario.objects.filter(rol=Rol.ALUMNO).count(),
         }
@@ -61,7 +62,7 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
         rows_data = []
         if key == 'departamentos':
             for d in Departamento.objects.all().order_by('clave'):
-                rows_data.append([d.clave, d.nombre, d.rol_responsable])
+                rows_data.append([d.clave, d.nombre])
         elif key == 'carreras':
             for c in Carrera.objects.select_related('departamento').all().order_by('clave'):
                 rows_data.append([c.clave, c.nombre, 'Si' if c.activa else 'No', c.departamento.clave if c.departamento else ''])
@@ -71,6 +72,9 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
         elif key == 'modalidades':
             for m in Modalidad.objects.select_related('plan_estudios').all().order_by('plan_estudios__nombre', 'clave'):
                 rows_data.append([m.plan_estudios.nombre, m.clave, m.nombre, m.descripcion, 'Si' if m.activa else 'No'])
+        elif key == 'tipos_documento':
+            for t in TipoDocumento.objects.all().order_by('orden'):
+                rows_data.append([t.nombre, t.descripcion, 'Si' if t.es_obligatorio else 'No', 'Si' if t.es_multiple else 'No', t.orden])
         elif key == 'profesores':
             for p in Profesor.objects.select_related('departamento').all().order_by('cedula'):
                 rows_data.append([p.cedula, p.first_name, p.last_name, p.apellido_materno, p.titulo_academico, p.email, p.departamento.clave if p.departamento else '', 'Si' if p.activo else 'No'])
@@ -119,11 +123,11 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
         sheets_def = {
             'departamentos': {
                 'title': 'Departamentos',
-                'headers': ['Clave', 'Nombre del Departamento', 'Rol Responsable'],
-                'widths': [15, 45, 25],
+                'headers': ['Clave', 'Nombre del Departamento'],
+                'widths': [15, 45],
                 'help_rows': [
-                    ['CB', 'Ciencias Básicas', 'ACADEMICO'],
-                    ['CH', 'Ciencias de la Tierra', 'JEFE_PROYECTO']
+                    ['CB', 'Ciencias Básicas'],
+                    ['CH', 'Ciencias de la Tierra']
                 ]
             },
             'carreras': {
@@ -151,6 +155,15 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
                 'help_rows': [
                     ['ISIC-2010-224', 'TESIS', 'Tesis Profesional', 'Examen con defensa escrita y oral', 'Si'],
                     ['ISIC-2010-224', 'RESIDENCIA', 'Informe de Residencia Profesional', 'Reporte escrito de proyecto empresarial', 'Si']
+                ]
+            },
+            'tipos_documento': {
+                'title': 'Tipos de Documento',
+                'headers': ['Nombre', 'Descripción', 'Obligatorio (Si/No)', 'Múltiple (Si/No)', 'Orden'],
+                'widths': [35, 50, 20, 20, 10],
+                'help_rows': [
+                    ['Acta de Nacimiento', 'Documento en formato PDF legible', 'Si', 'No', 1],
+                    ['Fotografías Tamaño Título', 'Entregar físicamente y subir escaneo', 'Si', 'Si', 2]
                 ]
             },
             'profesores': {
@@ -326,6 +339,7 @@ class SubirArchivoMasivoView(AdminRequeridoMixin, View):
             'carreras': 'Carreras',
             'planes': 'Planes de Estudio',
             'modalidades': 'Modalidades',
+            'tipos_documento': 'Tipos de Documento',
             'profesores': 'Profesores',
             'alumnos': 'Alumnos',
         }
@@ -521,6 +535,8 @@ Instituto Tecnológico de Apizaco — TecNM.
                     self.procesar_plan(row, idx, stats['planes'])
                 elif key == 'modalidades':
                     self.procesar_modalidad(row, idx, stats['modalidades'])
+                elif key == 'tipos_documento':
+                    self.procesar_tipo_documento(row, idx, stats['tipos_documento'])
                 elif key == 'profesores':
                     self.procesar_profesor(row, idx, stats['profesores'])
                 elif key == 'alumnos':
@@ -541,22 +557,15 @@ Instituto Tecnológico de Apizaco — TecNM.
 
         clave = str(row[0]).strip().upper()
         nombre = str(row[1]).strip()
-        rol_resp = str(row[2]).strip().upper() if len(row) > 2 and row[2] else 'ACADEMICO'
-
-        # Validar rol
-        roles_validos = [r[0] for r in Rol.choices]
-        if rol_resp not in roles_validos:
-            raise ValueError(f"Rol responsable '{rol_resp}' inválido. Opciones: {', '.join(roles_validos)}")
 
         dept, created = Departamento.objects.get_or_create(
             clave=clave,
-            defaults={'nombre': nombre, 'rol_responsable': rol_resp}
+            defaults={'nombre': nombre}
         )
         if not created:
             # Actualización para evitar duplicados (Upsert)
-            if dept.nombre != nombre or dept.rol_responsable != rol_resp:
+            if dept.nombre != nombre:
                 dept.nombre = nombre
-                dept.rol_responsable = rol_resp
                 dept.save()
                 stat['actualizados'] += 1
         else:
@@ -641,6 +650,35 @@ Instituto Tecnológico de Apizaco — TecNM.
                 modalidad.descripcion = descripcion
                 modalidad.activa = activa
                 modalidad.save()
+                stat['actualizados'] += 1
+        else:
+            stat['creados'] += 1
+
+    def procesar_tipo_documento(self, row, fila, stat):
+        if not row[0]:
+            raise ValueError("El Nombre del documento es obligatorio.")
+
+        nombre = str(row[0]).strip()
+        descripcion = str(row[1]).strip() if len(row) > 1 and row[1] else ''
+        es_obligatorio = str(row[2]).strip().lower() in ['si', 'sí', 'yes', 'true', '1'] if len(row) > 2 and row[2] is not None else True
+        es_multiple = str(row[3]).strip().lower() in ['si', 'sí', 'yes', 'true', '1'] if len(row) > 3 and row[3] is not None else False
+        
+        try:
+            orden = int(row[4]) if len(row) > 4 and row[4] is not None else 0
+        except ValueError:
+            orden = 0
+
+        td, created = TipoDocumento.objects.get_or_create(
+            nombre=nombre,
+            defaults={'descripcion': descripcion, 'es_obligatorio': es_obligatorio, 'es_multiple': es_multiple, 'orden': orden}
+        )
+        if not created:
+            if td.descripcion != descripcion or td.es_obligatorio != es_obligatorio or td.es_multiple != es_multiple or td.orden != orden:
+                td.descripcion = descripcion
+                td.es_obligatorio = es_obligatorio
+                td.es_multiple = es_multiple
+                td.orden = orden
+                td.save()
                 stat['actualizados'] += 1
         else:
             stat['creados'] += 1
