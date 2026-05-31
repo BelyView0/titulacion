@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block title %}{{ titulo }}{% endblock %}
+{% block page_title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="content-card p-4">
+            <div class="card-header-custom mb-4">
+                <i class="bi {{ icono|default:'bi-pencil-square' }}"></i> {{ titulo }}
+            </div>
+            
+            <form method="post" novalidate>
+                {% csrf_token %}
+                
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger py-2 small">
+                    {% for error in form.non_field_errors %}
+                        <div><i class="bi bi-exclamation-triangle me-1"></i>{{ error }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                <div class="row g-3">
+                    {% for field in form %}
+                    {% if field.name in "acepta_solo_pdf,es_fotografia,valida_division,valida_escolares" %}
+                    <div class="col-md-6">
+                    {% else %}
+                    <div class="col-md-12">
+                    {% endif %}
+                        {% include '_field.html' with field=field %}
+                    </div>
+                    {% endfor %}
+                    
+                    <!-- Contenedores para advertencias -->
+                    <div class="col-12 mt-0">
+                        <div id="warning-validacion" class="alert alert-warning py-2 small d-none mb-2">
+                            <i class="bi bi-exclamation-triangle me-1"></i> No puedes desmarcar ambas: El documento debe ser validado por al menos un departamento.
+                        </div>
+                        <div id="warning-formato" class="alert alert-warning py-2 small d-none mb-2">
+                            <i class="bi bi-exclamation-triangle me-1"></i> No puedes desmarcar ambas: Debes indicar si es PDF o Fotografía.
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                    <a href="{{ url_cancelar }}" class="btn btn-outline-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-save me-1"></i>Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const pdfCheck = document.getElementById("id_acepta_solo_pdf");
+    const fotoCheck = document.getElementById("id_es_fotografia");
+    
+    const divCheck = document.getElementById("id_valida_division");
+    const escCheck = document.getElementById("id_valida_escolares");
+
+    if (pdfCheck && fotoCheck) {
+        pdfCheck.addEventListener("change", function() {
+            if (this.checked) {
+                fotoCheck.checked = false;
+            } else if (!fotoCheck.checked) {
+                this.checked = true; // Evita desmarcar ambas
+                mostrarAdvertencia('warning-formato');
+            }
+        });
+        
+        fotoCheck.addEventListener("change", function() {
+            if (this.checked) {
+                pdfCheck.checked = false;
+            } else if (!pdfCheck.checked) {
+                this.checked = true; // Evita desmarcar ambas
+                mostrarAdvertencia('warning-formato');
+            }
+        });
+    }
+    
+    if (divCheck && escCheck) {
+        function toggleValidacion() {
+            // Si intenta desmarcar el único que queda, no lo permitimos
+            if (!divCheck.checked && !escCheck.checked) {
+                this.checked = true; // Reverta el cambio
+                mostrarAdvertencia('warning-validacion');
+            }
+        }
+        
+        divCheck.addEventListener("change", toggleValidacion);
+        escCheck.addEventListener("change", toggleValidacion);
+    }
+
+    function mostrarAdvertencia(idElemento) {
+        const adv = document.getElementById(idElemento);
+        if (adv) {
+            adv.classList.remove('d-none');
+            setTimeout(() => {
+                adv.classList.add('d-none');
+            }, 3500); // Ocultar después de 3.5 segundos
+        }
+    }
+});
+</script>
+{% endblock %}

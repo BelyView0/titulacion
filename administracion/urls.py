@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 from . import views_import
 from . import views_jefe
+from . import views_catalogos
 app_name = 'administracion'
 
 urlpatterns = [
@@ -33,6 +34,33 @@ urlpatterns = [
     path('carreras/', views.CarreraListView.as_view(), name='carreras'),
     path('carreras/nueva/', views.CarreraCreateView.as_view(), name='carrera_crear'),
     path('carreras/<int:pk>/editar/', views.CarreraUpdateView.as_view(), name='carrera_editar'),
+
+    # Catálogos (Planes, Modalidades, Documentos)
+    path('planes/', views_catalogos.PlanEstudiosListView.as_view(), name='planes'),
+    path('planes/nuevo/', views_catalogos.PlanEstudiosCreateView.as_view(), name='plan_crear'),
+    path('planes/<int:pk>/editar/', views_catalogos.PlanEstudiosUpdateView.as_view(), name='plan_editar'),
+    path('planes/<int:pk>/eliminar/', views_catalogos.PlanEstudiosDeleteView.as_view(), name='plan_eliminar'),
+    
+    path('modalidades/', views_catalogos.ModalidadListView.as_view(), name='modalidades'),
+    path('modalidades/nueva/', views_catalogos.ModalidadCreateView.as_view(), name='modalidad_crear'),
+    path('modalidades/<int:pk>/editar/', views_catalogos.ModalidadUpdateView.as_view(), name='modalidad_editar'),
+    path('modalidades/<int:pk>/eliminar/', views_catalogos.ModalidadDeleteView.as_view(), name='modalidad_eliminar'),
+    
+    path('departamentos/', views_catalogos.DepartamentoListView.as_view(), name='departamentos'),
+    path('departamentos/nuevo/', views_catalogos.DepartamentoCreateView.as_view(), name='departamento_crear'),
+    path('departamentos/<int:pk>/editar/', views_catalogos.DepartamentoUpdateView.as_view(), name='departamento_editar'),
+    path('departamentos/<int:pk>/eliminar/', views_catalogos.DepartamentoDeleteView.as_view(), name='departamento_eliminar'),
+
+    path('profesores/', views_catalogos.ProfesorListView.as_view(), name='profesores'),
+    path('profesores/nuevo/', views_catalogos.ProfesorCreateView.as_view(), name='profesor_crear'),
+    path('profesores/<int:pk>/editar/', views_catalogos.ProfesorUpdateView.as_view(), name='profesor_editar'),
+    path('profesores/<int:pk>/eliminar/', views_catalogos.ProfesorDeleteView.as_view(), name='profesor_eliminar'),
+
+    path('documentos/', views_catalogos.TipoDocumentoListView.as_view(), name='documentos'),
+    path('documentos/nuevo/', views_catalogos.TipoDocumentoCreateView.as_view(), name='documento_crear'),
+    path('documentos/<int:pk>/editar/', views_catalogos.TipoDocumentoUpdateView.as_view(), name='documento_editar'),
+    path('documentos/<int:pk>/eliminar/', views_catalogos.TipoDocumentoDeleteView.as_view(), name='documento_eliminar'),
+    path('documentos/reordenar/', views_catalogos.TipoDocumentoReorderView.as_view(), name='documento_reordenar'),
 
     # Importación y Exportación Masiva vía Excel
     path('importar-exportar/', views_import.ImportarExportarHubView.as_view(), name='importar_exportar'),
