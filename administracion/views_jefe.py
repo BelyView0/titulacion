@@ -49,6 +49,10 @@ class JefeDepartamentoDeleteView(AdminRequeridoMixin, DeleteView):
     template_name = 'administracion/jefes/eliminar.html'
     success_url = reverse_lazy('administracion:jefes')
 
+    def dispatch(self, request, *args, **kwargs):
+        messages.error(request, 'No se puede eliminar un Jefe de Departamento porque se requiere al menos uno activo para la firma de oficios. Por favor, edite el registro actual para cambiar al titular.')
+        return redirect('administracion:jefes')
+
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, 'Jefe de Departamento eliminado exitosamente.')
         return super().delete(request, *args, **kwargs)

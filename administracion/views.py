@@ -311,6 +311,20 @@ class UsuarioCreateView(AdminRequeridoMixin, CreateView):
         usuario.debe_cambiar_password = True  # Forzar cambio de contraseña en su primer login por seguridad
         usuario.save()
 
+        # Desactivar Jefe de Proyecto anterior automáticamente si aplica
+        from administracion.models import Rol, Usuario as UserModel
+        if usuario.rol == Rol.JEFE_PROYECTO and usuario.departamento and usuario.is_active:
+            viejos = UserModel.objects.filter(
+                rol=Rol.JEFE_PROYECTO, 
+                departamento=usuario.departamento, 
+                is_active=True
+            ).exclude(pk=usuario.pk)
+            for v in viejos:
+                v.is_active = False
+                v.save(update_fields=['is_active'])
+            if viejos.exists():
+                messages.info(self.request, f'El Jefe de Proyecto anterior para {usuario.departamento.nombre} ha sido desactivado automáticamente para mantener solo uno activo.')
+
         # Enviar correo de bienvenida y verificación
         from django.core.mail import EmailMultiAlternatives
         from django.conf import settings
@@ -525,7 +539,22 @@ class UsuarioUpdateView(AdminRequeridoMixin, UpdateView):
         return edit_url
 
     def form_valid(self, form):
-        form.save()
+        usuario = form.save()
+        
+        # Desactivar Jefe de Proyecto anterior automáticamente si aplica
+        from administracion.models import Rol, Usuario as UserModel
+        if usuario.rol == Rol.JEFE_PROYECTO and usuario.departamento and usuario.is_active:
+            viejos = UserModel.objects.filter(
+                rol=Rol.JEFE_PROYECTO, 
+                departamento=usuario.departamento, 
+                is_active=True
+            ).exclude(pk=usuario.pk)
+            for v in viejos:
+                v.is_active = False
+                v.save(update_fields=['is_active'])
+            if viejos.exists():
+                messages.info(self.request, f'El Jefe de Proyecto anterior para {usuario.departamento.nombre} ha sido desactivado automáticamente para mantener solo uno activo.')
+
         messages.success(self.request, 'Datos del usuario actualizados exitosamente.')
         return redirect('administracion:usuario_editar', pk=self.object.pk)
 
@@ -549,6 +578,20 @@ class UsuarioDeleteView(AdminRequeridoMixin, DeleteView):
             messages.error(request, 'No se puede eliminar este usuario porque tiene expedientes o registros protegidos vinculados en el sistema.')
             return redirect('administracion:usuarios')
             
+        # Regla: Al menos un usuario de roles críticos / Jefe de Proyecto
+        roles_criticos = [Rol.ADMINISTRADOR, Rol.ACADEMICO, Rol.ESCOLARES]
+        if usuario.rol in roles_criticos and usuario.is_active:
+            activos_count = Usuario.objects.filter(rol=usuario.rol, is_active=True).count()
+            if activos_count <= 1:
+                messages.error(request, f'No se puede eliminar al único usuario activo con el rol de {usuario.get_rol_display()}. Debe agregar alguien más con este rol antes de eliminar o desactivar al actual.')
+                return redirect('administracion:usuarios')
+                
+        if usuario.rol == Rol.JEFE_PROYECTO and usuario.departamento and usuario.is_active:
+            activos_count = Usuario.objects.filter(rol=Rol.JEFE_PROYECTO, departamento=usuario.departamento, is_active=True).count()
+            if activos_count <= 1:
+                messages.error(request, f'No se puede eliminar al único Jefe de Proyectos activo del departamento {usuario.departamento.nombre}. Asigne un nuevo Jefe de Proyecto primero (este se desactivará automáticamente al hacerlo).')
+                return redirect('administracion:usuarios')
+
         return super().dispatch(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):

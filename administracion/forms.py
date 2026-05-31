@@ -128,6 +128,36 @@ class UsuarioUpdateForm(forms.ModelForm):
             if not correo_institucional.endswith(f'@{dominio}'):
                 self.add_error('correo_institucional', f'El correo institucional debe terminar en @{dominio}')
 
+        # Validación de roles críticos y últimos activos
+        if self.instance and self.instance.pk:
+            old_rol = self.instance.rol
+            roles_criticos = [Rol.ADMINISTRADOR, Rol.ACADEMICO, Rol.ESCOLARES]
+            is_active_new = cleaned_data.get('is_active', True)
+            
+            if old_rol in roles_criticos:
+                if (not is_active_new) or (rol != old_rol):
+                    activos_count = Usuario.objects.filter(rol=old_rol, is_active=True).count()
+                    if activos_count <= 1:
+                        error_msg = f'No se puede desactivar ni cambiar el rol al único usuario activo con rol de {self.instance.get_rol_display()}. Agregue o asigne a alguien más primero.'
+                        if not is_active_new:
+                            self.add_error('is_active', error_msg)
+                        if rol != old_rol:
+                            self.add_error('rol', error_msg)
+
+            if old_rol == Rol.JEFE_PROYECTO and self.instance.departamento:
+                if (not is_active_new) or (rol != old_rol) or (departamento != self.instance.departamento):
+                    activos_count = Usuario.objects.filter(
+                        rol=Rol.JEFE_PROYECTO, 
+                        departamento=self.instance.departamento, 
+                        is_active=True
+                    ).count()
+                    if activos_count <= 1:
+                        error_msg = f'No se puede desactivar al único Jefe de Proyecto activo del depto. {self.instance.departamento.nombre}. Cree o asigne uno nuevo (este se desactivará solo).'
+                        if not is_active_new:
+                            self.add_error('is_active', error_msg)
+                        if rol != old_rol or departamento != self.instance.departamento:
+                            self.add_error('rol', error_msg)
+
         return cleaned_data
 
 
