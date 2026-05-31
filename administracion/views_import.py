@@ -383,56 +383,13 @@ class SubirArchivoMasivoView(AdminRequeridoMixin, View):
                 
                 subject = "[ITA Titulación] Tu cuenta ha sido creada — Datos de Acceso"
                 
-                html_content = f"""<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;">
-<div style="max-width:600px;margin:0 auto;padding:20px;">
-  <div style="background:linear-gradient(135deg,#1B396A,#0f2447);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
-    <div style="font-size:36px;color:#fff;">🎓</div>
-    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Bienvenido a la Plataforma de Titulación</h2>
-    <p style="color:rgba(255,255,255,.8);margin:0;font-size:13px;">Instituto Tecnológico de Apizaco — TecNM</p>
-  </div>
-  <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
-    <p style="font-size:15px;color:#333;">Estimado(a) <strong>{u_data['full_name']}</strong>,</p>
-    <p style="font-size:14px;color:#555;line-height:1.6;">
-      Te informamos que tu cuenta de acceso para la plataforma de titulación del 
-      <strong>Instituto Tecnológico de Apizaco</strong> ha sido registrada con éxito.
-    </p>
-
-    <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin:20px 0;border-left:4px solid #1B396A;">
-      <h3 style="margin-top:0;color:#1B396A;font-size:15px;">Datos de Acceso:</h3>
-      <table style="width:100%;border-collapse:collapse;font-size:14px;">
-        <tr>
-          <td style="padding:6px 0;font-weight:700;color:#6c757d;width:150px;">Número de control / empleado:</td>
-          <td style="padding:6px 0;font-weight:700;color:#333;">{u_data['username']}</td>
-        </tr>
-        <tr>
-          <td style="padding:6px 0;font-weight:700;color:#6c757d;">Contraseña temporal:</td>
-          <td style="padding:6px 0;font-weight:700;color:#333;font-family:monospace;font-size:15px;background:#eef2f7;padding:4px 8px;border-radius:4px;">{u_data['password']}</td>
-        </tr>
-      </table>
-    </div>
-
-    <div style="background:#eef2f7;border-radius:8px;padding:16px;margin:20px 0;text-align:center;color:#445;font-size:14px;line-height:1.5;">
-      Para acceder, abre tu navegador web e ingresa a la dirección habitual de la plataforma de titulación de tu institución.
-    </div>
-
-    <div style="background:#fffbcb;border-radius:8px;padding:16px;font-size:13px;color:#856404;border:1px solid #ffeeba;margin:20px 0;line-height:1.5;">
-      <strong>⚠️ Importante:</strong> Por motivos de seguridad y confidencialidad, 
-      el sistema te solicitará cambiar esta contraseña temporal por una contraseña 
-      personal y segura en tu primer inicio de sesión.
-    </div>
-
-    <p style="font-size:13px;color:#777;line-height:1.5;margin-top:30px;">
-      Este correo electrónico también sirve para validar la existencia y correcto funcionamiento de tu dirección de contacto.
-    </p>
-  </div>
-  <p style="text-align:center;font-size:11px;color:#999;margin-top:16px;">
-    Este mensaje fue generado automáticamente por el Sistema de Gestión de Titulación.<br>
-    Instituto Tecnológico de Apizaco — TecNM.
-  </p>
-</div>
-</body></html>"""
+                context_data = {
+                    'full_name': u_data['full_name'],
+                    'numero_control': u_data['username'],
+                    'password_clear': u_data['password']
+                }
+                from django.template.loader import render_to_string
+                html_content = render_to_string('emails/nueva_cuenta.html', context_data)
 
                 text_content = f"""Estimado(a) {u_data['full_name']},
 

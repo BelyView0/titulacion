@@ -1,0 +1,20 @@
+<div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+        <div style="background-color: #003B73; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0; font-size: 20px;">Sistema de Titulación ITA</h1>
+        </div>
+        <div style="padding: 30px 20px; text-align: center;">
+            <p style="font-size: 16px;">Hola <strong>{{ user_name }}</strong>,</p>
+            <p style="font-size: 16px;">{{ mensaje_corto }}. Tu código de seguridad es:</p>
+            
+            <div style="margin: 30px 0;">
+                <span style="font-size: 36px; font-weight: bold; letter-spacing: 5px; color: #003B73; background: #f8f9fa; padding: 15px 25px; border-radius: 8px; border: 2px dashed #003B73;">
+                    {{ codigo }}
+                </span>
+            </div>
+            
+            <p style="color: #dc3545; font-weight: bold;">⏱️ Este código expirará en 5 minutos.</p>
+            <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">Si no solicitaste este cambio, puedes ignorar este correo. Tu cuenta está segura.</p>
+        </div>
+    </div>
+</div>
