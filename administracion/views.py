@@ -537,6 +537,20 @@ class UsuarioDeleteView(AdminRequeridoMixin, DeleteView):
     template_name = 'administracion/usuarios/eliminar.html'
     success_url = reverse_lazy('administracion:usuarios')
 
+    def dispatch(self, request, *args, **kwargs):
+        usuario = self.get_object()
+        if usuario.pk == request.user.pk:
+            messages.error(request, 'No puedes eliminar tu propia cuenta.')
+            return redirect('administracion:usuarios')
+            
+        # Prevenir ir a la página de confirmación si tiene registros protegidos (Expediente)
+        from expediente.models import Expediente
+        if Expediente.objects.filter(alumno=usuario).exists():
+            messages.error(request, 'No se puede eliminar este usuario porque tiene expedientes o registros protegidos vinculados en el sistema.')
+            return redirect('administracion:usuarios')
+            
+        return super().dispatch(request, *args, **kwargs)
+
     def post(self, request, *args, **kwargs):
         from django.http import Http404
         from django.db.models import ProtectedError
@@ -551,9 +565,6 @@ class UsuarioDeleteView(AdminRequeridoMixin, DeleteView):
 
     def delete(self, request, *args, **kwargs):
         usuario = self.get_object()
-        if usuario.pk == request.user.pk:
-            messages.error(request, 'No puedes eliminar tu propia cuenta.')
-            return redirect('administracion:usuarios')
             
         nombre_usuario = usuario.get_full_name() or usuario.username
         response = super().delete(request, *args, **kwargs)
