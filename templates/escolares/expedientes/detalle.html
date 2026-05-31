@@ -94,7 +94,7 @@
 {% elif expediente.estado == 'LISTO_INTEGRACION' %}
             <div class="alert alert-primary py-2 mb-3 small" style="border-left: 4px solid var(--ita-azul);">
                 <i class="bi bi-info-circle me-1"></i>
-                <strong>Expediente Integrado</strong> – El expediente ha sido integrado. Por favor entrega los papeles originales en Servicios Escolares para continuar.
+                <strong>Expediente Integrado</strong> – El expediente ha sido integrado.
             </div>
             
             <a href="{% url 'escolares:descargar_expediente' expediente.pk %}" 
