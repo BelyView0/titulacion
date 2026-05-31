@@ -565,6 +565,12 @@ class UsuarioDeleteView(AdminRequeridoMixin, DeleteView):
 
     def delete(self, request, *args, **kwargs):
         usuario = self.get_object()
+        
+        # Validar contraseña del administrador
+        admin_password = request.POST.get('admin_password', '')
+        if not request.user.check_password(admin_password):
+            messages.error(request, 'Contraseña de administrador incorrecta. No se pudo eliminar el usuario.')
+            return redirect('administracion:usuarios')
             
         nombre_usuario = usuario.get_full_name() or usuario.username
         response = super().delete(request, *args, **kwargs)
