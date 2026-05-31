@@ -96,20 +96,26 @@
                 <i class="bi bi-info-circle me-1"></i>
                 <strong>Expediente Integrado</strong> – El expediente ha sido integrado. Por favor entrega los papeles originales en Servicios Escolares para continuar.
             </div>
+            
+            <a href="{% url 'escolares:descargar_expediente' expediente.pk %}" 
+               class="btn btn-outline-primary btn-sm w-100 mb-2"
+               download="Expediente_{{ expediente.alumno.username }}.zip">
+                <i class="bi bi-download me-1"></i>Descargar Documentos
+            </a>
+
             {% if not expediente.foto_fisica_division or not expediente.foto_fisica_escolares %}
             <div class="alert alert-warning p-2 small mb-2">
                 <i class="bi bi-exclamation-triangle me-1"></i>
                 <strong>Atención:</strong> Falta confirmar la entrega física de fotografías en {% if not expediente.foto_fisica_division %}División{% endif %}{% if not expediente.foto_fisica_division and not expediente.foto_fisica_escolares %} y {% endif %}{% if not expediente.foto_fisica_escolares %}Escolares{% endif %}.
             </div>
             <button type="button" class="btn btn-secondary btn-sm w-100" disabled title="Faltan fotografías físicas">
-                <i class="bi bi-layers me-1"></i>Integrar (Bloqueado)
+                <i class="bi bi-arrow-right-circle me-1"></i>Continuar a la Siguiente Etapa (Bloqueado)
             </button>
             {% else %}
-            <p class="small text-muted">Cuando recibas los documentos físicos, confirma su recepción.</p>
             <form action="{% url 'escolares:recibir_papeles' expediente.pk %}" method="post">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-primary btn-sm w-100">
-                    <i class="bi bi-file-earmark-check me-1"></i>Recibí Papeles Originales
+                    <i class="bi bi-arrow-right-circle me-1"></i>Continuar a la Siguiente Etapa
                 </button>
             </form>
             {% endif %}
