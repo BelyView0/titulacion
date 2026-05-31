@@ -825,6 +825,54 @@
 
     bindPaginationLinks();
 })();
+// Script global para prevenir múltiples envíos de formularios (doble clic)
+document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll("form").forEach(function(form) {
+        form.addEventListener("submit", function(e) {
+            // Si el formulario descarga un archivo en otra pestaña, no lo bloqueamos
+            if (form.target === "_blank") return;
+            
+            if (form.classList.contains("is-submitting")) {
+                e.preventDefault();
+                return false;
+            }
+            
+            form.classList.add("is-submitting");
+            
+            const submitButtons = form.querySelectorAll('button[type="submit"], input[type="submit"]');
+            submitButtons.forEach(function(btn) {
+                if (!btn.disabled) {
+                    // Para evitar que el form no envíe el valor del botón (si se usa en la vista), 
+                    // a veces se usa setTimeout.
+                    setTimeout(() => {
+                        btn.disabled = true;
+                        const originalText = btn.innerHTML || btn.value;
+                        btn.setAttribute('data-original-text', originalText);
+                        
+                        if (btn.tagName.toLowerCase() === 'button') {
+                            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
+                        } else {
+                            btn.value = 'Procesando...';
+                        }
+                    }, 10);
+                }
+            });
+            
+            // Desbloqueo de seguridad tras 8 segundos por si la petición falla silenciosamente
+            setTimeout(function() {
+                form.classList.remove("is-submitting");
+                submitButtons.forEach(function(btn) {
+                    btn.disabled = false;
+                    if (btn.tagName.toLowerCase() === 'button' && btn.hasAttribute('data-original-text')) {
+                        btn.innerHTML = btn.getAttribute('data-original-text');
+                    } else if (btn.tagName.toLowerCase() === 'input' && btn.hasAttribute('data-original-text')) {
+                        btn.value = btn.getAttribute('data-original-text');
+                    }
+                });
+            }, 8000);
+        });
+    });
+});
 </script>
 
 {% block extra_scripts %}{% endblock %}
