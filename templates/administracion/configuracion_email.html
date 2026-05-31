@@ -1,0 +1,425 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Configuración de Correo Electrónico{% endblock %}
+{% block page_title %}Configuración de Servidor de Correo (SMTP){% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="content-card mb-4">
+            <div class="card-header-custom bg-primary bg-opacity-10 text-primary border-bottom-0">
+                <i class="bi bi-envelope-gear"></i> Credenciales SMTP
+            </div>
+            <div class="p-4">
+                <p class="text-muted small mb-4">
+                    Configura la cuenta de correo que el sistema utilizará para enviar notificaciones automáticas (como códigos OTP, avisos de jurado, etc.).
+                </p>
+                <form method="post" action="{% url 'administracion:configuracion_email' %}">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Servicio de Correo</label>
+                        <select id="smtp_preset" class="form-select mb-2">
+                            <option value="smtp.gmail.com">Google Workspace / Gmail</option>
+                            <option value="smtp.office365.com">Microsoft 365 / Outlook</option>
+                            <option value="otro">Otro servicio personalizado</option>
+                        </select>
+                        
+                        <div id="custom_host_container" style="display: none;">
+                            <label class="form-label fw-semibold small text-muted">Servidor SMTP Personalizado</label>
+                            {{ form.email_host }}
+                            {% if form.email_host.errors %}
+                            <div class="text-danger small mt-1">{{ form.email_host.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="form-text">Selecciona tu proveedor para cargar la configuración recomendada.</div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Puerto</label>
+                            {{ form.email_port }}
+                            {% if form.email_port.errors %}
+                            <div class="text-danger small mt-1">{{ form.email_port.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                {{ form.email_use_tls }}
+                                <label class="form-check-label fw-semibold" for="{{ form.email_use_tls.id_for_label }}">
+                                    Usar conexión segura TLS
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Correo Remitente</label>
+                        {{ form.email_remitente }}
+                        {% if form.email_remitente.errors %}
+                        <div class="text-danger small mt-1">{{ form.email_remitente.errors.0 }}</div>
+                        {% endif %}
+                        <div class="form-text">{{ form.email_remitente.help_text }}</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Contraseña de Aplicación</label>
+                        <div class="input-group">
+                            {{ form.email_password }}
+                            <button class="btn btn-outline-secondary" type="button" id="btn_view_pwd" title="Ver contraseña" style="display: none;">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            <button class="btn btn-outline-primary" type="button" id="btn_edit_pwd" title="Editar contraseña" style="display: none;">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </div>
+                        {% if form.email_password.errors %}
+                        <div class="text-danger small mt-1">{{ form.email_password.errors.0 }}</div>
+                        {% endif %}
+                        <div class="form-text">{{ form.email_password.help_text }}</div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{% url 'administracion:dashboard' %}" class="btn btn-outline-secondary">
+                            Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="bi bi-save me-1"></i> Guardar Configuración
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <!-- Panel Gmail -->
+        <div id="panel_gmail" class="content-card h-100" style="border-left: 4px solid #ea4335;">
+            <div class="card-header-custom bg-danger bg-opacity-10 text-danger border-bottom-0">
+                <i class="bi bi-google"></i> ¿Cómo generar una Contraseña de Aplicación de Google?
+            </div>
+            <div class="p-4">
+                <p class="small text-muted mb-4">
+                    Para enviar correos usando una cuenta de Gmail (<b>smtp.gmail.com</b>), por seguridad Google no permite usar tu contraseña habitual. Debes generar una "Contraseña de aplicación" específica para este sistema.
+                </p>
+                
+                <div class="timeline">
+                    <div class="timeline-item active">
+                        <div class="fw-semibold text-danger" style="font-size: .9rem;">Paso 1: Verificación en dos pasos</div>
+                        <p class="timeline-desc small mb-1">
+                            Debes tener habilitada la <a href="https://myaccount.google.com/signinoptions/two-step-verification/enroll-welcome" target="_blank" class="text-danger">Verificación en dos pasos</a> en tu cuenta de Google.
+                        </p>
+                    </div>
+                    
+                    <div class="timeline-item">
+                        <div class="fw-semibold text-danger" style="font-size: .9rem;">Paso 2: Ve a tu Cuenta de Google</div>
+                        <p class="timeline-desc small mb-1">
+                            Abre la página de configuración de tu cuenta y dirígete a <strong>Seguridad</strong>. (<a href="https://myaccount.google.com/security" target="_blank" class="text-danger">Ir directo</a>)
+                        </p>
+                    </div>
+                    
+                    <div class="timeline-item">
+                        <div class="fw-semibold text-danger" style="font-size: .9rem;">Paso 3: Contraseñas de aplicación</div>
+                        <p class="timeline-desc small mb-1">
+                            Busca la opción <strong>Verificación en dos pasos</strong>. Al entrar, desliza hasta abajo y busca "Contraseñas de aplicaciones".
+                        </p>
+                    </div>
+
+                    <div class="timeline-item">
+                        <div class="fw-semibold text-danger" style="font-size: .9rem;">Paso 4: Generar la contraseña</div>
+                        <p class="timeline-desc small mb-1">
+                            Escribe un nombre para identificarla (ej: "Sistema Titulación ITA") y haz clic en <strong>Crear</strong>.
+                        </p>
+                    </div>
+
+                    <div class="timeline-item done">
+                        <div class="fw-semibold text-success" style="font-size: .9rem;">Paso 5: Copiar y pegar</div>
+                        <p class="timeline-desc small mb-0">
+                            Aparecerá un recuadro con una contraseña de 16 letras. Cópiala y pégala en el campo <strong>Contraseña de Aplicación</strong> de la izquierda.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel Outlook -->
+        <div id="panel_outlook" class="content-card h-100" style="border-left: 4px solid #0078d4; display: none;">
+            <div class="card-header-custom bg-primary bg-opacity-10 text-primary border-bottom-0">
+                <i class="bi bi-microsoft"></i> ¿Cómo generar una Contraseña de Aplicación de Microsoft?
+            </div>
+            <div class="p-4">
+                <p class="small text-muted mb-4">
+                    Para enviar correos usando Outlook/Office 365 (<b>smtp.office365.com</b>), Microsoft requiere usar una "Contraseña de aplicación" si tienes habilitada la verificación en dos pasos.
+                </p>
+                
+                <div class="timeline">
+                    <div class="timeline-item active">
+                        <div class="fw-semibold text-primary" style="font-size: .9rem;">Paso 1: Verificación en dos pasos</div>
+                        <p class="timeline-desc small mb-1">
+                            Asegúrate de tener activa la <a href="https://account.live.com/proofs/Manage" target="_blank">Verificación en dos pasos</a> en tu cuenta de Microsoft.
+                        </p>
+                    </div>
+                    
+                    <div class="timeline-item">
+                        <div class="fw-semibold text-primary" style="font-size: .9rem;">Paso 2: Opciones de seguridad avanzadas</div>
+                        <p class="timeline-desc small mb-1">
+                            Ve a la página de <a href="https://account.live.com/proofs/Manage/additional" target="_blank">Opciones de seguridad avanzadas</a> de tu cuenta Microsoft.
+                        </p>
+                    </div>
+                    
+                    <div class="timeline-item">
+                        <div class="fw-semibold text-primary" style="font-size: .9rem;">Paso 3: Crear contraseña</div>
+                        <p class="timeline-desc small mb-1">
+                            Baja hasta la sección <strong>Contraseñas de aplicación</strong> y haz clic en "Crear una nueva contraseña de aplicación".
+                        </p>
+                    </div>
+
+                    <div class="timeline-item done">
+                        <div class="fw-semibold text-success" style="font-size: .9rem;">Paso 4: Copiar y pegar</div>
+                        <p class="timeline-desc small mb-0">
+                            Copia la contraseña generada por Microsoft y pégala en el campo <strong>Contraseña de Aplicación</strong> de la izquierda.
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="alert alert-primary mt-3 small" role="alert">
+                    <i class="bi bi-info-circle me-1"></i>
+                    <strong>Nota para cuentas institucionales:</strong> Si tu cuenta es administrada por tu organización (Office 365 escolar/empresarial) y no te permite generar contraseñas de aplicación, deberás solicitar a soporte técnico de TI que habilite el "SMTP Authenticated Submission" para tu cuenta.
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel Otro -->
+        <div id="panel_otro" class="content-card h-100" style="border-left: 4px solid #6c757d; display: none;">
+            <div class="card-header-custom bg-secondary bg-opacity-10 text-secondary border-bottom-0">
+                <i class="bi bi-server"></i> Servidor Personalizado
+            </div>
+            <div class="p-4 d-flex flex-column justify-content-center h-100 text-center text-muted">
+                <i class="bi bi-hdd-network mb-3" style="font-size: 3rem; color: #adb5bd;"></i>
+                <h5 class="fw-semibold">Configuración Manual</h5>
+                <p class="small mb-0">
+                    Has seleccionado configurar un servidor SMTP manualmente. Ingresa la dirección del host (ej: smtp.tuservidor.com), el puerto (generalmente 587 o 465) y las credenciales proporcionadas por tu proveedor de hosting o administrador de TI.
+                </p>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const presetSelect = document.getElementById('smtp_preset');
+    const hostInput = document.getElementById('{{ form.email_host.id_for_label }}');
+    const portInput = document.getElementById('{{ form.email_port.id_for_label }}');
+    const customHostContainer = document.getElementById('custom_host_container');
+    
+    const panelGmail = document.getElementById('panel_gmail');
+    const panelOutlook = document.getElementById('panel_outlook');
+    const panelOtro = document.getElementById('panel_otro');
+
+    function updateView() {
+        const value = presetSelect.value;
+        
+        // Esconder todos los paneles
+        panelGmail.style.display = 'none';
+        panelOutlook.style.display = 'none';
+        panelOtro.style.display = 'none';
+
+        if (value === 'smtp.gmail.com') {
+            panelGmail.style.display = 'block';
+            customHostContainer.style.display = 'none';
+            hostInput.value = 'smtp.gmail.com';
+            if(!portInput.value) portInput.value = '587';
+        } else if (value === 'smtp.office365.com') {
+            panelOutlook.style.display = 'block';
+            customHostContainer.style.display = 'none';
+            hostInput.value = 'smtp.office365.com';
+            if(!portInput.value) portInput.value = '587';
+        } else {
+            panelOtro.style.display = 'block';
+            customHostContainer.style.display = 'block';
+            if (hostInput.value === 'smtp.gmail.com' || hostInput.value === 'smtp.office365.com') {
+                hostInput.value = '';
+            }
+        }
+    }
+
+    // Inicializar estado según el valor actual del input
+    const initialHost = hostInput.value.trim().toLowerCase();
+    if (initialHost === 'smtp.gmail.com') {
+        presetSelect.value = 'smtp.gmail.com';
+    } else if (initialHost === 'smtp.office365.com' || initialHost === 'smtp-mail.outlook.com') {
+        presetSelect.value = 'smtp.office365.com';
+    } else if (initialHost !== '') {
+        presetSelect.value = 'otro';
+    }
+
+    updateView();
+
+    // Event listener para cambios
+    presetSelect.addEventListener('change', updateView);
+
+    // ── Logica de visualización/edición de contraseña ──
+    const pwdInput = document.getElementById('{{ form.email_password.id_for_label }}');
+    const btnView = document.getElementById('btn_view_pwd');
+    const btnEdit = document.getElementById('btn_edit_pwd');
+    
+    let isUnlocked = false;
+    let unlockedAt = 0;
+    const TIMEOUT_MS = 2 * 60 * 1000; // 2 minutos
+    let currentAction = '';
+
+    if (pwdInput.value === '********') {
+        pwdInput.readOnly = true;
+        btnView.style.display = 'block';
+        btnEdit.style.display = 'block';
+    } else {
+        btnView.style.display = 'none';
+        btnEdit.style.display = 'none';
+    }
+
+    const modalConfirm = new bootstrap.Modal(document.getElementById('modalConfirmarAdmin'));
+    const adminPasswordInput = document.getElementById('adminPasswordInput');
+    const btnConfirmarAdmin = document.getElementById('btnConfirmarAdmin');
+    const adminPasswordError = document.getElementById('adminPasswordError');
+
+    function lockField() {
+        isUnlocked = false;
+        pwdInput.value = '********';
+        pwdInput.type = 'text';
+        pwdInput.readOnly = true;
+        btnView.innerHTML = '<i class="bi bi-eye"></i>';
+        btnView.style.display = 'block';
+        btnEdit.style.display = 'block';
+    }
+
+    function checkTimeout() {
+        if (isUnlocked && (Date.now() - unlockedAt > TIMEOUT_MS)) {
+            lockField();
+            Swal.fire({
+                icon: 'info',
+                title: 'Seguridad',
+                text: 'Por seguridad, la credencial se ha bloqueado de nuevo tras 2 minutos.',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 4000
+            });
+            return true;
+        }
+        return false;
+    }
+
+    setInterval(() => {
+        if (isUnlocked) checkTimeout();
+    }, 60000); // Revisar cada minuto
+
+    btnView.addEventListener('click', () => {
+        if (isUnlocked) {
+            if (checkTimeout()) return;
+            
+            // Alternar visibilidad
+            if (pwdInput.type === 'text') {
+                pwdInput.type = 'password';
+                btnView.innerHTML = '<i class="bi bi-eye-slash"></i>';
+            } else {
+                pwdInput.type = 'text';
+                btnView.innerHTML = '<i class="bi bi-eye"></i>';
+            }
+        } else {
+            currentAction = 'view';
+            document.getElementById('modalTextAdmin').innerText = 'Ingresa tu contraseña para ver la credencial.';
+            adminPasswordInput.value = '';
+            adminPasswordError.classList.add('d-none');
+            modalConfirm.show();
+        }
+    });
+
+    btnEdit.addEventListener('click', () => {
+        if (isUnlocked) {
+            if (checkTimeout()) return;
+            
+            pwdInput.readOnly = false;
+            pwdInput.focus();
+            if (pwdInput.type === 'password') {
+                pwdInput.type = 'text';
+                btnView.innerHTML = '<i class="bi bi-eye"></i>';
+            }
+        } else {
+            currentAction = 'edit';
+            document.getElementById('modalTextAdmin').innerText = 'Ingresa tu contraseña para editar la credencial.';
+            adminPasswordInput.value = '';
+            adminPasswordError.classList.add('d-none');
+            modalConfirm.show();
+        }
+    });
+
+    btnConfirmarAdmin.addEventListener('click', () => {
+        const formData = new FormData();
+        formData.append('admin_password', adminPasswordInput.value);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        btnConfirmarAdmin.disabled = true;
+        
+        fetch('{% url "administracion:configuracion_email_revelar" %}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                if (response.status === 403) throw new Error('Contraseña incorrecta');
+                throw new Error('Error de servidor');
+            }
+            return response.json();
+        })
+        .then(data => {
+            modalConfirm.hide();
+            btnConfirmarAdmin.disabled = false;
+            
+            isUnlocked = true;
+            unlockedAt = Date.now();
+            
+            pwdInput.value = data.password;
+            pwdInput.type = 'text';
+            btnView.innerHTML = '<i class="bi bi-eye"></i>';
+            
+            if (currentAction === 'edit') {
+                pwdInput.readOnly = false;
+                pwdInput.focus();
+            } else {
+                pwdInput.readOnly = true;
+            }
+        })
+        .catch(error => {
+            btnConfirmarAdmin.disabled = false;
+            adminPasswordError.innerText = error.message;
+            adminPasswordError.classList.remove('d-none');
+        });
+    });
+
+});
+</script>
+
+<!-- Modal Confirmar Password -->
+<div class="modal fade" id="modalConfirmarAdmin" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0">
+        <h6 class="modal-title text-primary"><i class="bi bi-shield-lock me-1"></i> Seguridad requerida</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted mb-3" id="modalTextAdmin">Ingresa tu contraseña de administrador para continuar.</p>
+        <input type="password" class="form-control mb-2" id="adminPasswordInput" placeholder="Tu contraseña">
+        <div class="text-danger small d-none" id="adminPasswordError">Contraseña incorrecta</div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary btn-sm" id="btnConfirmarAdmin">Verificar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

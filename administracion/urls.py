@@ -15,6 +15,8 @@ urlpatterns = [
 
     # Configuración Institucional
     path('configuracion/', views.ConfiguracionUpdateView.as_view(), name='configuracion'),
+    path('configuracion/email/', views.ConfiguracionEmailUpdateView.as_view(), name='configuracion_email'),
+    path('configuracion/email/revelar/', views.RevelarPasswordSMTPView.as_view(), name='configuracion_email_revelar'),
 
     # Jefes de Departamento
     path('jefes/', views.JefeDepartamentoListView.as_view(), name='jefes'),

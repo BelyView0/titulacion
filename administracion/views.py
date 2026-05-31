@@ -43,6 +43,60 @@ class ConfiguracionUpdateView(AdminRequeridoMixin, UpdateView):
         return super().form_valid(form)
 
 
+class ConfiguracionEmailUpdateView(AdminRequeridoMixin, UpdateView):
+    model = ConfiguracionInstitucional
+    from .forms import ConfiguracionEmailForm
+    form_class = ConfiguracionEmailForm
+    template_name = 'administracion/configuracion_email.html'
+    success_url = reverse_lazy('administracion:configuracion_email')
+
+    def get_object(self, queryset=None):
+        obj, created = ConfiguracionInstitucional.objects.get_or_create(id=1)
+        return obj
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        from django.core.mail import send_mail
+        from django.conf import settings
+        
+        user_email = self.request.user.email
+        if user_email:
+            try:
+                send_mail(
+                    subject='[ITA Titulación] Verificación de Configuración de Correo',
+                    message='¡Hola! Si has recibido este correo, significa que la configuración SMTP ha sido guardada correctamente y el sistema ya puede enviar correos usando este servidor.',
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user_email],
+                    fail_silently=False
+                )
+                messages.success(self.request, 'Configuración guardada y correo de prueba enviado exitosamente a tu dirección.')
+            except Exception as e:
+                messages.error(self.request, f'Configuración guardada, pero falló el correo de prueba. Revisa tus credenciales o conexión: {str(e)}')
+        else:
+            messages.success(self.request, 'Configuración de correo actualizada correctamente (no se envió correo de prueba porque no tienes un email registrado).')
+            
+        return response
+
+
+from django.http import JsonResponse
+from django.views import View
+from administracion.crypto import decrypt
+
+class RevelarPasswordSMTPView(AdminRequeridoMixin, View):
+    """Verifica la contraseña del admin actual para revelar la credencial SMTP"""
+    def post(self, request, *args, **kwargs):
+        admin_pass = request.POST.get('admin_password', '')
+        if not request.user.check_password(admin_pass):
+            return JsonResponse({'status': 'error', 'message': 'Contraseña de administrador incorrecta.'}, status=403)
+        
+        config = ConfiguracionInstitucional.objects.first()
+        if config and config.email_password:
+            decrypted = decrypt(config.email_password)
+            return JsonResponse({'status': 'success', 'password': decrypted})
+        
+        return JsonResponse({'status': 'error', 'message': 'No hay contraseña guardada.'}, status=404)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # VISTAS PARA JEFES DE DEPARTAMENTO
 # ═══════════════════════════════════════════════════════════════════════════════
