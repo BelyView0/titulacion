@@ -128,29 +128,12 @@ def enviar_codigo_otp(user, codigo, context='reset'):
         f'Atentamente,\nSistema de Titulación — ITA'
     )
     
-    # Podríamos crear un template HTML aquí, pero para un código rápido el texto es funcional, o construimos el HTML directo
-    html_content = f"""
-    <div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
-        <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-            <div style="background-color: #003B73; color: white; padding: 20px; text-align: center;">
-                <h1 style="margin: 0; font-size: 20px;">Sistema de Titulación ITA</h1>
-            </div>
-            <div style="padding: 30px 20px; text-align: center;">
-                <p style="font-size: 16px;">Hola <strong>{user.get_full_name() or user.numero_control}</strong>,</p>
-                <p style="font-size: 16px;">{mensaje.split('.')[0]}. Tu código de seguridad es:</p>
-                
-                <div style="margin: 30px 0;">
-                    <span style="font-size: 36px; font-weight: bold; letter-spacing: 5px; color: #003B73; background: #f8f9fa; padding: 15px 25px; border-radius: 8px; border: 2px dashed #003B73;">
-                        {codigo}
-                    </span>
-                </div>
-                
-                <p style="color: #dc3545; font-weight: bold;">⏱️ Este código expirará en 5 minutos.</p>
-                <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">Si no solicitaste este cambio, puedes ignorar este correo. Tu cuenta está segura.</p>
-            </div>
-        </div>
-    </div>
-    """
+    context_data = {
+        'user_name': user.get_full_name() or user.numero_control,
+        'mensaje_corto': mensaje.split('.')[0],
+        'codigo': codigo
+    }
+    html_content = render_to_string('emails/otp_codigo.html', context_data)
 
     email = EmailMultiAlternatives(
         subject=f'[ITA] Código de Seguridad: {codigo}',
@@ -176,24 +159,10 @@ def enviar_alerta_cambio_password(user):
         f'Atentamente,\nSistema de Titulación — ITA'
     )
     
-    html_content = f"""
-    <div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
-        <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-            <div style="background-color: #198754; color: white; padding: 20px; text-align: center;">
-                <h1 style="margin: 0; font-size: 20px;">🛡️ Alerta de Seguridad</h1>
-            </div>
-            <div style="padding: 30px 20px; text-align: center;">
-                <p style="font-size: 16px;">Hola <strong>{user.get_full_name() or user.numero_control}</strong>,</p>
-                <p style="font-size: 16px; color: #198754; font-weight: bold;">Tu contraseña ha sido modificada exitosamente.</p>
-                
-                <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">
-                    Si tú realizaste este cambio, no es necesario hacer nada más.<br><br>
-                    <strong>Si no fuiste tú</strong>, por favor contacta al administrador del sistema de inmediato.
-                </p>
-            </div>
-        </div>
-    </div>
-    """
+    context_data = {
+        'user_name': user.get_full_name() or user.numero_control
+    }
+    html_content = render_to_string('emails/alerta_seguridad.html', context_data)
 
     email = EmailMultiAlternatives(
         subject='[ITA] Tu contraseña ha sido modificada',
