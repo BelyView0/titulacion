@@ -529,6 +529,22 @@ class UsuarioUpdateView(AdminRequeridoMixin, UpdateView):
         messages.success(self.request, 'Datos del usuario actualizados exitosamente.')
         return redirect('administracion:usuario_editar', pk=self.object.pk)
 
+    def get_success_url(self):
+        return reverse_lazy('administracion:usuarios')
+
+class UsuarioDeleteView(AdminRequeridoMixin, DeleteView):
+    model = Usuario
+    template_name = 'administracion/usuarios/eliminar.html'
+    success_url = reverse_lazy('administracion:usuarios')
+
+    def delete(self, request, *args, **kwargs):
+        usuario = self.get_object()
+        if usuario.pk == request.user.pk:
+            messages.error(request, 'No puedes eliminar tu propia cuenta.')
+            return redirect('administracion:usuarios')
+        messages.success(request, f'Usuario {usuario.get_full_name() or usuario.username} eliminado exitosamente.')
+        return super().delete(request, *args, **kwargs)
+
 
 # ─── CARRERAS ────────────────────────────────────────────────
 class CarreraListView(AdminRequeridoMixin, ListView):
