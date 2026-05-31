@@ -95,7 +95,7 @@ class EstadoExpediente(models.TextChoices):
     DOCUMENTOS_PENDIENTES = 'DOCUMENTOS_PENDIENTES', 'Carga de Documentos Pendiente'
     EN_REVISION_DOCUMENTOS = 'EN_REVISION_DOCUMENTOS', 'Documentos en Revisión'
     LISTO_INTEGRACION = 'LISTO_INTEGRACION', 'Listo para Integración (Escolares)'
-    RECIBI_PAPEL_ORIGINAL = 'RECIBI_PAPEL_ORIGINAL', 'Papeles originales recibidos'
+    RECIBI_PAPEL_ORIGINAL = 'RECIBI_PAPEL_ORIGINAL', 'Papeles originales integrados'
     PAGO_PENDIENTE = 'PAGO_PENDIENTE', 'Pago de Titulación Pendiente'
     PAGO_EN_REVISION = 'PAGO_EN_REVISION', 'Pago en Revisión'
     ESPERANDO_CONSTANCIA = 'ESPERANDO_CONSTANCIA', 'Esperando Constancia de No Inconveniencia'

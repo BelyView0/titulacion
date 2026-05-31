@@ -336,7 +336,7 @@ class TimelineView(ExpedientePropioMixin, TemplateView):
                 (EstadoExpediente.DOCUMENTOS_PENDIENTES, 'Carga de Documentos'),
                 (EstadoExpediente.EN_REVISION_DOCUMENTOS, 'Revisión Documentos'),
                 (EstadoExpediente.LISTO_INTEGRACION, 'Listo Integración'),
-                (EstadoExpediente.RECIBI_PAPEL_ORIGINAL, 'Papeles Recibidos'),
+                (EstadoExpediente.RECIBI_PAPEL_ORIGINAL, 'Papeles Integrados'),
                 (EstadoExpediente.PAGO_PENDIENTE, 'Pago Pendiente'),
                 (EstadoExpediente.PAGO_EN_REVISION, 'Pago en Revisión'),
                 (EstadoExpediente.ESPERANDO_CONSTANCIA, 'Esperando Constancia'),

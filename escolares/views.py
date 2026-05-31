@@ -280,7 +280,7 @@ class MarcarPapelesRecibidosView(EscolaresRequeridoMixin, View):
             expediente=expediente,
             estado_nuevo=EstadoExpediente.RECIBI_PAPEL_ORIGINAL,
             realizado_por=request.user,
-            descripcion='Servicios Escolares confirmó la recepción de los papeles originales.'
+            descripcion='Servicios Escolares confirmó la integración de los papeles originales.'
         )
 
         expediente.estado = EstadoExpediente.PAGO_PENDIENTE
@@ -295,10 +295,10 @@ class MarcarPapelesRecibidosView(EscolaresRequeridoMixin, View):
         notificar_alumno(
             expediente=expediente,
             tipo='AVANCE',
-            titulo='Papeles Originales Recibidos — Pendiente de Pago',
-            mensaje='Servicios Escolares ha recibido tus papeles originales. Por favor, sube tu comprobante de pago para continuar.',
+            titulo='Papeles Originales Integrados — Pendiente de Pago',
+            mensaje='Servicios Escolares ha integrado tus papeles originales. Por favor, sube tu comprobante de pago para continuar.',
         )
-        messages.success(request, 'Papeles recibidos confirmados. El expediente está en etapa de pago.')
+        messages.success(request, 'Papeles integrados confirmados. El expediente está en etapa de pago.')
         return redirect('escolares:expediente_detalle', pk=pk)
 
 
