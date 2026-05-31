@@ -539,10 +539,14 @@ class UsuarioDeleteView(AdminRequeridoMixin, DeleteView):
 
     def post(self, request, *args, **kwargs):
         from django.http import Http404
+        from django.db.models import ProtectedError
         try:
             return self.delete(request, *args, **kwargs)
         except Http404:
             messages.info(request, 'El usuario ya ha sido eliminado.')
+            return redirect(self.success_url)
+        except ProtectedError:
+            messages.error(request, 'No se puede eliminar este usuario porque tiene expedientes o registros protegidos vinculados en el sistema.')
             return redirect(self.success_url)
 
     def delete(self, request, *args, **kwargs):
