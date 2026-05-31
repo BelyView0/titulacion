@@ -80,7 +80,7 @@ class ForceEmailVerificationMiddleware:
             if getattr(user, 'debe_cambiar_password', False):
                 return self.get_response(request)
 
-            if not getattr(user, 'email_verificado', False) and not getattr(user, 'correo_institucional_verificado', False):
+            if not getattr(user, 'correo_institucional_verificado', False):
                 current_path = request.path
 
                 for prefix in self.ALLOWED_PREFIXES:
@@ -100,7 +100,7 @@ class ForceEmailVerificationMiddleware:
                 
                 if current_path not in allowed_paths:
                     from django.contrib import messages
-                    messages.warning(request, 'Tu acceso está restringido. Por favor, verifica al menos uno de tus correos electrónicos para continuar usando el sistema.')
+                    messages.warning(request, 'Tu acceso está restringido. Por favor, verifica tu correo electrónico institucional para continuar usando el sistema.')
                     return redirect('perfil')
 
         return self.get_response(request)
