@@ -12,7 +12,8 @@ class CarreraAdmin(admin.ModelAdmin):
 
 @admin.register(Departamento)
 class DepartamentoAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'clave', 'rol_responsable')
+    list_display = ('nombre', 'clave')
+    search_fields = ('nombre', 'clave')
 
 
 @admin.register(Usuario)

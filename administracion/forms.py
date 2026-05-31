@@ -5,7 +5,7 @@ from datetime import datetime
 
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import Usuario, Carrera, Departamento, Rol, ConfiguracionInstitucional, JefeDepartamento
+from .models import Usuario, Carrera, Departamento, Profesor, Rol, ConfiguracionInstitucional, JefeDepartamento
 
 
 class UsuarioCreateForm(forms.ModelForm):
@@ -24,6 +24,7 @@ class UsuarioCreateForm(forms.ModelForm):
     class Meta:
         model = Usuario
         fields = [
+            'first_name', 'last_name', 'apellido_materno',
             'email', 'correo_institucional', 'rol', 'carrera', 'departamento',
             'numero_control', 'telefono', 'genero', 'generacion',
         ]
@@ -32,14 +33,12 @@ class UsuarioCreateForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Campos siempre obligatorios
         for f in ['first_name', 'last_name', 'apellido_materno',
-                  'correo_institucional', 'rol', 'telefono', 'numero_control']:
+                  'correo_institucional', 'rol', 'telefono', 'numero_control',
+                  'genero', 'generacion']:
             self.fields[f].required = True
 
-        # carrera y departamento: opcionales en el form, la validación se hace en clean()
         self.fields['carrera'].required = False
         self.fields['departamento'].required = False
-        self.fields['generacion'].required = False
-        self.fields['genero'].required = False
         self.fields['email'].required = False
 
         # Valor por defecto de generación: año actual - 4.5 años
@@ -95,13 +94,12 @@ class UsuarioUpdateForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         
         for f in ['first_name', 'last_name', 'apellido_materno',
-                  'correo_institucional', 'rol', 'telefono', 'numero_control']:
+                  'correo_institucional', 'rol', 'telefono', 'numero_control',
+                  'genero', 'generacion']:
             self.fields[f].required = True
 
         self.fields['carrera'].required = False
         self.fields['departamento'].required = False
-        self.fields['generacion'].required = False
-        self.fields['genero'].required = False
         self.fields['email'].required = False
 
         self.fields['first_name'].label = 'Nombre(s)'
@@ -139,10 +137,7 @@ class UsuarioUpdateForm(forms.ModelForm):
                     activos_count = Usuario.objects.filter(rol=old_rol, is_active=True).count()
                     if activos_count <= 1:
                         error_msg = f'No se puede desactivar ni cambiar el rol al único usuario activo con rol de {self.instance.get_rol_display()}. Agregue o asigne a alguien más primero.'
-                        if not is_active_new:
-                            self.add_error('is_active', error_msg)
-                        if rol != old_rol:
-                            self.add_error('rol', error_msg)
+                        self.add_error(None, error_msg)
 
             if old_rol == Rol.JEFE_PROYECTO and self.instance.departamento:
                 if (not is_active_new) or (rol != old_rol) or (departamento != self.instance.departamento):
@@ -153,10 +148,7 @@ class UsuarioUpdateForm(forms.ModelForm):
                     ).count()
                     if activos_count <= 1:
                         error_msg = f'No se puede desactivar al único Jefe de Proyecto activo del depto. {self.instance.departamento.nombre}. Cree o asigne uno nuevo (este se desactivará solo).'
-                        if not is_active_new:
-                            self.add_error('is_active', error_msg)
-                        if rol != old_rol or departamento != self.instance.departamento:
-                            self.add_error('rol', error_msg)
+                        self.add_error(None, error_msg)
 
         return cleaned_data
 
@@ -227,6 +219,38 @@ class JefeDepartamentoForm(forms.ModelForm):
         }
 
 
+class DepartamentoForm(forms.ModelForm):
+    class Meta:
+        model = Departamento
+        fields = ['nombre', 'clave']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'clave': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: DEP-ISC'}),
+        }
+
+
+class ProfesorForm(forms.ModelForm):
+    class Meta:
+        model = Profesor
+        fields = ['first_name', 'last_name', 'apellido_materno', 'titulo_academico', 'cedula', 'email', 'departamentos', 'activo']
+        widgets = {
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'apellido_materno': forms.TextInput(attrs={'class': 'form-control'}),
+            'titulo_academico': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Doctor en Sistemas Computacionales'}),
+            'cedula': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Número de cédula profesional'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'departamentos': forms.CheckboxSelectMultiple(),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['email'].required = True
+        self.fields['departamentos'].required = True
+        self.fields['departamentos'].help_text = 'Selecciona todos los departamentos a los que pertenece el profesor.'
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # FORMULARIOS PARA EDICIÓN DE DATOS RELACIONADOS (vista de edición de usuario)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -256,13 +280,11 @@ class ExpedienteAdminForm(forms.ModelForm):
             'estado', 'modalidad', 'titulo_trabajo', 'nombre_empresa',
             'pago_validado', 'pago_observaciones',
             'foto_fisica_division', 'foto_fisica_escolares',
-            'observaciones_division', 'observaciones_cedula',
             'fecha_cita_entrega', 'instrucciones_cita',
         ]
         widgets = {
             'pago_observaciones': forms.Textarea(attrs={'rows': 2}),
-            'observaciones_division': forms.Textarea(attrs={'rows': 2}),
-            'observaciones_cedula': forms.Textarea(attrs={'rows': 2}),
+            'instrucciones_cita': forms.Textarea(attrs={'rows': 2}),
             'instrucciones_cita': forms.Textarea(attrs={'rows': 2}),
             'fecha_cita_entrega': forms.DateTimeInput(
                 attrs={'type': 'datetime-local'},
@@ -276,6 +298,12 @@ class ExpedienteAdminForm(forms.ModelForm):
         for name in self.fields:
             if name != 'estado':
                 self.fields[name].required = False
+                
+        # Modificar visualmente las etiquetas
+        if 'foto_fisica_division' in self.fields:
+            self.fields['foto_fisica_division'].label = '¿Foto física entregada en División de Estudios Profesionales?'
+        if 'foto_fisica_escolares' in self.fields:
+            self.fields['foto_fisica_escolares'].label = '¿Foto física entregada en Servicios Escolares?'
 
 
 class UsuarioPerfilBasicoForm(forms.ModelForm):

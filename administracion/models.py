@@ -46,7 +46,6 @@ class Carrera(models.Model):
 class Departamento(models.Model):
     nombre = models.CharField(max_length=200, verbose_name='Nombre del departamento')
     clave = models.CharField(max_length=20, unique=True)
-    rol_responsable = models.CharField(max_length=20, choices=Rol.choices, default=Rol.ACADEMICO)
 
     class Meta:
         verbose_name = 'Departamento'
@@ -75,12 +74,11 @@ class Profesor(models.Model):
         help_text='Número de cédula expedida por SEP'
     )
     email = models.EmailField(blank=True, verbose_name='Correo electrónico')
-    departamento = models.ForeignKey(
+    departamentos = models.ManyToManyField(
         'Departamento',
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
+        blank=True,
         related_name='profesores',
-        verbose_name='Departamento'
+        verbose_name='Departamentos'
     )
     activo = models.BooleanField(default=True, verbose_name='Activo')
 
