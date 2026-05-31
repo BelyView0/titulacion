@@ -554,8 +554,13 @@ class UsuarioDeleteView(AdminRequeridoMixin, DeleteView):
         if usuario.pk == request.user.pk:
             messages.error(request, 'No puedes eliminar tu propia cuenta.')
             return redirect('administracion:usuarios')
-        messages.success(request, f'Usuario {usuario.get_full_name() or usuario.username} eliminado exitosamente.')
-        return super().delete(request, *args, **kwargs)
+            
+        nombre_usuario = usuario.get_full_name() or usuario.username
+        response = super().delete(request, *args, **kwargs)
+        
+        # Agregamos el mensaje de éxito solo si super().delete() no lanzó ninguna excepción
+        messages.success(request, f'Usuario {nombre_usuario} eliminado exitosamente.')
+        return response
 
 
 # ─── CARRERAS ────────────────────────────────────────────────
