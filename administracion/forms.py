@@ -24,7 +24,7 @@ class UsuarioCreateForm(forms.ModelForm):
     class Meta:
         model = Usuario
         fields = [
-            'email', 'correo_institucional', 'rol', 'carrera', 'departamento',
+            'email', 'correo_institucional', 'correo_institucional_verificado', 'rol', 'carrera', 'departamento',
             'numero_control', 'telefono', 'genero', 'generacion',
         ]
 
@@ -32,7 +32,7 @@ class UsuarioCreateForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Campos siempre obligatorios
         for f in ['first_name', 'last_name', 'apellido_materno',
-                  'email', 'rol', 'telefono', 'numero_control']:
+                  'correo_institucional', 'rol', 'telefono', 'numero_control']:
             self.fields[f].required = True
 
         # carrera y departamento: opcionales en el form, la validación se hace en clean()
@@ -40,7 +40,9 @@ class UsuarioCreateForm(forms.ModelForm):
         self.fields['departamento'].required = False
         self.fields['generacion'].required = False
         self.fields['genero'].required = False
-        self.fields['correo_institucional'].required = False
+        self.fields['email'].required = False
+        if 'correo_institucional_verificado' in self.fields:
+            self.fields['correo_institucional_verificado'].required = True
 
         # Valor por defecto de generación: año actual - 4.5 años
         self.fields['generacion'].initial = int(datetime.now().year - 4.5)
@@ -87,21 +89,25 @@ class UsuarioUpdateForm(forms.ModelForm):
         model = Usuario
         fields = [
             'first_name', 'last_name', 'apellido_materno',
-            'email', 'correo_institucional', 'rol', 'carrera', 'departamento',
+            'email', 'correo_institucional', 'correo_institucional_verificado', 'rol', 'carrera', 'departamento',
             'numero_control', 'telefono', 'genero', 'generacion', 'is_active',
         ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for f in ['first_name', 'last_name', 'apellido_materno', 'email', 'rol',
-                  'telefono', 'numero_control']:
+        
+        for f in ['first_name', 'last_name', 'apellido_materno',
+                  'correo_institucional', 'rol', 'telefono', 'numero_control']:
             self.fields[f].required = True
 
         self.fields['carrera'].required = False
         self.fields['departamento'].required = False
         self.fields['generacion'].required = False
         self.fields['genero'].required = False
-        self.fields['correo_institucional'].required = False
+        self.fields['email'].required = False
+        
+        if 'correo_institucional_verificado' in self.fields:
+            self.fields['correo_institucional_verificado'].required = True
 
         self.fields['first_name'].label = 'Nombre(s)'
         self.fields['last_name'].label = 'Apellido paterno'
