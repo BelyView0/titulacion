@@ -24,7 +24,15 @@ def confirmar_asistencia(request, token):
     expirado = acto.fecha_acto < timezone.now()
     recien_confirmado = False
 
-    if not ya_confirmado and not expirado:
+    from datetime import timedelta
+    
+    # Validar deadline de 24 hrs para el alumno
+    deadline_pasada = False
+    if confirmacion.rol == 'ALUMNO' and not ya_confirmado:
+        if timezone.now() > acto.fecha_acto - timedelta(days=1):
+            deadline_pasada = True
+
+    if not ya_confirmado and not expirado and not deadline_pasada:
         confirmacion.confirmado = True
         confirmacion.fecha_confirmacion = timezone.now()
         confirmacion.save()
@@ -32,6 +40,10 @@ def confirmar_asistencia(request, token):
 
         # Enviar correo de "confirmación recibida"
         _enviar_correo_confirmacion_recibida(confirmacion, acto)
+
+        # Si el alumno acaba de confirmar a tiempo, enviar las invitaciones al jurado
+        if confirmacion.rol == 'ALUMNO':
+            _enviar_correos_invitacion_jurado(acto, request)
 
         # Verificar si con esto ya se completaron todas
         if acto.confirmaciones_completas():
@@ -46,10 +58,99 @@ def confirmar_asistencia(request, token):
         'ya_confirmado': ya_confirmado,
         'recien_confirmado': recien_confirmado,
         'expirado': expirado,
+        'deadline_pasada': deadline_pasada,
         'todas': todas,
         'completas': acto.confirmaciones_completas(),
     }
     return render(request, 'confirmacion/confirmar.html', context)
+
+
+def _enviar_correos_invitacion_jurado(acto, request):
+    """Envía los correos iniciales de invitación al Jurado una vez que el alumno ha confirmado."""
+    from django.core.mail import EmailMultiAlternatives
+    from django.conf import settings
+    
+    expediente = acto.expediente
+    fecha_fmt = acto.fecha_acto.strftime('%d de %B de %Y a las %H:%M')
+    base_url = request.build_absolute_uri('/')[:-1]
+    
+    for conf in acto.confirmaciones.exclude(rol='ALUMNO').filter(confirmado=False):
+        if not conf.email:
+            continue
+            
+        nombre = conf.nombre_participante
+        confirm_url = f'{base_url}/confirmar/{conf.token}/'
+        rol_display = conf.get_rol_display()
+
+        intro_html = (
+            f'<p style="font-size:14px;color:#555;">Se le invita a participar como '
+            f'<strong style="color:#0057B8;">{rol_display}</strong> en el acto de '
+            f'recepci&oacute;n profesional del alumno(a):</p>'
+        )
+        alumno_row = (
+            f'<tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Alumno(a)</td>'
+            f'<td style="padding:6px 12px;font-size:14px;font-weight:700;">{expediente.alumno.get_full_name()}</td></tr>'
+        )
+
+        html_body = f'''<!DOCTYPE html>
+<html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;">
+<div style="max-width:600px;margin:0 auto;padding:20px;">
+  <div style="background:linear-gradient(135deg,#0057B8,#003d82);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
+    <div style="font-size:36px;color:#fff;">&#x1F393;</div>
+    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Invitaci&oacute;n a Acto Protocolario</h2>
+    <p style="color:rgba(255,255,255,.8);margin:0;font-size:13px;">Instituto Tecnol&oacute;gico de Apizaco &mdash; TecNM</p>
+  </div>
+  <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
+    <p style="font-size:15px;color:#333;">Estimado(a) <strong>{nombre}</strong>,</p>
+    {intro_html}
+
+    <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin:20px 0;border-left:4px solid #0057B8;">
+      <table style="width:100%;border-collapse:collapse;">
+        {alumno_row}
+        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Carrera</td>
+            <td style="padding:6px 12px;font-size:14px;">{expediente.alumno.carrera or '&mdash;'}</td></tr>
+        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">T&iacute;tulo del trabajo</td>
+            <td style="padding:6px 12px;font-size:14px;">{expediente.titulo_trabajo or '&mdash;'}</td></tr>
+      </table>
+    </div>
+
+    <div style="background:linear-gradient(135deg,#f0f7ff,#f3e8ff);border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
+      <div style="font-size:12px;color:#6c757d;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Fecha y lugar probable</div>
+      <div style="font-size:20px;font-weight:700;color:#7c3aed;margin:8px 0;">{fecha_fmt}</div>
+      <div style="font-size:14px;color:#555;">&#128205; {acto.lugar}</div>
+    </div>
+
+    <div style="background:#dbeafe;border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
+      <div style="font-size:14px;color:#1e40af;font-weight:700;margin-bottom:8px;">&#128232; Confirme su asistencia</div>
+      <p style="font-size:13px;color:#333;margin:0;">
+        Por favor comun&iacute;quese con el <strong>Jefe de Departamento</strong> correspondiente para confirmar su asistencia.
+      </p>
+    </div>
+  </div>
+</div>
+</body></html>'''
+
+        text_body = (
+            f'Estimado(a) {nombre},\n\n'
+            f'Se le invita como {rol_display} al acto protocolario.\n'
+            f'Alumno: {expediente.alumno.get_full_name()}\n'
+            f'Fecha probable: {fecha_fmt}\nLugar: {acto.lugar}\n\n'
+            f'Comuníquese con el Jefe de Departamento para confirmar su asistencia.\n\n'
+            f'Instituto Tecnológico de Apizaco — TecNM'
+        )
+
+        try:
+            msg = EmailMultiAlternatives(
+                subject=f'[ITA Titulación] Invitación a Acto Protocolario',
+                body=text_body,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[conf.email],
+            )
+            msg.attach_alternative(html_body, "text/html")
+            msg.send(fail_silently=True)
+        except Exception:
+            pass
 
 
 def _enviar_correo_confirmacion_recibida(confirmacion, acto):

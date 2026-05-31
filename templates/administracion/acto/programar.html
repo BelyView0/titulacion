@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Programar Acto Protocolario — Jefe de Proyecto{% endblock %}
+{% block title %}Programar Acto Protocolario — Jefe de Proyectos / Academia{% endblock %}
 {% block page_title %}Programar Acto Protocolario{% endblock %}
 
 {% block content %}
@@ -146,10 +146,16 @@
                             <label for="id_lugar" class="form-label fw-semibold">
                                 <i class="bi bi-geo-alt me-1 text-primary"></i>Lugar / Sala
                             </label>
+                            <select id="select_lugar" class="form-select mb-2">
+                                <option value="">— Seleccionar lugar —</option>
+                                <option value="SALA MAGNA (Edificio T)" {% if form.lugar.value == 'SALA MAGNA (Edificio T)' %}selected{% endif %}>SALA MAGNA (Edificio T)</option>
+                                <option value="SALA DE TITULACIÓN (Edificio E)" {% if form.lugar.value == 'SALA DE TITULACIÓN (Edificio E)' %}selected{% endif %}>SALA DE TITULACIÓN (Edificio E)</option>
+                                <option value="Otra" {% if form.lugar.value and form.lugar.value != 'SALA MAGNA (Edificio T)' and form.lugar.value != 'SALA DE TITULACIÓN (Edificio E)' %}selected{% endif %}>Otra</option>
+                            </select>
                             <input type="text" name="lugar" id="id_lugar"
                                    class="form-control {% if form.lugar.errors %}is-invalid{% endif %}"
                                    value="{{ form.lugar.value|default_if_none:'' }}"
-                                   placeholder="Ej: Sala de juntas, Edificio A, Auditorio..."
+                                   placeholder="Especifique el lugar..."
                                    required>
                             {% if form.lugar.errors %}
                             <div class="invalid-feedback">{{ form.lugar.errors.0 }}</div>
@@ -208,4 +214,37 @@
     </div>
 
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function initLugarSelect() {
+    const select = document.getElementById('select_lugar');
+    const input = document.getElementById('id_lugar');
+    
+    if (!select || !input) return;
+
+    function toggleInput() {
+        if (select.value === 'Otra') {
+            input.style.display = 'block';
+            input.readOnly = false;
+            if (input.value === 'SALA MAGNA (Edificio T)' || input.value === 'SALA DE TITULACIÓN (Edificio E)') {
+                input.value = '';
+            }
+            input.focus();
+        } else {
+            input.style.display = 'none';
+            input.readOnly = true;
+            input.value = select.value;
+        }
+    }
+
+    select.addEventListener('change', toggleInput);
+    
+    if (!select.value && input.value && input.value !== 'SALA MAGNA (Edificio T)' && input.value !== 'SALA DE TITULACIÓN (Edificio E)') {
+        select.value = 'Otra';
+    }
+    toggleInput();
+})();
+</script>
 {% endblock %}

@@ -188,10 +188,32 @@
             {% elif expediente.estado == 'ACTO_PROGRAMADO' %}
             <div class="mb-3">
                 {% if expediente.acto_protocolario and expediente.acto_protocolario.resultado == 'PENDIENTE' %}
-                <div class="alert alert-warning py-2 mb-0 small text-start">
+                <div class="alert alert-warning py-2 mb-2 small text-start">
                     <i class="bi bi-hourglass-split me-1"></i>
-                    <strong>Acto Protocolario Pendiente:</strong> El acto está programado para el <strong>{{ expediente.acto_protocolario.fecha_acto|date:"d/m/Y \a \l\a\s H:i" }}</strong> en <strong>{{ expediente.acto_protocolario.lugar }}</strong>. Esperando que el Jefe de Proyecto confirme que el acto se llevó a cabo.
+                    <strong>Acto Protocolario Pendiente:</strong> El acto está programado para el <strong>{{ expediente.acto_protocolario.fecha_acto|date:"d/m/Y \a \l\a\s H:i" }}</strong> en <strong>{{ expediente.acto_protocolario.lugar }}</strong>. Esperando que se registre el resultado del acto.
                 </div>
+                
+                {% if expediente.acto_protocolario.confirmaciones_completas %}
+                    {% if expediente.acto_protocolario.fecha_acto|date:"Y-m-d H:i:s" < now|date:"Y-m-d H:i:s" or 1 %}
+                    <div class="card bg-light border-0 shadow-sm mb-3">
+                        <div class="card-body p-3">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-clipboard-check me-2"></i>Registrar Resultado del Acto</h6>
+                            <p class="small text-muted mb-3">Dado que la fecha del acto ha pasado, por favor confirme si el acto protocolario se llevó a cabo exitosamente o no.</p>
+                            
+                            <form action="{% url 'escolares:registro_acto' expediente.acto_protocolario.pk %}" method="post" class="d-flex gap-2">
+                                {% csrf_token %}
+                                <button type="submit" name="resultado" value="APROBADO" class="btn btn-success btn-sm w-50 fw-semibold">
+                                    <i class="bi bi-check-circle me-1"></i>Se llevó a cabo
+                                </button>
+                                <button type="submit" name="resultado" value="NO_PRESENTADO" class="btn btn-danger btn-sm w-50 fw-semibold" onclick="return confirm('¿Seguro que el acto NO se llevó a cabo? Se notificará al Jefe de Proyectos para que lo reprograme.');">
+                                    <i class="bi bi-x-circle me-1"></i>NO se llevó a cabo
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endif %}
+                
                 {% elif expediente.acto_protocolario and expediente.acto_protocolario.resultado == 'SUSPENDIDO' or expediente.acto_protocolario and expediente.acto_protocolario.resultado == 'NO_PRESENTADO' %}
                 <div class="alert alert-danger py-2 mb-0 small text-start">
                     <i class="bi bi-x-circle me-1"></i>

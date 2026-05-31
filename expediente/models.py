@@ -612,6 +612,11 @@ class AsignacionJurado(models.Model):
         null=True, blank=True,
         verbose_name='Fecha del oficio'
     )
+    oficio_pdf = models.FileField(
+        upload_to='oficios_jurado/',
+        null=True, blank=True,
+        verbose_name='PDF del Oficio de Jurado'
+    )
     # ── Acto protocolario ────────────────────────────────────────
     fecha_acto = models.DateTimeField(
         null=True, blank=True,
@@ -625,11 +630,20 @@ class AsignacionJurado(models.Model):
     # ── Auditoría ────────────────────────────────────────────────
     asignado_por = models.ForeignKey(
         'administracion.Usuario',
-        on_delete=models.SET_NULL, null=True,
-        related_name='jurados_asignados',
-        verbose_name='Asignado por'
+        on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='jurados_asignados'
     )
-    notas = models.TextField(blank=True, verbose_name='Notas adicionales')
+    oficio_pdf = models.FileField(
+        upload_to='oficios_jurado/',
+        null=True, blank=True,
+        verbose_name='Oficio de Asignación en PDF'
+    )
+    solicitud_jefe_usada = models.ForeignKey(
+        'administracion.SolicitudCambioJefe',
+        on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='asignaciones_jurado',
+        verbose_name='Solicitud de Jefe Usada'
+    )
 
     class Meta:
         verbose_name = 'Asignación de Jurado'

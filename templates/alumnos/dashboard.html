@@ -37,9 +37,9 @@
                     <small class="fw-semibold text-muted">Progreso del proceso</small>
                     <small class="fw-bold" style="color:var(--ita-azul)">{{ expediente.porcentaje_progreso }}%</small>
                 </div>
-                <div class="progress">
-                    <div class="progress-bar bg-primary" role="progressbar"
-                         style="width: {{ expediente.porcentaje_progreso }}%"></div>
+                <div class="progress" data-progreso="{{ expediente.porcentaje_progreso }}">
+                    <div class="progress-bar bg-primary" role="progressbar" style="width: 0%;"></div>
+                    <script>document.currentScript.previousElementSibling.style.width = "{{ expediente.porcentaje_progreso }}%";</script>
                 </div>
             </div>
             <!-- Acciones rápidas -->
@@ -246,7 +246,7 @@
                     var target = new Date('{{ acto.fecha_acto|date:"c" }}').getTime();
                     var el = document.getElementById('countdown-display');
                     var container = document.getElementById('countdown-container');
-                    var confirmacionesCompletas = {{ acto.confirmaciones_completas|yesno:"true,false" }};
+                    var confirmacionesCompletas = ("{{ acto.confirmaciones_completas|yesno:'true,false' }}" === "true");
                     function update() {
                         var now = Date.now();
                         var diff = target - now;
@@ -392,8 +392,8 @@
     </div>
     {% for notif in notificaciones_recientes %}
     <div class="doc-item {% if not notif.leida %}bg-primary bg-opacity-10{% endif %}">
-        <div class="doc-icon" style="background: var(--bs-{{ notif.get_tipo_color }}-bg, #f0f4ff);">
-            <i class="{{ notif.get_tipo_icono }} text-{{ notif.get_tipo_color }}"></i>
+        <div class="doc-icon bg-{{ notif.get_tipo_color }} bg-opacity-10 text-{{ notif.get_tipo_color }}">
+            <i class="{{ notif.get_tipo_icono }}"></i>
         </div>
         <div class="flex-grow-1">
             <div class="doc-name">{{ notif.titulo }}</div>
