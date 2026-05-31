@@ -12,6 +12,8 @@ from expediente.models import Expediente, Documento
 from alumnos.forms import ExpedienteForm
 
 from administracion.forms import UsuarioPerfilBasicoForm
+from alumnos.models import Notificacion
+from django.urls import reverse
 
 class PerfilView(LoginRequiredMixin, View):
     template_name = 'perfil.html'
@@ -134,13 +136,14 @@ class EnviarVerificacionEmailView(LoginRequiredMixin, View):
             return redirect('perfil')
 
         # Invalidate old OTPs for this user and type
-        EmailVerificationOTP.objects.filter(usuario=user, tipo=tipo, utilizado=False).update(utilizado=True)
+        EmailVerificationOTP.objects.filter(usuario=user, tipo_correo=tipo.upper(), usado=False).update(usado=True)
 
         # Create new OTP
         codigo = get_random_string(length=6, allowed_chars='0123456789')
         EmailVerificationOTP.objects.create(
             usuario=user,
-            tipo=tipo,
+            tipo_correo=tipo.upper(),
+            email_a_verificar=correo_destino,
             codigo=codigo
         )
 
@@ -157,7 +160,9 @@ class EnviarVerificacionEmailView(LoginRequiredMixin, View):
             )
             messages.success(request, f'Se ha enviado un código de verificación a {correo_destino}.')
         except Exception as e:
-            messages.error(request, f'Error al enviar el correo: {e}')
+            EmailVerificationOTP.objects.filter(usuario=user, tipo_correo=tipo.upper(), codigo=codigo).delete()
+            messages.error(request, f'Error al enviar el correo. Por favor, inténtalo más tarde.')
+            return redirect('perfil')
 
         return redirect('perfil_verificar_validar', tipo=tipo)
 
@@ -183,9 +188,9 @@ class ValidarVerificacionEmailView(LoginRequiredMixin, View):
 
         otp_obj = EmailVerificationOTP.objects.filter(
             usuario=user,
-            tipo=tipo,
+            tipo_correo=tipo.upper(),
             codigo=codigo,
-            utilizado=False
+            usado=False
         ).first()
 
         if not otp_obj:
@@ -197,7 +202,7 @@ class ValidarVerificacionEmailView(LoginRequiredMixin, View):
             return redirect('perfil')
 
         # Mark as used and verify email
-        otp_obj.utilizado = True
+        otp_obj.usado = True
         otp_obj.save()
 
         if tipo == 'personal':
@@ -209,3 +214,46 @@ class ValidarVerificacionEmailView(LoginRequiredMixin, View):
 
         messages.success(request, f'Tu correo {tipo} ha sido verificado exitosamente.')
         return redirect('perfil')
+
+class SolicitarCorreccionControlView(LoginRequiredMixin, View):
+    def post(self, request):
+        nuevo_control = request.POST.get('nuevo_control', '').strip()
+        comentario = request.POST.get('comentario', '').strip()
+
+        if not nuevo_control:
+            messages.error(request, 'Debes proporcionar el número de control correcto.')
+            return redirect('perfil')
+
+        user = request.user
+        admins = Usuario.objects.filter(rol=Rol.ADMINISTRADOR)
+        url_admin = request.build_absolute_uri(reverse('administracion:usuario_editar', args=[user.pk]))
+
+        mensaje = f'El usuario {user.get_full_name()} ({user.username}) ha solicitado un cambio de su número de control/empleado a: {nuevo_control}.'
+        if comentario:
+            mensaje += f'\nComentario: {comentario}'
+
+        for admin in admins:
+            # Crear notificación interna
+            Notificacion.objects.create(
+                destinatario=admin,
+                tipo='URGENTE',
+                titulo='Solicitud de cambio de Número de Control',
+                mensaje=mensaje,
+                url_relacionada=reverse('administracion:usuario_editar', args=[user.pk])
+            )
+            # Enviar correo
+            if admin.email:
+                try:
+                    send_mail(
+                        'Solicitud de cambio de Número de Control',
+                        f'{mensaje}\n\nPuedes revisar y editar el usuario aquí: {url_admin}',
+                        settings.DEFAULT_FROM_EMAIL,
+                        [admin.email],
+                        fail_silently=True,
+                    )
+                except Exception:
+                    pass
+
+        messages.success(request, 'Tu solicitud de corrección ha sido enviada a los administradores.')
+        return redirect('perfil')
+

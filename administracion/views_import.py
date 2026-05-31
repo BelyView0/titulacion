@@ -19,9 +19,10 @@ from django.http import HttpResponse, Http404
 from django.contrib.auth import get_user_model
 
 from expediente.mixins import AdminRequeridoMixin
-from administracion.models import Carrera, Departamento, Profesor, Rol, Genero, Usuario
-from expediente.models import PlanEstudios, Modalidad
+from administracion.models import Carrera, Departamento, Profesor, Rol, Genero, Usuario, JefeDepartamento
+from expediente.models import PlanEstudios, Modalidad, TipoDocumento
 from alumnos.models import PerfilAlumno
+import json
 
 Usuario = get_user_model()
 
@@ -38,9 +39,11 @@ class ImportarExportarHubView(AdminRequeridoMixin, TemplateView):
         # Pasar conteos actuales de registros en el sistema para contexto informativo
         ctx['counts'] = {
             'departamentos': Departamento.objects.count(),
+            'jefes_departamento': JefeDepartamento.objects.count(),
             'carreras': Carrera.objects.count(),
             'planes': PlanEstudios.objects.count(),
             'modalidades': Modalidad.objects.count(),
+            'tipos_documento': TipoDocumento.objects.count(),
             'profesores': Profesor.objects.count(),
             'alumnos': Usuario.objects.filter(rol=Rol.ALUMNO).count(),
         }
@@ -59,7 +62,7 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
         rows_data = []
         if key == 'departamentos':
             for d in Departamento.objects.all().order_by('clave'):
-                rows_data.append([d.clave, d.nombre, d.rol_responsable])
+                rows_data.append([d.clave, d.nombre])
         elif key == 'carreras':
             for c in Carrera.objects.select_related('departamento').all().order_by('clave'):
                 rows_data.append([c.clave, c.nombre, 'Si' if c.activa else 'No', c.departamento.clave if c.departamento else ''])
@@ -69,6 +72,9 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
         elif key == 'modalidades':
             for m in Modalidad.objects.select_related('plan_estudios').all().order_by('plan_estudios__nombre', 'clave'):
                 rows_data.append([m.plan_estudios.nombre, m.clave, m.nombre, m.descripcion, 'Si' if m.activa else 'No'])
+        elif key == 'tipos_documento':
+            for t in TipoDocumento.objects.all().order_by('orden'):
+                rows_data.append([t.nombre, t.descripcion, 'Si' if t.es_obligatorio else 'No', 'Si' if t.es_multiple else 'No', t.orden])
         elif key == 'profesores':
             for p in Profesor.objects.select_related('departamento').all().order_by('cedula'):
                 rows_data.append([p.cedula, p.first_name, p.last_name, p.apellido_materno, p.titulo_academico, p.email, p.departamento.clave if p.departamento else '', 'Si' if p.activo else 'No'])
@@ -82,6 +88,11 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
                     p.semestre_egreso if p else '',
                     str(p.promedio) if (p and p.promedio) else '',
                     u.telefono, u.genero, u.generacion or ''
+                ])
+        elif key == 'jefes_departamento':
+            for j in JefeDepartamento.objects.select_related('departamento').all().order_by('departamento__clave'):
+                rows_data.append([
+                    j.departamento.clave, j.titulo_academico, j.nombre, j.apellido_paterno, j.apellido_materno, j.genero
                 ])
         return rows_data
 
@@ -112,11 +123,11 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
         sheets_def = {
             'departamentos': {
                 'title': 'Departamentos',
-                'headers': ['Clave', 'Nombre del Departamento', 'Rol Responsable'],
-                'widths': [15, 45, 25],
+                'headers': ['Clave', 'Nombre del Departamento'],
+                'widths': [15, 45],
                 'help_rows': [
-                    ['CB', 'Ciencias Básicas', 'ACADEMICO'],
-                    ['CH', 'Ciencias de la Tierra', 'JEFE_PROYECTO']
+                    ['CB', 'Ciencias Básicas'],
+                    ['CH', 'Ciencias de la Tierra']
                 ]
             },
             'carreras': {
@@ -146,6 +157,15 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
                     ['ISIC-2010-224', 'RESIDENCIA', 'Informe de Residencia Profesional', 'Reporte escrito de proyecto empresarial', 'Si']
                 ]
             },
+            'tipos_documento': {
+                'title': 'Tipos de Documento',
+                'headers': ['Nombre', 'Descripción', 'Obligatorio (Si/No)', 'Múltiple (Si/No)', 'Orden'],
+                'widths': [35, 50, 20, 20, 10],
+                'help_rows': [
+                    ['Acta de Nacimiento', 'Documento en formato PDF legible', 'Si', 'No', 1],
+                    ['Fotografías Tamaño Título', 'Entregar físicamente y subir escaneo', 'Si', 'Si', 2]
+                ]
+            },
             'profesores': {
                 'title': 'Profesores',
                 'headers': ['Cédula Profesional', 'Nombre(s)', 'Apellido Paterno', 'Apellido Materno', 'Título Académico', 'Email', 'Clave Departamento', 'Activo (Si/No)'],
@@ -162,6 +182,15 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
                 'help_rows': [
                     ['20141720', 'DANIELA', 'SUAREZ', 'LOPEZ', 'L20141720@apizaco.tecnm.mx', 'ISC', 'ISIC-2010-224', 'Ago-Dic 2024', '91.50', '2411122334', 'F', '2020'],
                     ['20141721', 'CARLOS', 'PEREZ', 'GOMEZ', 'carlos.perez@gmail.com', 'ISC', 'ISIC-2010-224', 'Ene-Jun 2025', '85.40', '2415556677', 'M', '2021']
+                ]
+            },
+            'jefes_departamento': {
+                'title': 'Jefes de Departamento',
+                'headers': ['Clave Departamento', 'Título Académico', 'Nombre(s)', 'Apellido Paterno', 'Apellido Materno', 'Género (M/F)'],
+                'widths': [20, 20, 25, 25, 25, 15],
+                'help_rows': [
+                    ['CB', 'M.C.', 'MARIA', 'LOPEZ', 'GARCIA', 'F'],
+                    ['CH', 'Dr.', 'CARLOS', 'PEREZ', 'GOMEZ', 'M']
                 ]
             }
         }
@@ -271,13 +300,27 @@ class SubirArchivoMasivoView(AdminRequeridoMixin, View):
 
     def post(self, request):
         tipo = request.POST.get('tipo', 'todo')
-        uploaded_file = request.FILES.get('archivo_excel')
+        confirmado = request.POST.get('confirmado') == 'true'
+        temp_file_path = request.POST.get('temp_file_path')
 
-        if not uploaded_file:
-            messages.error(request, "Por favor, selecciona un archivo para subir.")
-            return redirect(reverse('administracion:importar_exportar') + f'?tab={tipo}')
+        if confirmado and temp_file_path:
+            import os
+            from django.conf import settings
+            file_path = os.path.join(settings.MEDIA_ROOT, temp_file_path)
+            if not os.path.exists(file_path):
+                messages.error(request, "El archivo temporal ha expirado. Por favor sube el archivo nuevamente.")
+                return redirect(reverse('administracion:importar_exportar') + f'?tab={tipo}')
             
-        filename = uploaded_file.name.lower()
+            uploaded_file = open(file_path, 'rb')
+            filename = os.path.basename(file_path).lower()
+        else:
+            uploaded_file = request.FILES.get('archivo_excel')
+            if not uploaded_file:
+                messages.error(request, "Por favor, selecciona un archivo para subir.")
+                return redirect(reverse('administracion:importar_exportar') + f'?tab={tipo}')
+                
+            filename = uploaded_file.name.lower()
+
         is_csv = filename.endswith('.csv')
         is_excel = filename.endswith('.xlsx')
 
@@ -292,17 +335,21 @@ class SubirArchivoMasivoView(AdminRequeridoMixin, View):
         # Definir mapeo de pestañas
         sheet_mapping = {
             'departamentos': 'Departamentos',
+            'jefes_departamento': 'Jefes de Departamento',
             'carreras': 'Carreras',
             'planes': 'Planes de Estudio',
             'modalidades': 'Modalidades',
+            'tipos_documento': 'Tipos de Documento',
             'profesores': 'Profesores',
             'alumnos': 'Alumnos',
         }
 
         active_keys = sheet_mapping.keys() if tipo == 'todo' else [tipo]
         errors = []
-        stats = {k: {'creados': 0, 'actualizados': 0} for k in sheet_mapping.keys()}
+        stats = {k: {'creados': 0, 'actualizados': 0, 'detalles': []} for k in sheet_mapping.keys()}
         self.newly_created_users = []
+        
+        # Bandera para determinar si es previsualización (ya la leímos arriba)
 
         try:
             with transaction.atomic():
@@ -349,11 +396,38 @@ class SubirArchivoMasivoView(AdminRequeridoMixin, View):
                 if errors:
                     raise ValidationError("Errores de consistencia en datos.")
 
+                # Si no está confirmado, forzamos rollback para solo previsualizar
+                if not confirmado:
+                    # Guardar el archivo temporalmente
+                    import os
+                    from django.conf import settings
+                    from django.core.files.storage import FileSystemStorage
+                    
+                    fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, 'temp_imports'))
+                    # Resetear el puntero del archivo
+                    uploaded_file.seek(0)
+                    saved_name = fs.save(filename, uploaded_file)
+                    temp_path = os.path.join('temp_imports', saved_name)
+                    
+                    raise PreviewModeException(temp_path)
+
+        except PreviewModeException as e:
+            # Renderizar la vista previa
+            ctx = {
+                'stats': stats,
+                'active_tab': tipo,
+                'tipo': tipo,
+                'sheet_mapping': sheet_mapping,
+                'temp_file_path': str(e),
+            }
+            return render(request, 'administracion/importar_preview.html', ctx)
+
         except (ValidationError, Exception) as e:
             # Capturar fallos del rollback y renderizar con listado de errores
             ctx = {
                 'counts': {
                     'departamentos': Departamento.objects.count(),
+                    'jefes_departamento': JefeDepartamento.objects.count(),
                     'carreras': Carrera.objects.count(),
                     'planes': PlanEstudios.objects.count(),
                     'modalidades': Modalidad.objects.count(),
@@ -383,63 +457,20 @@ class SubirArchivoMasivoView(AdminRequeridoMixin, View):
                 
                 subject = "[ITA Titulación] Tu cuenta ha sido creada — Datos de Acceso"
                 
-                html_content = f"""<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;">
-<div style="max-width:600px;margin:0 auto;padding:20px;">
-  <div style="background:linear-gradient(135deg,#1B396A,#0f2447);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
-    <div style="font-size:36px;color:#fff;">🎓</div>
-    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Bienvenido a la Plataforma de Titulación</h2>
-    <p style="color:rgba(255,255,255,.8);margin:0;font-size:13px;">Instituto Tecnológico de Apizaco — TecNM</p>
-  </div>
-  <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
-    <p style="font-size:15px;color:#333;">Estimado(a) <strong>{u_data['full_name']}</strong>,</p>
-    <p style="font-size:14px;color:#555;line-height:1.6;">
-      Te informamos que tu cuenta de acceso para la plataforma de titulación del 
-      <strong>Instituto Tecnológico de Apizaco</strong> ha sido registrada con éxito.
-    </p>
-
-    <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin:20px 0;border-left:4px solid #1B396A;">
-      <h3 style="margin-top:0;color:#1B396A;font-size:15px;">Datos de Acceso:</h3>
-      <table style="width:100%;border-collapse:collapse;font-size:14px;">
-        <tr>
-          <td style="padding:6px 0;font-weight:700;color:#6c757d;width:150px;">Nombre de usuario:</td>
-          <td style="padding:6px 0;font-weight:700;color:#333;">{u_data['username']}</td>
-        </tr>
-        <tr>
-          <td style="padding:6px 0;font-weight:700;color:#6c757d;">Contraseña temporal:</td>
-          <td style="padding:6px 0;font-weight:700;color:#333;font-family:monospace;font-size:15px;background:#eef2f7;padding:4px 8px;border-radius:4px;">{u_data['password']}</td>
-        </tr>
-      </table>
-    </div>
-
-    <div style="background:#eef2f7;border-radius:8px;padding:16px;margin:20px 0;text-align:center;color:#445;font-size:14px;line-height:1.5;">
-      Para acceder, abre tu navegador web e ingresa a la dirección habitual de la plataforma de titulación de tu institución.
-    </div>
-
-    <div style="background:#fffbcb;border-radius:8px;padding:16px;font-size:13px;color:#856404;border:1px solid #ffeeba;margin:20px 0;line-height:1.5;">
-      <strong>⚠️ Importante:</strong> Por motivos de seguridad y confidencialidad, 
-      el sistema te solicitará cambiar esta contraseña temporal por una contraseña 
-      personal y segura en tu primer inicio de sesión.
-    </div>
-
-    <p style="font-size:13px;color:#777;line-height:1.5;margin-top:30px;">
-      Este correo electrónico también sirve para validar la existencia y correcto funcionamiento de tu dirección de contacto.
-    </p>
-  </div>
-  <p style="text-align:center;font-size:11px;color:#999;margin-top:16px;">
-    Este mensaje fue generado automáticamente por el Sistema de Gestión de Titulación.<br>
-    Instituto Tecnológico de Apizaco — TecNM.
-  </p>
-</div>
-</body></html>"""
+                context_data = {
+                    'full_name': u_data['full_name'],
+                    'numero_control': u_data['username'],
+                    'password_clear': u_data['password']
+                }
+                from django.template.loader import render_to_string
+                html_content = render_to_string('emails/nueva_cuenta.html', context_data)
 
                 text_content = f"""Estimado(a) {u_data['full_name']},
 
 Te informamos que tu cuenta de acceso para la plataforma de titulación del Instituto Tecnológico de Apizaco ha sido creada.
 
 Datos de Acceso:
-- Nombre de usuario: {u_data['username']}
+- Número de control / empleado: {u_data['username']}
 - Contraseña temporal: {u_data['password']}
 
 Puedes ingresar a la plataforma abriendo tu navegador web e introduciendo la dirección habitual de la institución.
@@ -474,6 +505,14 @@ Instituto Tecnológico de Apizaco — TecNM.
         if not any_change:
             success_msg += "<li>No se detectaron nuevos datos ni modificaciones que guardar (el archivo era idéntico).</li>"
         success_msg += "</ul>"
+        
+        # Eliminar archivo temporal si existía
+        if confirmado and temp_file_path:
+            import os
+            from django.conf import settings
+            file_path = os.path.join(settings.MEDIA_ROOT, temp_file_path)
+            if os.path.exists(file_path):
+                os.remove(file_path)
 
         messages.success(request, success_msg)
         return redirect(reverse('administracion:importar_exportar') + f'?tab={tipo}')
@@ -496,10 +535,14 @@ Instituto Tecnológico de Apizaco — TecNM.
                     self.procesar_plan(row, idx, stats['planes'])
                 elif key == 'modalidades':
                     self.procesar_modalidad(row, idx, stats['modalidades'])
+                elif key == 'tipos_documento':
+                    self.procesar_tipo_documento(row, idx, stats['tipos_documento'])
                 elif key == 'profesores':
                     self.procesar_profesor(row, idx, stats['profesores'])
                 elif key == 'alumnos':
                     self.procesar_alumno(row, idx, stats['alumnos'])
+                elif key == 'jefes_departamento':
+                    self.procesar_jefe(row, idx, stats['jefes_departamento'])
             except ValueError as e:
                 errors.append({
                     'hoja': sheet_name,
@@ -514,22 +557,15 @@ Instituto Tecnológico de Apizaco — TecNM.
 
         clave = str(row[0]).strip().upper()
         nombre = str(row[1]).strip()
-        rol_resp = str(row[2]).strip().upper() if len(row) > 2 and row[2] else 'ACADEMICO'
-
-        # Validar rol
-        roles_validos = [r[0] for r in Rol.choices]
-        if rol_resp not in roles_validos:
-            raise ValueError(f"Rol responsable '{rol_resp}' inválido. Opciones: {', '.join(roles_validos)}")
 
         dept, created = Departamento.objects.get_or_create(
             clave=clave,
-            defaults={'nombre': nombre, 'rol_responsable': rol_resp}
+            defaults={'nombre': nombre}
         )
         if not created:
             # Actualización para evitar duplicados (Upsert)
-            if dept.nombre != nombre or dept.rol_responsable != rol_resp:
+            if dept.nombre != nombre:
                 dept.nombre = nombre
-                dept.rol_responsable = rol_resp
                 dept.save()
                 stat['actualizados'] += 1
         else:
@@ -614,6 +650,35 @@ Instituto Tecnológico de Apizaco — TecNM.
                 modalidad.descripcion = descripcion
                 modalidad.activa = activa
                 modalidad.save()
+                stat['actualizados'] += 1
+        else:
+            stat['creados'] += 1
+
+    def procesar_tipo_documento(self, row, fila, stat):
+        if not row[0]:
+            raise ValueError("El Nombre del documento es obligatorio.")
+
+        nombre = str(row[0]).strip()
+        descripcion = str(row[1]).strip() if len(row) > 1 and row[1] else ''
+        es_obligatorio = str(row[2]).strip().lower() in ['si', 'sí', 'yes', 'true', '1'] if len(row) > 2 and row[2] is not None else True
+        es_multiple = str(row[3]).strip().lower() in ['si', 'sí', 'yes', 'true', '1'] if len(row) > 3 and row[3] is not None else False
+        
+        try:
+            orden = int(row[4]) if len(row) > 4 and row[4] is not None else 0
+        except ValueError:
+            orden = 0
+
+        td, created = TipoDocumento.objects.get_or_create(
+            nombre=nombre,
+            defaults={'descripcion': descripcion, 'es_obligatorio': es_obligatorio, 'es_multiple': es_multiple, 'orden': orden}
+        )
+        if not created:
+            if td.descripcion != descripcion or td.es_obligatorio != es_obligatorio or td.es_multiple != es_multiple or td.orden != orden:
+                td.descripcion = descripcion
+                td.es_obligatorio = es_obligatorio
+                td.es_multiple = es_multiple
+                td.orden = orden
+                td.save()
                 stat['actualizados'] += 1
         else:
             stat['creados'] += 1
@@ -796,13 +861,70 @@ Instituto Tecnológico de Apizaco — TecNM.
             
             if not created and (cambio or p_cambio):
                 stat['actualizados'] += 1
+                stat['detalles'].append(f"Actualizado Alumno: {control}")
         else:
             if not created:
                 stat['actualizados'] += 1
+                stat['detalles'].append(f"Actualizado Alumno: {control}")
             else:
                 stat['creados'] += 1
+                stat['detalles'].append(f"Creado Alumno: {control}")
+
+    def procesar_jefe(self, row, fila, stat):
+        if len(row) < 6 or not row[0] or not row[1] or not row[2] or not row[3] or not row[5]:
+            raise ValueError("Clave Depto, Título, Nombre, Apellido Paterno y Género son obligatorios.")
+
+        clave_dept = str(row[0]).strip().upper()
+        titulo = str(row[1]).strip()
+        nombre = str(row[2]).strip()
+        paterno = str(row[3]).strip()
+        materno = str(row[4]).strip() if len(row) > 4 and row[4] else ''
+        
+        genero_raw = str(row[5]).strip().upper() if len(row) > 5 and row[5] else 'F'
+        genero = 'F'
+        if genero_raw in ['M', 'MASCULINO', 'H', 'HOMBRE']:
+            genero = Genero.MASCULINO
+        elif genero_raw in ['F', 'FEMENINO', 'M', 'MUJER']:
+            genero = Genero.FEMENINO
+
+        try:
+            dept = Departamento.objects.get(clave=clave_dept)
+        except Departamento.DoesNotExist:
+            raise ValueError(f"El Departamento con clave '{clave_dept}' no existe en el sistema.")
+
+        jefe, created = JefeDepartamento.objects.get_or_create(
+            departamento=dept,
+            defaults={
+                'titulo_academico': titulo,
+                'nombre': nombre,
+                'apellido_paterno': paterno,
+                'apellido_materno': materno,
+                'genero': genero
+            }
+        )
+        if not created:
+            if (jefe.titulo_academico != titulo or jefe.nombre != nombre or
+                jefe.apellido_paterno != paterno or jefe.apellido_materno != materno or
+                jefe.genero != genero):
+                
+                jefe.titulo_academico = titulo
+                jefe.nombre = nombre
+                jefe.apellido_paterno = paterno
+                jefe.apellido_materno = materno
+                jefe.genero = genero
+                jefe.save()
+                stat['actualizados'] += 1
+                stat['detalles'].append(f"Actualizado Jefe: {nombre} {paterno} (Depto {clave_dept})")
+        else:
+            stat['creados'] += 1
+            stat['detalles'].append(f"Creado Jefe: {nombre} {paterno} (Depto {clave_dept})")
 
 
 class ValidationError(Exception):
     """Excepción controlada para forzar rollback de BD al detectar fallos lógicos."""
     pass
+
+class PreviewModeException(Exception):
+    """Excepción para forzar rollback y mostrar la vista previa."""
+    pass
+

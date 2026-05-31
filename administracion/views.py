@@ -14,10 +14,11 @@ from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.shortcuts import redirect, get_object_or_404
+from django.http import HttpResponse
 from django.utils import timezone
 
 from expediente.mixins import AdminRequeridoMixin, JefeProyectoRequeridoMixin
-from administracion.models import Carrera, Departamento, Usuario, Rol, ConfiguracionInstitucional, JefeDepartamento
+from administracion.models import Carrera, Departamento, Usuario, Rol, ConfiguracionInstitucional, JefeDepartamento, SolicitudCambioJefe
 from administracion.forms import UsuarioCreateForm, UsuarioUpdateForm, ConfiguracionInstitucionalForm, JefeDepartamentoForm
 from expediente.models import (
     Expediente, Documento, AsignacionJurado,
@@ -41,6 +42,60 @@ class ConfiguracionUpdateView(AdminRequeridoMixin, UpdateView):
     def form_valid(self, form):
         messages.success(self.request, 'Membretes institucionales actualizados correctamente.')
         return super().form_valid(form)
+
+
+class ConfiguracionEmailUpdateView(AdminRequeridoMixin, UpdateView):
+    model = ConfiguracionInstitucional
+    from .forms import ConfiguracionEmailForm
+    form_class = ConfiguracionEmailForm
+    template_name = 'administracion/configuracion_email.html'
+    success_url = reverse_lazy('administracion:configuracion_email')
+
+    def get_object(self, queryset=None):
+        obj, created = ConfiguracionInstitucional.objects.get_or_create(id=1)
+        return obj
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        from django.core.mail import send_mail
+        from django.conf import settings
+        
+        user_email = self.request.user.email
+        if user_email:
+            try:
+                send_mail(
+                    subject='[ITA Titulación] Verificación de Configuración de Correo',
+                    message='¡Hola! Si has recibido este correo, significa que la configuración SMTP ha sido guardada correctamente y el sistema ya puede enviar correos usando este servidor.',
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user_email],
+                    fail_silently=False
+                )
+                messages.success(self.request, 'Configuración guardada y correo de prueba enviado exitosamente a tu dirección.')
+            except Exception as e:
+                messages.error(self.request, f'Configuración guardada, pero falló el correo de prueba. Revisa tus credenciales o conexión: {str(e)}')
+        else:
+            messages.success(self.request, 'Configuración de correo actualizada correctamente (no se envió correo de prueba porque no tienes un email registrado).')
+            
+        return response
+
+
+from django.http import JsonResponse
+from django.views import View
+from administracion.crypto import decrypt
+
+class RevelarPasswordSMTPView(AdminRequeridoMixin, View):
+    """Verifica la contraseña del admin actual para revelar la credencial SMTP"""
+    def post(self, request, *args, **kwargs):
+        admin_pass = request.POST.get('admin_password', '')
+        if not request.user.check_password(admin_pass):
+            return JsonResponse({'status': 'error', 'message': 'Contraseña de administrador incorrecta.'}, status=403)
+        
+        config = ConfiguracionInstitucional.objects.first()
+        if config and config.email_password:
+            decrypted = decrypt(config.email_password)
+            return JsonResponse({'status': 'success', 'password': decrypted})
+        
+        return JsonResponse({'status': 'error', 'message': 'No hay contraseña guardada.'}, status=404)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -256,6 +311,20 @@ class UsuarioCreateView(AdminRequeridoMixin, CreateView):
         usuario.debe_cambiar_password = True  # Forzar cambio de contraseña en su primer login por seguridad
         usuario.save()
 
+        # Desactivar Jefe de Proyecto anterior automáticamente si aplica
+        from administracion.models import Rol, Usuario as UserModel
+        if usuario.rol == Rol.JEFE_PROYECTO and usuario.departamento and usuario.is_active:
+            viejos = UserModel.objects.filter(
+                rol=Rol.JEFE_PROYECTO, 
+                departamento=usuario.departamento, 
+                is_active=True
+            ).exclude(pk=usuario.pk)
+            for v in viejos:
+                v.is_active = False
+                v.save(update_fields=['is_active'])
+            if viejos.exists():
+                messages.info(self.request, f'El Jefe de Proyecto anterior para {usuario.departamento.nombre} ha sido desactivado automáticamente para mantener solo uno activo.')
+
         # Enviar correo de bienvenida y verificación
         from django.core.mail import EmailMultiAlternatives
         from django.conf import settings
@@ -263,65 +332,22 @@ class UsuarioCreateView(AdminRequeridoMixin, CreateView):
         email = usuario.email
         if email:
             subject = "[ITA Titulación] Tu cuenta ha sido creada — Datos de Acceso"
-            full_name = usuario.get_full_name() or usuario.username
+            full_name = usuario.get_full_name() or usuario.numero_control
             
-            html_content = f"""<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;">
-<div style="max-width:600px;margin:0 auto;padding:20px;">
-  <div style="background:linear-gradient(135deg,#1B396A,#0f2447);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
-    <div style="font-size:36px;color:#fff;">🎓</div>
-    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Bienvenido a la Plataforma de Titulación</h2>
-    <p style="color:rgba(255,255,255,.8);margin:0;font-size:13px;">Instituto Tecnológico de Apizaco — TecNM</p>
-  </div>
-  <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
-    <p style="font-size:15px;color:#333;">Estimado(a) <strong>{full_name}</strong>,</p>
-    <p style="font-size:14px;color:#555;line-height:1.6;">
-      Te informamos que tu cuenta de acceso para la plataforma de titulación del 
-      <strong>Instituto Tecnológico de Apizaco</strong> ha sido registrada con éxito.
-    </p>
-
-    <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin:20px 0;border-left:4px solid #1B396A;">
-      <h3 style="margin-top:0;color:#1B396A;font-size:15px;">Datos de Acceso:</h3>
-      <table style="width:100%;border-collapse:collapse;font-size:14px;">
-        <tr>
-          <td style="padding:6px 0;font-weight:700;color:#6c757d;width:150px;">Nombre de usuario:</td>
-          <td style="padding:6px 0;font-weight:700;color:#333;">{usuario.username}</td>
-        </tr>
-        <tr>
-          <td style="padding:6px 0;font-weight:700;color:#6c757d;">Contraseña de acceso:</td>
-          <td style="padding:6px 0;font-weight:700;color:#333;font-family:monospace;font-size:15px;background:#eef2f7;padding:4px 8px;border-radius:4px;">{password_clear}</td>
-        </tr>
-      </table>
-    </div>
-
-    <div style="background:#eef2f7;border-radius:8px;padding:16px;margin:20px 0;text-align:center;color:#445;font-size:14px;line-height:1.5;">
-      Para acceder, abre tu navegador web e ingresa a la dirección habitual de la plataforma de titulación de tu institución.
-    </div>
-
-    <div style="background:#fffbcb;border-radius:8px;padding:16px;font-size:13px;color:#856404;border:1px solid #ffeeba;margin:20px 0;line-height:1.5;">
-      <strong>⚠️ Importante:</strong> Por motivos de seguridad y confidencialidad, 
-      el sistema te solicitará cambiar esta contraseña temporal por una contraseña 
-      personal y segura en tu primer inicio de sesión.
-    </div>
-
-    <p style="font-size:13px;color:#777;line-height:1.5;margin-top:30px;">
-      Este correo electrónico también sirve para validar la existencia y correcto funcionamiento de tu dirección de contacto.
-    </p>
-  </div>
-  <p style="text-align:center;font-size:11px;color:#999;margin-top:16px;">
-    Este mensaje fue generado automáticamente por el Sistema de Gestión de Titulación.<br>
-    Instituto Tecnológico de Apizaco — TecNM.
-  </p>
-</div>
-</body></html>"""
+            context_data = {
+                'full_name': full_name,
+                'numero_control': usuario.numero_control,
+                'password_clear': password_clear
+            }
+            from django.template.loader import render_to_string
+            html_content = render_to_string('emails/nueva_cuenta.html', context_data)
 
             text_content = f"""Estimado(a) {full_name},
 
 Te informamos que tu cuenta de acceso para la plataforma de titulación del Instituto Tecnológico de Apizaco ha sido creada.
 
 Datos de Acceso:
-- Nombre de usuario: {usuario.username}
+- Número de control / empleado: {usuario.numero_control}
 - Contraseña: {password_clear}
 
 Puedes ingresar a la plataforma abriendo tu navegador web e introduciendo la dirección habitual de la institución.
@@ -513,9 +539,88 @@ class UsuarioUpdateView(AdminRequeridoMixin, UpdateView):
         return edit_url
 
     def form_valid(self, form):
-        form.save()
+        usuario = form.save()
+        
+        # Desactivar Jefe de Proyecto anterior automáticamente si aplica
+        from administracion.models import Rol, Usuario as UserModel
+        if usuario.rol == Rol.JEFE_PROYECTO and usuario.departamento and usuario.is_active:
+            viejos = UserModel.objects.filter(
+                rol=Rol.JEFE_PROYECTO, 
+                departamento=usuario.departamento, 
+                is_active=True
+            ).exclude(pk=usuario.pk)
+            for v in viejos:
+                v.is_active = False
+                v.save(update_fields=['is_active'])
+            if viejos.exists():
+                messages.info(self.request, f'El Jefe de Proyecto anterior para {usuario.departamento.nombre} ha sido desactivado automáticamente para mantener solo uno activo.')
+
         messages.success(self.request, 'Datos del usuario actualizados exitosamente.')
         return redirect('administracion:usuario_editar', pk=self.object.pk)
+
+    def get_success_url(self):
+        return reverse_lazy('administracion:usuarios')
+
+class UsuarioDeleteView(AdminRequeridoMixin, DeleteView):
+    model = Usuario
+    template_name = 'administracion/usuarios/eliminar.html'
+    success_url = reverse_lazy('administracion:usuarios')
+
+    def dispatch(self, request, *args, **kwargs):
+        usuario = self.get_object()
+        if usuario.pk == request.user.pk:
+            messages.error(request, 'No puedes eliminar tu propia cuenta.')
+            return redirect('administracion:usuarios')
+            
+        # Prevenir ir a la página de confirmación si tiene registros protegidos (Expediente)
+        from expediente.models import Expediente
+        if Expediente.objects.filter(alumno=usuario).exists():
+            messages.error(request, 'No se puede eliminar este usuario porque tiene expedientes o registros protegidos vinculados en el sistema.')
+            return redirect('administracion:usuarios')
+            
+        # Regla: Al menos un usuario de roles críticos / Jefe de Proyecto
+        roles_criticos = [Rol.ADMINISTRADOR, Rol.ACADEMICO, Rol.ESCOLARES]
+        if usuario.rol in roles_criticos and usuario.is_active:
+            activos_count = Usuario.objects.filter(rol=usuario.rol, is_active=True).count()
+            if activos_count <= 1:
+                messages.error(request, f'No se puede eliminar al único usuario activo con el rol de {usuario.get_rol_display()}. Debe agregar alguien más con este rol antes de eliminar o desactivar al actual.')
+                return redirect('administracion:usuarios')
+                
+        if usuario.rol == Rol.JEFE_PROYECTO and usuario.departamento and usuario.is_active:
+            activos_count = Usuario.objects.filter(rol=Rol.JEFE_PROYECTO, departamento=usuario.departamento, is_active=True).count()
+            if activos_count <= 1:
+                messages.error(request, f'No se puede eliminar al único Jefe de Proyectos activo del departamento {usuario.departamento.nombre}. Asigne un nuevo Jefe de Proyecto primero (este se desactivará automáticamente al hacerlo).')
+                return redirect('administracion:usuarios')
+
+        return super().dispatch(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        from django.http import Http404
+        from django.db.models import ProtectedError
+        try:
+            return self.delete(request, *args, **kwargs)
+        except Http404:
+            messages.info(request, 'El usuario ya ha sido eliminado.')
+            return redirect(self.success_url)
+        except ProtectedError:
+            messages.error(request, 'No se puede eliminar este usuario porque tiene expedientes o registros protegidos vinculados en el sistema.')
+            return redirect(self.success_url)
+
+    def delete(self, request, *args, **kwargs):
+        usuario = self.get_object()
+        
+        # Validar contraseña del administrador
+        admin_password = request.POST.get('admin_password', '')
+        if not request.user.check_password(admin_password):
+            messages.error(request, 'Contraseña de administrador incorrecta. No se pudo eliminar el usuario.')
+            return redirect('administracion:usuarios')
+            
+        nombre_usuario = usuario.get_full_name() or usuario.username
+        response = super().delete(request, *args, **kwargs)
+        
+        # Agregamos el mensaje de éxito solo si super().delete() no lanzó ninguna excepción
+        messages.success(request, f'Usuario {nombre_usuario} eliminado exitosamente.')
+        return response
 
 
 # ─── CARRERAS ────────────────────────────────────────────────
@@ -811,6 +916,30 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
             jurado.asignado_por = request.user
             jurado.save()
 
+        # Revisar si hay una solicitud de cambio de jefe pendiente (no mayor a 14 días)
+        from administracion.models import SolicitudCambioJefe
+        import datetime
+        limite_fecha = timezone.now() - datetime.timedelta(days=14)
+        
+        solicitud_pendiente = SolicitudCambioJefe.objects.filter(
+            departamento=request.user.departamento,
+            estado='PENDIENTE',
+            fecha_solicitud__gte=limite_fecha
+        ).first()
+
+        # Generar y guardar el PDF estático
+        from administracion.pdf_oficio import generar_oficio_jurado_pdf
+        from django.core.files.base import ContentFile
+        
+        pdf_bytes = generar_oficio_jurado_pdf(jurado, jefe_custom=solicitud_pendiente)
+        filename = f'Oficio_Jurado_{expediente.alumno.username}.pdf'
+        jurado.oficio_pdf.save(filename, ContentFile(pdf_bytes), save=False)
+        
+        if solicitud_pendiente:
+            jurado.solicitud_jefe_usada = solicitud_pendiente
+            
+        jurado.save()
+
         messages.success(request, 'Asignación de jurado registrada exitosamente.')
 
         # Actualizar estado del expediente
@@ -879,12 +1008,14 @@ class DescargarOficioJuradoJefeView(JefeProyectoRequeridoMixin, View):
         expediente = get_object_or_404(Expediente, Q(pk=pk) & filter_q)
         asignacion = get_object_or_404(AsignacionJurado, expediente=expediente)
 
-        from administracion.pdf_oficio import generar_oficio_jurado_pdf
-        from django.http import HttpResponse
-
-        pdf_bytes = generar_oficio_jurado_pdf(asignacion)
-        
-        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        if asignacion.oficio_pdf:
+            response = HttpResponse(asignacion.oficio_pdf.read(), content_type='application/pdf')
+        else:
+            # Fallback en caso de que sea un registro viejo sin PDF generado
+            from administracion.pdf_oficio import generar_oficio_jurado_pdf
+            pdf_bytes = generar_oficio_jurado_pdf(asignacion)
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            
         filename = f'Oficio_Jurado_{expediente.alumno.username}.pdf'
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
@@ -1062,6 +1193,12 @@ class ToggleConfirmacionJefeView(JefeProyectoRequeridoMixin, View):
 
             _enviar_correo_confirmacion_recibida(confirmacion, acto)
 
+            # Si el Jefe de Proyectos confirma al alumno por él, se envían invitaciones al jurado
+            if confirmacion.rol == 'ALUMNO':
+                from expediente.views_confirmacion import _enviar_correos_invitacion_jurado
+                _enviar_correos_invitacion_jurado(acto, request)
+                messages.info(request, 'Al confirmar al alumno, se enviaron automáticamente las invitaciones al jurado.')
+
             if acto.confirmaciones_completas():
                 _enviar_correo_acto_confirmado(acto)
                 messages.info(request, '¡Todas las confirmaciones completas! Se envió correo final a todos.')
@@ -1114,6 +1251,13 @@ class ActoProtocolarioView(JefeProyectoRequeridoMixin, CreateView):
 
 
     def form_valid(self, form):
+        from django.utils import timezone
+        from datetime import timedelta
+        fecha = form.cleaned_data.get('fecha_acto')
+        if fecha and fecha < timezone.now() + timedelta(days=2):
+            form.add_error('fecha_acto', 'El acto debe programarse con al menos 2 días de antelación.')
+            return self.form_invalid(form)
+
         expediente = self.get_expediente()
         acto = form.save(commit=False)
         acto.expediente = expediente
@@ -1135,7 +1279,7 @@ class ActoProtocolarioView(JefeProyectoRequeridoMixin, CreateView):
             mensaje=f'Tu acto protocolario ha sido programado para el {acto.fecha_acto.strftime("%d/%m/%Y a las %H:%M")} en {acto.lugar}.',
         )
 
-        # Crear confirmaciones y enviar correos individuales con botón de confirmación
+        # Crear confirmaciones y enviar correo SOLO al alumno inicialmente
         jurado = expediente.jurado
         if jurado:
             import secrets
@@ -1169,52 +1313,22 @@ class ActoProtocolarioView(JefeProyectoRequeridoMixin, CreateView):
                         'confirmado': False,
                     }
                 )
-                confirm_url = f'{base_url}/confirmar/{token}/'
-                rol_display = dict(ConfirmacionActo.ROL_CHOICES).get(rol, rol)
-
-                # Texto diferente para alumno vs jurado
+                
+                # SOLO notificar al alumno en esta fase
                 if rol == 'ALUMNO':
-                    intro_html = (
-                        '<p style="font-size:14px;color:#555;">Se le informa que se ha asignado '
-                        '<strong style="color:#0057B8;">fecha y lugar</strong> para su '
-                        'acto de recepci&oacute;n profesional.</p>'
-                    )
-                    alumno_row = ''
-                else:
-                    intro_html = (
-                        f'<p style="font-size:14px;color:#555;">Se le invita a participar como '
-                        f'<strong style="color:#0057B8;">{rol_display}</strong> en el acto de '
-                        f'recepci&oacute;n profesional del alumno(a):</p>'
-                    )
-                    alumno_row = (
-                        f'<tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Alumno(a)</td>'
-                        f'<td style="padding:6px 12px;font-size:14px;font-weight:700;">{expediente.alumno.get_full_name()}</td></tr>'
-                    )
-
-                html_body = f'''<!DOCTYPE html>
+                    confirm_url = f'{base_url}/confirmar/{token}/'
+                    html_body = f'''<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;">
 <div style="max-width:600px;margin:0 auto;padding:20px;">
   <div style="background:linear-gradient(135deg,#0057B8,#003d82);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
     <div style="font-size:36px;color:#fff;">&#x1F393;</div>
-    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Acto Protocolario</h2>
+    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Acto Protocolario Programado</h2>
     <p style="color:rgba(255,255,255,.8);margin:0;font-size:13px;">Instituto Tecnol&oacute;gico de Apizaco &mdash; TecNM</p>
   </div>
   <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
     <p style="font-size:15px;color:#333;">Estimado(a) <strong>{nombre}</strong>,</p>
-    {intro_html}
-
-    <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin:20px 0;border-left:4px solid #0057B8;">
-      <table style="width:100%;border-collapse:collapse;">
-        {alumno_row}
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Carrera</td>
-            <td style="padding:6px 12px;font-size:14px;">{expediente.alumno.carrera or '&mdash;'}</td></tr>
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Modalidad</td>
-            <td style="padding:6px 12px;font-size:14px;">{expediente.modalidad or '&mdash;'}</td></tr>
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">T&iacute;tulo del trabajo</td>
-            <td style="padding:6px 12px;font-size:14px;">{expediente.titulo_trabajo or '&mdash;'}</td></tr>
-      </table>
-    </div>
+    <p style="font-size:14px;color:#555;">Se le informa que se ha asignado <strong style="color:#0057B8;">fecha y lugar</strong> para su acto de recepci&oacute;n profesional.</p>
 
     <div style="background:linear-gradient(135deg,#f0f7ff,#f3e8ff);border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
       <div style="font-size:12px;color:#6c757d;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Fecha y lugar probable</div>
@@ -1222,60 +1336,43 @@ class ActoProtocolarioView(JefeProyectoRequeridoMixin, CreateView):
       <div style="font-size:14px;color:#555;">&#128205; {acto.lugar}</div>
     </div>
 
-    {'<div style="background:#dbeafe;border-radius:8px;padding:20px;margin:20px 0;text-align:center;">'
-      '<div style="font-size:14px;color:#1e40af;font-weight:700;margin-bottom:8px;">&#128232; Confirme su asistencia</div>'
-      '<p style="font-size:13px;color:#333;margin:0;">'
-      + ('Por favor confirme su asistencia ingresando a la '
-         '<strong>Plataforma de Titulaci&oacute;n</strong> del Instituto Tecnol&oacute;gico de Apizaco.'
-         if rol == 'ALUMNO' else
-         'Por favor comun&iacute;quese con el <strong>Jefe de Departamento</strong> '
-         'correspondiente para confirmar su asistencia.')
-      + '</p></div>'}
+    <div style="background:#dbeafe;border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
+      <div style="font-size:14px;color:#1e40af;font-weight:700;margin-bottom:8px;">&#128232; Confirme su asistencia</div>
+      <p style="font-size:13px;color:#333;margin:0;">
+        Debe confirmar su asistencia con al menos <strong>24 horas de anticipaci&oacute;n</strong>. Ingrese a la Plataforma de Titulaci&oacute;n:
+      </p>
+      <a href="{confirm_url}" style="display:inline-block;margin-top:15px;padding:10px 20px;background:#0057B8;color:#fff;text-decoration:none;border-radius:5px;font-weight:bold;">Confirmar Asistencia</a>
+    </div>
 
     <div style="background:#fef3c7;border-radius:8px;padding:12px 16px;font-size:12px;color:#92400e;">
-      <strong>&#9888;&#65039; Importante:</strong> Si no se confirma la asistencia de todos los participantes,
-      el protocolo ser&aacute; reprogramado. Una vez confirmado por todos, recibir&aacute; un correo con los detalles completos.
+      <strong>&#9888;&#65039; Importante:</strong> Si no confirma a tiempo, el acto no se notificar&aacute; al jurado y ser&aacute; cancelado/reprogramado.
     </div>
   </div>
-  <p style="text-align:center;font-size:11px;color:#999;margin-top:16px;">
-    Este mensaje fue generado autom&aacute;ticamente por el Sistema de Gesti&oacute;n de Titulaci&oacute;n.<br>
-    Instituto Tecnol&oacute;gico de Apizaco &mdash; TecNM.
-  </p>
 </div>
 </body></html>'''
 
-                if rol == 'ALUMNO':
                     text_body = (
                         f'Estimado(a) {nombre},\n\n'
                         f'Se le ha asignado fecha para su acto de recepción profesional.\n'
                         f'Fecha probable: {fecha_fmt}\nLugar: {acto.lugar}\n\n'
-                        f'Confirme su asistencia en: {confirm_url}\n\n'
-                        f'Instituto Tecnológico de Apizaco — TecNM'
-                    )
-                else:
-                    text_body = (
-                        f'Estimado(a) {nombre},\n\n'
-                        f'Se le invita como {rol_display} al acto protocolario.\n'
-                        f'Alumno: {expediente.alumno.get_full_name()}\n'
-                        f'Título: {expediente.titulo_trabajo or "N/A"}\n'
-                        f'Fecha probable: {fecha_fmt}\nLugar: {acto.lugar}\n\n'
-                        f'Confirme su asistencia en: {confirm_url}\n\n'
+                        f'ATENCIÓN: Debe confirmar su asistencia al menos 24 horas antes en el siguiente enlace:\n'
+                        f'{confirm_url}\n\n'
                         f'Instituto Tecnológico de Apizaco — TecNM'
                     )
 
-                try:
-                    msg = EmailMultiAlternatives(
-                        subject=f'[ITA Titulación] Confirme Asistencia — Acto Protocolario',
-                        body=text_body,
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        to=[email],
-                    )
-                    msg.attach_alternative(html_body, "text/html")
-                    msg.send(fail_silently=True)
-                except Exception:
-                    pass
+                    try:
+                        msg = EmailMultiAlternatives(
+                            subject=f'[ITA Titulación] Requiere Confirmación — Acto Protocolario',
+                            body=text_body,
+                            from_email=settings.DEFAULT_FROM_EMAIL,
+                            to=[email],
+                        )
+                        msg.attach_alternative(html_body, "text/html")
+                        msg.send(fail_silently=True)
+                    except Exception:
+                        pass
 
-        messages.success(self.request, 'Acto protocolario programado. Se enviaron correos de confirmación al jurado y al alumno.')
+        messages.success(self.request, 'Acto protocolario programado. Se ha enviado el correo de confirmación al alumno (El jurado será notificado cuando el alumno confirme).')
         return redirect('administracion:jefe_detalle', pk=expediente.pk)
 
     def get_context_data(self, **kwargs):
@@ -1452,5 +1549,14 @@ class ConfirmarActoLlevadoAcaboJefeView(JefeProyectoRequeridoMixin, View):
 
 
 
+class SolicitarCambioJefeView(JefeProyectoRequeridoMixin, CreateView):
+    model = SolicitudCambioJefe
+    template_name = 'administracion/jefe_proyecto/solicitar_cambio.html'
+    fields = ['titulo_academico_nuevo', 'nombre_nuevo', 'apellido_paterno_nuevo', 'apellido_materno_nuevo', 'genero_nuevo', 'motivo']
+    success_url = reverse_lazy('administracion:jefe_dashboard')
 
-
+    def form_valid(self, form):
+        form.instance.departamento = self.request.user.departamento
+        form.instance.solicitante = self.request.user
+        messages.success(self.request, 'Solicitud de cambio de Jefe enviada al administrador. Se utilizarán estos datos para documentos urgentes mientras se revisa.')
+        return super().form_valid(form)

@@ -40,12 +40,9 @@
                     <div class="col-md-6">{% include '_field.html' with field=form.correo_institucional %}</div>
                 </div>
                 <div class="row g-3 mb-3">
-                    <div class="col-md-6">{% include '_field.html' with field=form.telefono %}</div>
-                    <div class="col-md-6">{% include '_field.html' with field=form.genero %}</div>
-                </div>
-                <div class="row g-3 mb-3">
-                    <div class="col-md-6">{% include '_field.html' with field=form.genero %}</div>
-                    <div class="col-md-6">{% include '_field.html' with field=form.generacion %}</div>
+                    <div class="col-md-4">{% include '_field.html' with field=form.telefono %}</div>
+                    <div class="col-md-4">{% include '_field.html' with field=form.genero %}</div>
+                    <div class="col-md-4">{% include '_field.html' with field=form.generacion %}</div>
                 </div>
 
                 <hr class="my-3 opacity-25">
@@ -56,8 +53,7 @@
                 </p>
                 {% if not object %}
                 <div class="row g-3 mb-3">
-                    <div class="col-md-6">{% include '_field.html' with field=form.username %}</div>
-                    <div class="col-md-6">{% include '_field.html' with field=form.numero_control %}</div>
+                    <div class="col-md-12">{% include '_field.html' with field=form.numero_control %}</div>
                 </div>
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">{% include '_field.html' with field=form.password %}</div>
@@ -65,14 +61,7 @@
                 </div>
                 {% else %}
                 <div class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Nombre de usuario</label>
-                            <input type="text" class="form-control" value="{{ object.username }}" disabled>
-                            <div class="form-text">El nombre de usuario no se puede cambiar.</div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">{% include '_field.html' with field=form.numero_control %}</div>
+                    <div class="col-md-12">{% include '_field.html' with field=form.numero_control %}</div>
                 </div>
                 {% endif %}
                 <div class="row g-3 mb-3">
@@ -119,11 +108,11 @@
         {% if usuario_rol == 'ALUMNO' %}
 
         {# ── Perfil Académico (EDITABLE) ── #}
+        {% if perfil_form %}
         <div class="content-card p-4 mt-4">
             <div class="card-header-custom mb-3">
                 <i class="bi bi-person-badge"></i> Perfil Académico del Alumno
             </div>
-            {% if perfil_form %}
             <form method="post">
                 {% csrf_token %}
                 <input type="hidden" name="_form_type" value="perfil">
@@ -138,20 +127,15 @@
                     <i class="bi bi-save me-1"></i> Guardar Perfil Académico
                 </button>
             </form>
-            {% else %}
-            <div class="alert alert-secondary mb-0">
-                <i class="bi bi-info-circle me-1"></i>
-                Este alumno aún no tiene un perfil académico extendido registrado.
-            </div>
-            {% endif %}
         </div>
+        {% endif %}
 
         {# ── Expediente de Titulación (EDITABLE) ── #}
+        {% if expediente_form %}
         <div class="content-card p-4 mt-4">
             <div class="card-header-custom mb-3">
                 <i class="bi bi-folder2-open"></i> Expediente de Titulación
             </div>
-            {% if expediente_form %}
             <form method="post">
                 {% csrf_token %}
                 <input type="hidden" name="_form_type" value="expediente">
@@ -198,16 +182,7 @@
                     <div class="col-md-6">{% include '_field.html' with field=expediente_form.foto_fisica_escolares %}</div>
                 </div>
 
-                <hr class="my-3 opacity-25">
 
-                <!-- Observaciones -->
-                <p class="text-muted fw-semibold small mb-2 text-uppercase" style="letter-spacing:.08em">
-                    <i class="bi bi-chat-text me-1"></i> Observaciones
-                </p>
-                <div class="row g-3 mb-3">
-                    <div class="col-md-6">{% include '_field.html' with field=expediente_form.observaciones_division %}</div>
-                    <div class="col-md-6">{% include '_field.html' with field=expediente_form.observaciones_cedula %}</div>
-                </div>
 
                 <hr class="my-3 opacity-25">
 
@@ -262,14 +237,8 @@
                     <i class="bi bi-save me-1"></i> Guardar Expediente
                 </button>
             </form>
-
-            {% else %}
-            <div class="alert alert-secondary mb-0">
-                <i class="bi bi-info-circle me-1"></i>
-                Este alumno aún no ha iniciado su proceso de titulación (sin expediente).
-            </div>
-            {% endif %}
         </div>
+        {% endif %}
 
         {# ── Documentos del Expediente (solo lectura) ── #}
         {% if expediente and documentos %}

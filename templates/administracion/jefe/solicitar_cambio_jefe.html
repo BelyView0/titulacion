@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+
+{% block title %}Actualizar Jefe de Departamento{% endblock %}
+{% block page_title %}Configurar Jefe de Departamento{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-3"><i class="bi bi-person-badge text-primary me-2"></i>Jefe de Departamento Oficial Actual</h5>
+                {% if jefe_actual %}
+                    <p class="mb-1"><strong>Nombre:</strong> {{ jefe_actual.titulo_academico }} {{ jefe_actual.get_full_name }}</p>
+                    <p class="mb-0"><strong>Departamento:</strong> {{ departamento.nombre }}</p>
+                {% else %}
+                    <div class="alert alert-warning mb-0">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>No hay un Jefe de Departamento oficial registrado para tu departamento.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if solicitud %}
+        <div class="card border-0 shadow-sm mb-4 border-start border-warning border-4">
+            <div class="card-body p-4">
+                <h5 class="fw-bold text-warning mb-3"><i class="bi bi-clock-history me-2"></i>Solicitud Pendiente de Aprobación</h5>
+                <p>Tienes una solicitud enviada el <strong>{{ solicitud.fecha_solicitud|date:"d/m/Y" }}</strong>.</p>
+                <div class="bg-light p-3 rounded mb-3">
+                    <p class="mb-1"><strong>Nuevo Título:</strong> {{ solicitud.titulo_academico_nuevo }}</p>
+                    <p class="mb-1"><strong>Nuevo Nombre:</strong> {{ solicitud.get_full_name }}</p>
+                    <p class="mb-0"><strong>Género:</strong> {{ solicitud.get_genero_nuevo_display }}</p>
+                </div>
+                <div class="alert alert-info small mb-0">
+                    <i class="bi bi-info-circle-fill me-2"></i>Estos datos se utilizarán de manera automática y <strong>urgente</strong> para los oficios de asignación de jurado que generes, en lo que el Administrador aprueba el cambio.
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white pt-4 pb-0 border-0">
+                <h5 class="fw-bold mb-0">{% if solicitud %}Reemplazar Solicitud Anterior{% else %}Solicitar Actualización de Jefe{% endif %}</h5>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted small mb-4">
+                    Al solicitar este cambio, los nuevos datos se usarán de forma inmediata en tus oficios (PDF) generados a partir de ahora de manera temporal.
+                    Si el administrador aprueba la solicitud, el cambio será oficial. Si es rechazada o expira, los PDFs se volverán a generar automáticamente con los datos oficiales anteriores.
+                </p>
+
+                <form method="post" action="{% url 'administracion:solicitar_cambio_jefe' %}">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Título Académico</label>
+                            <input type="text" name="titulo_academico_nuevo" class="form-control" placeholder="Ej: Ing., M.C., Dra." required>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Nombre(s)</label>
+                            <input type="text" name="nombre_nuevo" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Apellido Paterno</label>
+                            <input type="text" name="apellido_paterno_nuevo" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Apellido Materno</label>
+                            <input type="text" name="apellido_materno_nuevo" class="form-control">
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label fw-semibold">Género</label>
+                            <select name="genero_nuevo" class="form-select" required>
+                                <option value="F">Femenino</option>
+                                <option value="M">Masculino</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 text-end">
+                        <button type="submit" class="btn btn-primary px-4 fw-bold">
+                            <i class="bi bi-send-fill me-2"></i>Enviar Solicitud
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

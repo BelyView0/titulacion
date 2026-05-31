@@ -190,11 +190,11 @@ class Expediente(models.Model):
     # Fotografía física (entrega independiente por departamento)
     foto_fisica_division = models.BooleanField(
         default=False,
-        verbose_name='¿Foto física entregada en División?'
+        verbose_name='¿Foto física entregada en División de Estudios Profesionales?'
     )
     foto_fisica_escolares = models.BooleanField(
         default=False,
-        verbose_name='¿Foto física entregada en Escolares?'
+        verbose_name='¿Foto física entregada en Servicios Escolares?'
     )
     # Campos de Pago
     comprobante_pago = models.FileField(
@@ -260,10 +260,10 @@ class Expediente(models.Model):
         verbose_name='Acta de Exención / Examen (PDF)'
     )
 
-    # Observaciones generales de División de Estudios
+    # Observaciones generales de División de Estudios Profesionales
     observaciones_division = models.TextField(
         blank=True,
-        verbose_name='Observaciones de División de Estudios'
+        verbose_name='Observaciones de División de Estudios Profesionales'
     )
 
     class Meta:
@@ -612,6 +612,11 @@ class AsignacionJurado(models.Model):
         null=True, blank=True,
         verbose_name='Fecha del oficio'
     )
+    oficio_pdf = models.FileField(
+        upload_to='oficios_jurado/',
+        null=True, blank=True,
+        verbose_name='PDF del Oficio de Jurado'
+    )
     # ── Acto protocolario ────────────────────────────────────────
     fecha_acto = models.DateTimeField(
         null=True, blank=True,
@@ -625,11 +630,20 @@ class AsignacionJurado(models.Model):
     # ── Auditoría ────────────────────────────────────────────────
     asignado_por = models.ForeignKey(
         'administracion.Usuario',
-        on_delete=models.SET_NULL, null=True,
-        related_name='jurados_asignados',
-        verbose_name='Asignado por'
+        on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='jurados_asignados'
     )
-    notas = models.TextField(blank=True, verbose_name='Notas adicionales')
+    oficio_pdf = models.FileField(
+        upload_to='oficios_jurado/',
+        null=True, blank=True,
+        verbose_name='Oficio de Asignación en PDF'
+    )
+    solicitud_jefe_usada = models.ForeignKey(
+        'administracion.SolicitudCambioJefe',
+        on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='asignaciones_jurado',
+        verbose_name='Solicitud de Jefe Usada'
+    )
 
     class Meta:
         verbose_name = 'Asignación de Jurado'

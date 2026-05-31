@@ -21,6 +21,7 @@ from escolares.views import (
     IntegrarExpedienteView,
     EstadisticasEscolaresView,
     ExportarEstadisticasDatosExcelView,
+    RegistroActoEscolaresView,
 )
 
 app_name = 'escolares'
@@ -51,4 +52,5 @@ urlpatterns = [
     path('expedientes/<int:pk>/agendar-cita/', AgendarCitaEntregaView.as_view(), name='agendar_cita'),
     path('expedientes/<int:pk>/concluir/', ConcluirProcesoView.as_view(), name='concluir_proceso'),
     path('expedientes/<int:pk>/integrar/', IntegrarExpedienteView.as_view(), name='integrar'),
+    path('expedientes/<int:pk>/registrar-acto/', RegistroActoEscolaresView.as_view(), name='registro_acto'),
 ]

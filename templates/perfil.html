@@ -4,6 +4,17 @@
 {% block page_title %}Mi Perfil de Usuario{% endblock %}
 
 {% block content %}
+{% if not usuario.email_verificado and not usuario.correo_institucional_verificado %}
+<div class="alert alert-danger shadow-sm border-danger border-2 mb-4">
+    <div class="d-flex align-items-center">
+        <i class="bi bi-shield-lock-fill fs-2 me-3"></i>
+        <div>
+            <h5 class="alert-heading fw-bold mb-1">¡Acceso Restringido!</h5>
+            <p class="mb-0">Para poder acceder al resto del sistema, es obligatorio que <strong>verifiques al menos uno de tus correos electrónicos</strong> (personal o institucional). Si tus correos son incorrectos, utiliza el botón "Editar Perfil" para corregirlos antes de solicitar la verificación.</p>
+        </div>
+    </div>
+</div>
+{% endif %}
 <div class="row g-4 justify-content-center">
     
     <!-- Lado Izquierdo: Resumen y Foto -->
@@ -23,16 +34,20 @@
             <div class="badge bg-secondary mb-2 px-3 py-2 fs-6">{{ usuario.get_rol_display }}</div>
             
             <div class="text-start mt-3">
-                <div class="mb-2">
+                <div class="mb-3">
                     <small class="text-muted fw-bold d-block"><i class="bi bi-envelope me-1"></i> Correo Personal</small>
-                    <span class="d-block">{{ usuario.email }}</span>
+                    <span class="d-block">{{ usuario.email|default:"<em class='text-muted'>No asignado</em>" }}</span>
                     {% if usuario.email %}
                         {% if usuario.email_verificado %}
                             <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 mt-1"><i class="bi bi-check-circle me-1"></i> Verificado</span>
+                            <div class="form-text mt-1 text-muted" style="font-size: 0.75rem;"><i class="bi bi-info-circle me-1"></i> Recibirás notificaciones en ambas cuentas.</div>
                         {% else %}
                             <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 mt-1"><i class="bi bi-exclamation-triangle me-1"></i> Pendiente</span>
                             <a href="{% url 'perfil_verificar_enviar' tipo='personal' %}" class="btn btn-link btn-sm p-0 ms-1 text-decoration-none">Verificar</a>
+                            <div class="form-text mt-1 text-muted" style="font-size: 0.75rem;"><i class="bi bi-info-circle me-1"></i> <strong>Opcional:</strong> Verifica este correo si deseas que las notificaciones de avance de tu proceso te lleguen a ambos correos.</div>
                         {% endif %}
+                    {% else %}
+                        <div class="form-text mt-1 text-muted" style="font-size: 0.75rem;"><i class="bi bi-info-circle me-1"></i> <strong>Opcional:</strong> Agrega un correo personal y verifícalo si deseas recibir notificaciones en ambas cuentas.</div>
                     {% endif %}
                 </div>
 
@@ -132,7 +147,12 @@
                 </div>
                 <div class="col-md-6">
                     <small class="text-muted fw-semibold">Número de Control / Empleado</small>
-                    <div class="fw-bold">{{ usuario.numero_control }}</div>
+                    <div class="fw-bold d-flex align-items-center">
+                        {{ usuario.numero_control }}
+                        <button type="button" class="btn btn-link btn-sm p-0 ms-2 text-decoration-none" data-bs-toggle="modal" data-bs-target="#modalCorreccionControl">
+                            <i class="bi bi-pencil-square"></i> Solicitar corrección
+                        </button>
+                    </div>
                 </div>
                 <div class="col-md-6">
                     <small class="text-muted fw-semibold">Género</small>
@@ -246,6 +266,44 @@
             {% endif %}
         </div>
         {% endif %}
+
+        <!-- Modal para Solicitar Corrección de Número de Control -->
+        <div class="modal fade" id="modalCorreccionControl" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content text-start">
+                    <div class="modal-header bg-warning bg-opacity-10">
+                        <h6 class="modal-title fw-bold">Solicitar Corrección de Número de Control</h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <form method="post" action="{% url 'perfil_solicitar_correccion_control' %}">
+                        {% csrf_token %}
+                        <div class="modal-body">
+                            <div class="alert alert-info small py-2">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Este dato es asignado por la administración. Si hay un error, envía el número correcto y se notificará a un administrador para que realice el cambio.
+                            </div>
+                            <div class="mb-3">
+                                <label for="nuevo_control" class="form-label fw-semibold mb-1">
+                                    Número de Control Correcto <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" class="form-control" id="nuevo_control" name="nuevo_control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="comentario" class="form-label fw-semibold mb-1">
+                                    Comentario adicional (Opcional)
+                                </label>
+                                <textarea class="form-control" id="comentario" name="comentario" rows="2"></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-warning btn-sm">Enviar Solicitud</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
     </div>
 
 </div>

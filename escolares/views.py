@@ -1179,3 +1179,77 @@ class ExportarEstadisticasDatosExcelView(EscolaresRequeridoMixin, View):
             response['Content-Disposition'] = f'attachment; filename="Estadisticas_Titulacion_{year}.xlsx"'
             wb.save(response)
             return response
+
+
+class RegistroActoEscolaresView(EscolaresRequeridoMixin, View):
+    """Servicios Escolares registra el resultado del acto protocolario."""
+    def post(self, request, pk):
+        from expediente.models import ActoProtocolario
+        acto = get_object_or_404(ActoProtocolario, pk=pk)
+        expediente = acto.expediente
+        
+        resultado = request.POST.get('resultado')
+        
+        if resultado == 'APROBADO':
+            acto.resultado = 'APROBADO'
+            acto.save(update_fields=['resultado'])
+
+            from expediente.notifications import registrar_cambio_estado, notificar_alumno
+            registrar_cambio_estado(
+                expediente=expediente,
+                estado_nuevo=expediente.estado,
+                realizado_por=request.user,
+                descripcion='Servicios Escolares confirmó que el acto protocolario se llevó a cabo exitosamente.'
+            )
+            notificar_alumno(
+                expediente=expediente,
+                tipo='AVANCE',
+                titulo='Acto Protocolario Concluido',
+                mensaje='Servicios Escolares ha confirmado la realización de tu acto protocolario. Tu proceso continúa.'
+            )
+            messages.success(request, 'Se ha confirmado la realización del acto protocolario.')
+
+        elif resultado == 'NO_PRESENTADO':
+            acto.resultado = 'NO_PRESENTADO'
+            acto.save(update_fields=['resultado'])
+
+            from expediente.notifications import registrar_cambio_estado, notificar_alumno
+            from django.core.mail import send_mail
+            from django.conf import settings
+            
+            registrar_cambio_estado(
+                expediente=expediente,
+                estado_nuevo=expediente.estado,
+                realizado_por=request.user,
+                descripcion='Servicios Escolares reportó que el acto protocolario NO se llevó a cabo. Requiere reprogramación.'
+            )
+            
+            # Notificar al alumno
+            notificar_alumno(
+                expediente=expediente,
+                tipo='ALERTA',
+                titulo='Problema con Acto Protocolario',
+                mensaje='Servicios Escolares reportó que el acto protocolario no se llevó a cabo. El Jefe de Proyectos ha sido notificado para reprogramarlo.'
+            )
+            
+            # Notificar al jefe de proyectos por correo
+            try:
+                if expediente.alumno.carrera and expediente.alumno.carrera.departamento:
+                    jefe = expediente.alumno.carrera.departamento.responsable
+                    if jefe and jefe.email:
+                        send_mail(
+                            subject=f'{settings.EMAIL_SUBJECT_PREFIX}Acto No Llevado a Cabo - {expediente.alumno.get_full_name()}',
+                            message=f'Estimado(a) {jefe.get_full_name()},\n\nServicios Escolares ha reportado que el acto protocolario del alumno {expediente.alumno.get_full_name()} programado para el {acto.fecha_acto} NO se llevó a cabo.\n\nPor favor, ingrese al sistema para reprogramarlo.\n',
+                            from_email=settings.DEFAULT_FROM_EMAIL,
+                            recipient_list=[jefe.email],
+                            fail_silently=True,
+                        )
+            except Exception:
+                pass
+                
+            messages.warning(request, 'Se ha reportado que el acto NO se llevó a cabo. Se ha notificado al Jefe de Proyectos para su reprogramación.')
+
+        else:
+            messages.error(request, 'Resultado inválido.')
+
+        return redirect('escolares:expediente_detalle', pk=expediente.pk)

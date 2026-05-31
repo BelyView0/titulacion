@@ -39,9 +39,11 @@ def link_callback(uri, rel):
     return path
 
 
-def generar_oficio_jurado_pdf(asignacion):
+def generar_oficio_jurado_pdf(asignacion, jefe_custom=None):
     """
     Recibe una instancia de AsignacionJurado y retorna los bytes del PDF.
+    Si jefe_custom se proporciona (una instancia de SolicitudCambioJefe u objeto con nombre, titulo, etc.), 
+    se usa ese en lugar del oficial.
     """
     expediente = asignacion.expediente
     alumno = expediente.alumno
@@ -49,7 +51,10 @@ def generar_oficio_jurado_pdf(asignacion):
     
     departamento_alumno = alumno.carrera.departamento if alumno.carrera else None
     jefe_depto = None
-    if departamento_alumno and hasattr(departamento_alumno, 'jefe_asignado'):
+
+    if jefe_custom:
+        jefe_depto = jefe_custom
+    elif departamento_alumno and hasattr(departamento_alumno, 'jefe_asignado'):
         jefe_depto = departamento_alumno.jefe_asignado
 
     context = {

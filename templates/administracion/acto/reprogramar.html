@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+{% block title %}Reprogramar Acto Protocolario — Administración{% endblock %}
+{% block page_title %}Reprogramar Acto Protocolario{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Panel izquierdo: Info del expediente + jurado -->
+    <div class="col-lg-4">
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-3"><i class="bi bi-person-badge"></i> Datos del Alumno</div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Nombre completo</small>
+                <div class="fw-bold">{{ expediente.alumno.get_full_name|default:"Sin nombre" }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">N° Control</small>
+                <div>{{ expediente.alumno.username }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Carrera</small>
+                <div>{{ expediente.alumno.carrera.nombre|default:"No asignada" }}</div>
+            </div>
+        </div>
+
+        <div class="content-card p-3">
+            <div class="card-header-custom mb-3"><i class="bi bi-calendar-x"></i> Datos Actuales del Acto</div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold d-block mb-1">Fecha programada</small>
+                <div class="fw-bold text-danger text-decoration-line-through">{{ acto.fecha_acto|date:"d/m/Y H:i" }}</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted fw-semibold d-block mb-1">Lugar / Sala</small>
+                <div class="fw-bold text-danger text-decoration-line-through">{{ acto.lugar }}</div>
+            </div>
+            <div class="alert alert-warning py-2 small mt-3 mb-0">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i> No se completaron todas las confirmaciones a tiempo.
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel derecho: Formulario -->
+    <div class="col-lg-8">
+        <div class="content-card p-4">
+            <div class="card-header-custom mb-4"><i class="bi bi-arrow-repeat"></i> Opciones de Reprogramación</div>
+            
+            <form method="post" id="reprogramarForm">
+                {% csrf_token %}
+                
+                <div class="alert alert-info py-2 small mb-4">
+                    Selecciona si solo requieres cambiar la fecha/lugar del acto, o si necesitas modificar los integrantes del jurado.
+                </div>
+
+                <div class="mb-4 pb-3 border-bottom">
+                    <div class="form-check form-switch fs-5">
+                        {{ form.reasignar_jurado }}
+                        <label class="form-check-label fw-bold" for="{{ form.reasignar_jurado.id_for_label }}">
+                            {{ form.reasignar_jurado.label }}
+                        </label>
+                    </div>
+                    {% if form.reasignar_jurado.help_text %}
+                    <div class="form-text text-muted mt-1" style="font-size: 0.85rem;">{{ form.reasignar_jurado.help_text }}</div>
+                    {% endif %}
+                </div>
+
+                <div id="fechaLugarSection">
+                    <h6 class="fw-bold mb-3 text-primary"><i class="bi bi-calendar-plus me-2"></i>Nuevos Datos del Acto</h6>
+                    
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.fecha_acto.id_for_label }}" class="form-label fw-semibold">
+                                <i class="bi bi-clock me-1 text-primary"></i>{{ form.fecha_acto.label }}
+                            </label>
+                            {{ form.fecha_acto }}
+                            {% if form.fecha_acto.errors %}
+                            <div class="invalid-feedback d-block">{{ form.fecha_acto.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="{{ form.lugar.id_for_label }}" class="form-label fw-semibold">
+                                <i class="bi bi-geo-alt me-1 text-primary"></i>{{ form.lugar.label }}
+                            </label>
+                            <select id="select_lugar" class="form-select mb-2">
+                                <option value="">— Seleccionar lugar —</option>
+                                <option value="SALA MAGNA (Edificio T)">SALA MAGNA (Edificio T)</option>
+                                <option value="SALA DE TITULACIÓN (Edificio E)">SALA DE TITULACIÓN (Edificio E)</option>
+                                <option value="Otra">Otra</option>
+                            </select>
+                            {{ form.lugar }}
+                            {% if form.lugar.errors %}
+                            <div class="invalid-feedback d-block">{{ form.lugar.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="{{ form.motivo_reprogramacion.id_for_label }}" class="form-label fw-semibold">
+                        <i class="bi bi-chat-text me-1 text-primary"></i>{{ form.motivo_reprogramacion.label }}
+                    </label>
+                    {{ form.motivo_reprogramacion }}
+                    {% if form.motivo_reprogramacion.errors %}
+                    <div class="invalid-feedback d-block">{{ form.motivo_reprogramacion.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="d-flex justify-content-end mt-4 pt-3 border-top">
+                    <button type="submit" class="btn btn-warning fw-bold">
+                        <i class="bi bi-check-circle me-1"></i>Confirmar Reprogramación
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkReasignar = document.getElementById('{{ form.reasignar_jurado.id_for_label }}');
+    const sectionDatos = document.getElementById('fechaLugarSection');
+    const inputFecha = document.getElementById('{{ form.fecha_acto.id_for_label }}');
+    
+    // Configurar min fecha
+    if (inputFecha) {
+        const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
+        inputFecha.min = localISOTime;
+    }
+
+    function toggleSection() {
+        if (checkReasignar.checked) {
+            sectionDatos.style.opacity = '0.5';
+            sectionDatos.style.pointerEvents = 'none';
+        } else {
+            sectionDatos.style.opacity = '1';
+            sectionDatos.style.pointerEvents = 'auto';
+        }
+    }
+
+    if (checkReasignar) {
+        checkReasignar.addEventListener('change', toggleSection);
+        toggleSection();
+    }
+
+    // Lógica del select_lugar
+    const select = document.getElementById('select_lugar');
+    const inputLugar = document.getElementById('{{ form.lugar.id_for_label }}');
+    
+    if (select && inputLugar) {
+        function toggleInputLugar() {
+            if (select.value === 'Otra') {
+                inputLugar.style.display = 'block';
+                inputLugar.readOnly = false;
+                if (inputLugar.value === 'SALA MAGNA (Edificio T)' || inputLugar.value === 'SALA DE TITULACIÓN (Edificio E)') {
+                    inputLugar.value = '';
+                }
+                inputLugar.focus();
+            } else {
+                inputLugar.style.display = 'none';
+                inputLugar.readOnly = true;
+                inputLugar.value = select.value;
+            }
+        }
+
+        select.addEventListener('change', toggleInputLugar);
+        
+        if (!select.value && inputLugar.value && inputLugar.value !== 'SALA MAGNA (Edificio T)' && inputLugar.value !== 'SALA DE TITULACIÓN (Edificio E)') {
+            select.value = 'Otra';
+        }
+        toggleInputLugar();
+    }
+});
+</script>
+{% endblock %}

@@ -72,8 +72,14 @@
                 {% for u in usuarios %}
                 <tr>
                     <td>
-                        <span class="fw-semibold" style="color:#1a1a2e;">{{ u.username }}</span><br>
-                        <small class="text-muted">{{ u.email|default:"—" }}</small>
+                        <span class="fw-semibold" style="color:#1a1a2e;">{{ u.username_visual }}</span><br>
+                        <small class="text-muted">
+                            {% if u.correo_institucional and u.correo_institucional_verificado %}
+                                <i class="bi bi-patch-check-fill text-primary" style="font-size: 0.75rem;" title="Verificado"></i> {{ u.correo_institucional }}
+                            {% else %}
+                                {{ u.email|default:"—" }}
+                            {% endif %}
+                        </small>
                     </td>
                     <td class="fw-semibold" style="color:#1a1a2e;">{{ u.get_full_name|default:"—" }}</td>
                     <td><span class="badge badge-rol badge-rol-{{ u.rol|lower }}">{{ u.get_rol_display }}</span></td>
@@ -85,10 +91,15 @@
                         <span class="badge bg-danger-subtle text-danger">Inactivo</span>
                         {% endif %}
                     </td>
-                    <td>
-                        <a href="{% url 'administracion:usuario_editar' u.pk %}" class="btn btn-sm btn-outline-secondary">
+                    <td class="text-end text-nowrap">
+                        <a href="{% url 'administracion:usuario_editar' u.pk %}" class="btn btn-sm btn-outline-secondary" title="Editar">
                             <i class="bi bi-pencil"></i>
                         </a>
+                        {% if request.user.pk != u.pk %}
+                        <button type="button" class="btn btn-sm btn-outline-danger ms-1" title="Eliminar" data-bs-toggle="modal" data-bs-target="#deleteModal" data-userid="{{ u.pk }}" data-username="{{ u.get_full_name|default:u.username_visual }}">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}
@@ -118,5 +129,58 @@
     </div>
     {% endif %}
 </div>
+<!-- Modal de Confirmación de Eliminación -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="border: none; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+            <div class="modal-header bg-danger text-white border-0">
+                <h5 class="modal-title fw-semibold" id="deleteModalLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirmar Eliminación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="deleteForm" method="POST" action="">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <p class="fs-5 text-center mb-4">¿Estás seguro de que deseas eliminar a <strong id="deleteUserName" class="text-danger"></strong>?</p>
+                    
+                    <div class="alert alert-warning border-0" style="background-color: #fff3cd; color: #856404;">
+                        <i class="bi bi-info-circle-fill me-2"></i> Esta acción es irreversible y eliminará el acceso del usuario al sistema.
+                    </div>
+                    
+                    <div class="mb-3 mt-4">
+                        <label for="admin_password" class="form-label fw-semibold text-muted">Por seguridad, ingresa tu contraseña de administrador:</label>
+                        <p class="text-muted small mb-2"><i class="bi bi-shield-lock me-1"></i> Se requiere confirmación porque este usuario podría contener archivos, datos importantes o historial de sistema vinculado a su cuenta.</p>
+                        <input type="password" class="form-control" id="admin_password" name="admin_password" placeholder="••••••••" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pb-4 pe-4">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger px-4">Sí, eliminar usuario</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const deleteModal = document.getElementById('deleteModal');
+        if (deleteModal) {
+            deleteModal.addEventListener('show.bs.modal', event => {
+                const button = event.relatedTarget;
+                const userId = button.getAttribute('data-userid');
+                const userName = button.getAttribute('data-username');
+                
+                document.getElementById('deleteUserName').textContent = userName;
+                
+                // Construir la URL de borrado
+                const form = document.getElementById('deleteForm');
+                form.action = `/admin-sistema/usuarios/${userId}/eliminar/`;
+                
+                // Limpiar password
+                document.getElementById('admin_password').value = '';
+            });
+        }
+    });
+</script>
 {% endblock %}
 

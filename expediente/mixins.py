@@ -45,7 +45,7 @@ class AcademicoRequeridoMixin(RolRequeridoMixin):
 
 
 class JefeProyectoRequeridoMixin(RolRequeridoMixin):
-    """Solo Jefe de Proyecto / Administración."""
+    """Solo Jefe de Proyectos / Academia."""
     roles_permitidos = ['JEFE_PROYECTO']
 
 

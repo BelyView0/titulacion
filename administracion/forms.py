@@ -5,7 +5,7 @@ from datetime import datetime
 
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import Usuario, Carrera, Departamento, Rol, ConfiguracionInstitucional, JefeDepartamento
+from .models import Usuario, Carrera, Departamento, Profesor, Rol, ConfiguracionInstitucional, JefeDepartamento
 
 
 class UsuarioCreateForm(forms.ModelForm):
@@ -24,6 +24,7 @@ class UsuarioCreateForm(forms.ModelForm):
     class Meta:
         model = Usuario
         fields = [
+            'first_name', 'last_name', 'apellido_materno',
             'email', 'correo_institucional', 'rol', 'carrera', 'departamento',
             'numero_control', 'telefono', 'genero', 'generacion',
         ]
@@ -31,16 +32,14 @@ class UsuarioCreateForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Campos siempre obligatorios
-        for f in ['username', 'first_name', 'last_name', 'apellido_materno',
-                  'email', 'rol', 'telefono', 'numero_control']:
+        for f in ['first_name', 'last_name', 'apellido_materno',
+                  'correo_institucional', 'rol', 'telefono', 'numero_control',
+                  'genero', 'generacion']:
             self.fields[f].required = True
 
-        # carrera y departamento: opcionales en el form, la validación se hace en clean()
         self.fields['carrera'].required = False
         self.fields['departamento'].required = False
-        self.fields['generacion'].required = False
-        self.fields['genero'].required = False
-        self.fields['correo_institucional'].required = False
+        self.fields['email'].required = False
 
         # Valor por defecto de generación: año actual - 4.5 años
         self.fields['generacion'].initial = int(datetime.now().year - 4.5)
@@ -49,7 +48,6 @@ class UsuarioCreateForm(forms.ModelForm):
         self.fields['first_name'].label = 'Nombre(s)'
         self.fields['last_name'].label = 'Apellido paterno'
         self.fields['apellido_materno'].label = 'Apellido materno'
-        self.fields['username'].label = 'Nombre de usuario'
         self.fields['carrera'].label = 'Carrera'
         self.fields['departamento'].label = 'Departamento'
 
@@ -94,15 +92,15 @@ class UsuarioUpdateForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for f in ['first_name', 'last_name', 'apellido_materno', 'email', 'rol',
-                  'telefono', 'numero_control']:
+        
+        for f in ['first_name', 'last_name', 'apellido_materno',
+                  'correo_institucional', 'rol', 'telefono', 'numero_control',
+                  'genero', 'generacion']:
             self.fields[f].required = True
 
         self.fields['carrera'].required = False
         self.fields['departamento'].required = False
-        self.fields['generacion'].required = False
-        self.fields['genero'].required = False
-        self.fields['correo_institucional'].required = False
+        self.fields['email'].required = False
 
         self.fields['first_name'].label = 'Nombre(s)'
         self.fields['last_name'].label = 'Apellido paterno'
@@ -128,6 +126,30 @@ class UsuarioUpdateForm(forms.ModelForm):
             if not correo_institucional.endswith(f'@{dominio}'):
                 self.add_error('correo_institucional', f'El correo institucional debe terminar en @{dominio}')
 
+        # Validación de roles críticos y últimos activos
+        if self.instance and self.instance.pk:
+            old_rol = self.instance.rol
+            roles_criticos = [Rol.ADMINISTRADOR, Rol.ACADEMICO, Rol.ESCOLARES]
+            is_active_new = cleaned_data.get('is_active', True)
+            
+            if old_rol in roles_criticos:
+                if (not is_active_new) or (rol != old_rol):
+                    activos_count = Usuario.objects.filter(rol=old_rol, is_active=True).count()
+                    if activos_count <= 1:
+                        error_msg = f'No se puede desactivar ni cambiar el rol al único usuario activo con rol de {self.instance.get_rol_display()}. Agregue o asigne a alguien más primero.'
+                        self.add_error(None, error_msg)
+
+            if old_rol == Rol.JEFE_PROYECTO and self.instance.departamento:
+                if (not is_active_new) or (rol != old_rol) or (departamento != self.instance.departamento):
+                    activos_count = Usuario.objects.filter(
+                        rol=Rol.JEFE_PROYECTO, 
+                        departamento=self.instance.departamento, 
+                        is_active=True
+                    ).count()
+                    if activos_count <= 1:
+                        error_msg = f'No se puede desactivar al único Jefe de Proyecto activo del depto. {self.instance.departamento.nombre}. Cree o asigne uno nuevo (este se desactivará solo).'
+                        self.add_error(None, error_msg)
+
         return cleaned_data
 
 
@@ -142,6 +164,47 @@ class ConfiguracionInstitucionalForm(forms.ModelForm):
         }
 
 
+class ConfiguracionEmailForm(forms.ModelForm):
+    """Formulario para configurar el servidor SMTP y credenciales de correo."""
+    class Meta:
+        model = ConfiguracionInstitucional
+        fields = ['email_host', 'email_port', 'email_use_tls', 'email_remitente', 'email_password']
+        widgets = {
+            'email_host': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ej: smtp.gmail.com'}),
+            'email_port': forms.NumberInput(attrs={'class': 'form-control'}),
+            'email_use_tls': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'email_remitente': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'ej: mi_cuenta@gmail.com'}),
+            'email_password': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Contraseña de aplicación de 16 caracteres'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.email_password:
+            self.initial['email_password'] = '********'
+
+    def clean_email_password(self):
+        pwd = self.cleaned_data.get('email_password')
+        if pwd and pwd != '********':
+            # Removemos los espacios por si el usuario la pega con el formato "xxxx xxxx xxxx xxxx"
+            pwd = pwd.replace(' ', '')
+        return pwd
+
+    def save(self, commit=True):
+        from administracion.crypto import encrypt
+        instance = super().save(commit=False)
+        pwd = self.cleaned_data.get('email_password')
+        
+        if pwd and pwd != '********':
+            instance.email_password = encrypt(pwd)
+        elif pwd == '********':
+            # No modificar la contraseña original si no cambió el valor oculto
+            pass
+            
+        if commit:
+            instance.save()
+        return instance
+
+
 class JefeDepartamentoForm(forms.ModelForm):
     class Meta:
         model = JefeDepartamento
@@ -154,6 +217,38 @@ class JefeDepartamentoForm(forms.ModelForm):
             'apellido_materno': forms.TextInput(attrs={'class': 'form-control'}),
             'genero': forms.Select(attrs={'class': 'form-select'}),
         }
+
+
+class DepartamentoForm(forms.ModelForm):
+    class Meta:
+        model = Departamento
+        fields = ['nombre', 'clave']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'clave': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: DEP-ISC'}),
+        }
+
+
+class ProfesorForm(forms.ModelForm):
+    class Meta:
+        model = Profesor
+        fields = ['first_name', 'last_name', 'apellido_materno', 'titulo_academico', 'cedula', 'email', 'departamentos', 'activo']
+        widgets = {
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'apellido_materno': forms.TextInput(attrs={'class': 'form-control'}),
+            'titulo_academico': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Doctor en Sistemas Computacionales'}),
+            'cedula': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Número de cédula profesional'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'departamentos': forms.CheckboxSelectMultiple(),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['email'].required = True
+        self.fields['departamentos'].required = True
+        self.fields['departamentos'].help_text = 'Selecciona todos los departamentos a los que pertenece el profesor.'
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -185,13 +280,11 @@ class ExpedienteAdminForm(forms.ModelForm):
             'estado', 'modalidad', 'titulo_trabajo', 'nombre_empresa',
             'pago_validado', 'pago_observaciones',
             'foto_fisica_division', 'foto_fisica_escolares',
-            'observaciones_division', 'observaciones_cedula',
             'fecha_cita_entrega', 'instrucciones_cita',
         ]
         widgets = {
             'pago_observaciones': forms.Textarea(attrs={'rows': 2}),
-            'observaciones_division': forms.Textarea(attrs={'rows': 2}),
-            'observaciones_cedula': forms.Textarea(attrs={'rows': 2}),
+            'instrucciones_cita': forms.Textarea(attrs={'rows': 2}),
             'instrucciones_cita': forms.Textarea(attrs={'rows': 2}),
             'fecha_cita_entrega': forms.DateTimeInput(
                 attrs={'type': 'datetime-local'},
@@ -205,6 +298,12 @@ class ExpedienteAdminForm(forms.ModelForm):
         for name in self.fields:
             if name != 'estado':
                 self.fields[name].required = False
+                
+        # Modificar visualmente las etiquetas
+        if 'foto_fisica_division' in self.fields:
+            self.fields['foto_fisica_division'].label = '¿Foto física entregada en División de Estudios Profesionales?'
+        if 'foto_fisica_escolares' in self.fields:
+            self.fields['foto_fisica_escolares'].label = '¿Foto física entregada en Servicios Escolares?'
 
 
 class UsuarioPerfilBasicoForm(forms.ModelForm):
@@ -247,5 +346,48 @@ class UsuarioPerfilBasicoForm(forms.ModelForm):
             dominio = config.dominio_institucional if config else 'apizaco.tecnm.mx'
             if not correo_institucional.endswith(f'@{dominio}'):
                 self.add_error('correo_institucional', f'El correo institucional debe terminar en @{dominio}')
+
+        return cleaned_data
+
+
+class ReprogramarActoForm(forms.Form):
+    reasignar_jurado = forms.BooleanField(
+        label='¿Reasignar Jurado?',
+        required=False,
+        help_text='Activa esta opción si necesitas modificar los integrantes del jurado. Esto cancelará la programación actual y te regresará al paso de asignación de jurado.'
+    )
+    fecha_acto = forms.DateTimeField(
+        label='Nueva Fecha y Hora',
+        required=False,
+        widget=forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'})
+    )
+    lugar = forms.CharField(
+        label='Nuevo Lugar',
+        required=False,
+        max_length=300,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Especifique el lugar...'})
+    )
+    motivo_reprogramacion = forms.CharField(
+        label='Motivo de la Reprogramación',
+        required=True,
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Ej. No se completaron las confirmaciones de asistencia a tiempo.'}),
+        initial='No se completaron las confirmaciones de asistencia a tiempo.'
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        reasignar = cleaned_data.get('reasignar_jurado')
+        fecha_acto = cleaned_data.get('fecha_acto')
+        lugar = cleaned_data.get('lugar')
+
+        if not reasignar:
+            if not fecha_acto:
+                self.add_error('fecha_acto', 'Debes especificar una nueva fecha y hora si no vas a reasignar jurado.')
+            else:
+                from django.utils import timezone
+                if fecha_acto <= timezone.now():
+                    self.add_error('fecha_acto', 'La nueva fecha y hora debe ser posterior a la actual.')
+            if not lugar:
+                self.add_error('lugar', 'Debes especificar el nuevo lugar si no vas a reasignar jurado.')
 
         return cleaned_data

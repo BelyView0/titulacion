@@ -13,8 +13,7 @@
     {% if notificaciones %}
     {% for notif in notificaciones %}
     <div class="doc-item {% if not notif.leida %}bg-primary bg-opacity-10{% endif %}">
-        <div class="doc-icon"
-             style="background: var(--bs-{{ notif.get_tipo_color }}-bg-subtle, #f0f4ff);">
+        <div class="doc-icon bg-{{ notif.get_tipo_color }}-subtle">
             <i class="{{ notif.get_tipo_icono }} text-{{ notif.get_tipo_color }}"></i>
         </div>
         <div class="flex-grow-1">
@@ -139,7 +138,7 @@
 
 <!-- Enlace volver -->
 <div class="mt-3">
-    <a href="{% url 'alumnos:dashboard' %}" class="btn btn-outline-secondary btn-sm">
+    <a href="{{ user.get_dashboard_url }}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-left me-1"></i>Volver al Panel
     </a>
 </div>

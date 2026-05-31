@@ -16,7 +16,7 @@ class Genero(models.TextChoices):
 
 class Rol(models.TextChoices):
     ADMINISTRADOR = 'ADMIN', 'Administrador del Sistema'
-    JEFE_PROYECTO = 'JEFE_PROYECTO', 'Jefe de Proyecto / Administración'
+    JEFE_PROYECTO = 'JEFE_PROYECTO', 'Jefe de Proyectos / Academia'
     ESCOLARES = 'ESCOLARES', 'Servicios Escolares'
     ACADEMICO = 'ACADEMICO', 'División de Estudios Profesionales'
     ALUMNO = 'ALUMNO', 'Alumno'
@@ -46,7 +46,6 @@ class Carrera(models.Model):
 class Departamento(models.Model):
     nombre = models.CharField(max_length=200, verbose_name='Nombre del departamento')
     clave = models.CharField(max_length=20, unique=True)
-    rol_responsable = models.CharField(max_length=20, choices=Rol.choices, default=Rol.ACADEMICO)
 
     class Meta:
         verbose_name = 'Departamento'
@@ -75,12 +74,11 @@ class Profesor(models.Model):
         help_text='Número de cédula expedida por SEP'
     )
     email = models.EmailField(blank=True, verbose_name='Correo electrónico')
-    departamento = models.ForeignKey(
+    departamentos = models.ManyToManyField(
         'Departamento',
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
+        blank=True,
         related_name='profesores',
-        verbose_name='Departamento'
+        verbose_name='Departamentos'
     )
     activo = models.BooleanField(default=True, verbose_name='Activo')
 
@@ -178,8 +176,26 @@ class Usuario(AbstractUser):
     )
     email_verificado = models.BooleanField(
         default=False,
-        verbose_name='Correo personal verificado'
+        verbose_name='Correo alternativo verificado'
     )
+
+    @property
+    def username_visual(self):
+        if self.numero_control:
+            return self.numero_control
+        
+        if not self.first_name:
+            return self.username
+            
+        nombres = self.first_name.strip().split()
+        primer_nombre = nombres[0].capitalize()
+        inicial_segundo = nombres[1][0].upper() if len(nombres) > 1 and nombres[1] else ""
+        
+        inicial_paterno = self.last_name.strip()[0].upper() if self.last_name and self.last_name.strip() else ""
+        inicial_materno = self.apellido_materno.strip()[0].upper() if self.apellido_materno and self.apellido_materno.strip() else ""
+        
+        generado = f"{primer_nombre}{inicial_segundo}{inicial_paterno}{inicial_materno}"
+        return generado if len(generado) > 1 else self.username
 
     class Meta:
         verbose_name = 'Usuario'
@@ -194,7 +210,12 @@ class Usuario(AbstractUser):
         return ' '.join(p.strip() for p in partes if p and p.strip()) or self.username
 
     def get_short_name(self):
-        return self.first_name or self.username
+        return self.first_name or self.numero_control or self.username
+
+    def save(self, *args, **kwargs):
+        if self.numero_control:
+            self.username = self.numero_control
+        super().save(*args, **kwargs)
 
     @property
     def es_admin(self):
@@ -284,6 +305,33 @@ class ConfiguracionInstitucional(models.Model):
         verbose_name="Imagen completa del Pie de Página",
         help_text="Sube la imagen completa que servirá de pie de página."
     )
+    
+    # ── Configuración de Correo Electrónico (SMTP) ──
+    email_host = models.CharField(
+        max_length=255, default='smtp.gmail.com',
+        verbose_name='Servidor SMTP (Host)',
+        help_text='Ej: smtp.gmail.com, smtp.office365.com'
+    )
+    email_port = models.IntegerField(
+        default=587,
+        verbose_name='Puerto SMTP',
+        help_text='Ej: 587 (TLS), 465 (SSL)'
+    )
+    email_use_tls = models.BooleanField(
+        default=True,
+        verbose_name='Usar TLS',
+        help_text='Habilitar seguridad TLS (Recomendado para el puerto 587)'
+    )
+    email_remitente = models.EmailField(
+        blank=True, null=True,
+        verbose_name='Correo Remitente',
+        help_text='Cuenta de correo desde donde se enviarán las notificaciones'
+    )
+    email_password = models.CharField(
+        max_length=255, blank=True, null=True,
+        verbose_name='Contraseña de Aplicación',
+        help_text='Contraseña de aplicación generada desde el proveedor de correo'
+    )
 
     class Meta:
         verbose_name = "Configuración Institucional"
@@ -336,6 +384,73 @@ class JefeDepartamento(models.Model):
         partes = [self.nombre, self.apellido_paterno, self.apellido_materno]
         return ' '.join(p.strip() for p in partes if p and p.strip())
 
+
+class SolicitudCambioJefe(models.Model):
+    """
+    Ticket para solicitar la actualización de un Jefe de Departamento.
+    Permite uso urgente en oficios mientras el Administrador lo aprueba.
+    """
+    class EstadoSolicitud(models.TextChoices):
+        PENDIENTE = 'PENDIENTE', 'Pendiente'
+        APROBADO = 'APROBADO', 'Aprobado'
+        RECHAZADO = 'RECHAZADO', 'Rechazado'
+        EXPIRADO = 'EXPIRADO', 'Expirado'
+
+    departamento = models.ForeignKey(
+        Departamento,
+        on_delete=models.CASCADE,
+        related_name='solicitudes_cambio_jefe'
+    )
+    solicitante = models.ForeignKey(
+        'Usuario',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='solicitudes_cambio_jefe'
+    )
+    titulo_academico_nuevo = models.CharField(max_length=50, verbose_name="Título Académico")
+    nombre_nuevo = models.CharField(max_length=150, verbose_name="Nombre(s)")
+    apellido_paterno_nuevo = models.CharField(max_length=150, verbose_name="Apellido Paterno")
+    apellido_materno_nuevo = models.CharField(max_length=150, blank=True, verbose_name="Apellido Materno")
+    genero_nuevo = models.CharField(max_length=1, choices=Genero.choices, default=Genero.FEMENINO)
+    
+    estado = models.CharField(
+        max_length=15,
+        choices=EstadoSolicitud.choices,
+        default=EstadoSolicitud.PENDIENTE
+    )
+    fecha_solicitud = models.DateTimeField(auto_now_add=True)
+    fecha_resolucion = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Solicitud de Cambio de Jefe"
+        verbose_name_plural = "Solicitudes de Cambio de Jefe"
+
+    def __str__(self):
+        return f"Solicitud para {self.departamento.nombre} - {self.get_full_name()}"
+
+    @property
+    def titulo_academico(self):
+        return self.titulo_academico_nuevo
+
+    @property
+    def nombre(self):
+        return self.nombre_nuevo
+
+    @property
+    def apellido_paterno(self):
+        return self.apellido_paterno_nuevo
+
+    @property
+    def apellido_materno(self):
+        return self.apellido_materno_nuevo
+
+    def get_full_name(self):
+        partes = [self.nombre_nuevo, self.apellido_paterno_nuevo, self.apellido_materno_nuevo]
+        return ' '.join(p.strip() for p in partes if p and p.strip())
+
+    def get_genero_display(self):
+        return dict(Genero.choices).get(self.genero_nuevo, self.genero_nuevo)
+
 class PasswordResetOTP(models.Model):
     """
     Almacena los códigos de 6 dígitos (OTP) para verificación de contraseña.
@@ -373,4 +488,10 @@ class EmailVerificationOTP(models.Model):
 
     def __str__(self):
         return f"Verificación para {self.email_a_verificar} - {self.codigo}"
+
+    def is_valid(self):
+        from django.utils import timezone
+        import datetime
+        # Válido si no ha sido usado y han pasado menos de 15 minutos
+        return not self.usado and (timezone.now() - self.creado_en) < datetime.timedelta(minutes=15)
 

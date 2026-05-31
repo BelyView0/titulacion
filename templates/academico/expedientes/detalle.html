@@ -137,20 +137,20 @@
             {% elif expediente.estado == 'EMPASTADO_RECIBIDO' %}
             <div class="alert alert-info py-2 small mb-0">
                 <i class="bi bi-clock me-1"></i>
-                Esperando a que el Jefe de Proyecto asigne el jurado.
+                Esperando a que el Jefe de Proyectos / Academiaasigne el jurado.
             </div>
 
             {% elif expediente.estado == 'JURADO_ASIGNADO' %}
             <div class="alert alert-info py-2 small mb-0">
                 <i class="bi bi-info-circle me-1"></i>
-                Esperando a que el Jefe de Proyecto asigne fecha y lugar para el Acto Protocolario.
+                Esperando a que el Jefe de Proyectos / Academiaasigne fecha y lugar para el Acto Protocolario.
             </div>
 
             {% elif expediente.estado == 'ACTO_PROGRAMADO' %}
                 {% if acto %}
                 <div class="alert alert-info py-2 small mb-3">
                     <i class="bi bi-info-circle me-1"></i>
-                    <strong>Acto Programado:</strong> Los detalles y confirmaciones son gestionados por el Jefe de Proyecto.
+                    <strong>Acto Programado:</strong> Los detalles y confirmaciones son gestionados por el Jefe de Proyectos / Academia.
                 </div>
                 <div class="mb-3 small">
                     <div class="d-flex justify-content-between mb-1">
@@ -188,7 +188,7 @@
                     {% else %}
                     <div class="alert alert-warning py-2 small mb-0">
                         <i class="bi bi-exclamation-triangle me-1"></i>
-                        La fecha del acto ya pasó. El Jefe de Proyecto debe reprogramar el acto por falta de confirmaciones.
+                        La fecha del acto ya pasó. El Jefe de Proyectos / Academiadebe reprogramar el acto por falta de confirmaciones.
                     </div>
                     {% endif %}
                 {% else %}
@@ -201,7 +201,7 @@
                 {% else %}
                 <div class="alert alert-warning py-2 small mb-0">
                     <i class="bi bi-hourglass-split me-1"></i>
-                    Esperando que el Jefe de Proyecto programe el acto protocolario.
+                    Esperando que el Jefe de Proyectos / Academiaprograme el acto protocolario.
                 </div>
                 {% endif %}
 
@@ -291,7 +291,7 @@
                 <div class="d-flex flex-column gap-1">
                     <span class="badge bg-{% if expediente.foto_fisica_division %}success{% else %}secondary{% endif %} text-start py-2">
                         <i class="bi {% if expediente.foto_fisica_division %}bi-check-circle{% else %}bi-clock{% endif %} me-1"></i>
-                        En División: {% if expediente.foto_fisica_division %}Entregada{% else %}Pendiente{% endif %}
+                        En División de Estudios Profesionales: {% if expediente.foto_fisica_division %}Entregada{% else %}Pendiente{% endif %}
                     </span>
                     <span class="badge bg-{% if expediente.foto_fisica_escolares %}success{% else %}secondary{% endif %} text-start py-2">
                         <i class="bi {% if expediente.foto_fisica_escolares %}bi-check-circle{% else %}bi-clock{% endif %} me-1"></i>
@@ -309,7 +309,7 @@
                                {% if expediente.foto_fisica_division %}checked{% endif %}
                                onchange="this.form.submit()">
                         <label class="form-check-label small fw-semibold" for="switchFotoDiv" style="cursor: pointer;">
-                            Marcar como recibida en División
+                            Marcar como recibida en División de Estudios Profesionales
                         </label>
                     </div>
                 </form>
@@ -456,8 +456,8 @@
 
         <!-- Observaciones de División -->
         {% if expediente.observaciones_division %}
-        <div class="content-card p-3 mb-3">
-            <div class="card-header-custom mb-2"><i class="bi bi-chat-left-text"></i> Observaciones de División</div>
+        <div class="content-card mt-3">
+            <div class="card-header-custom mb-2"><i class="bi bi-chat-left-text"></i> Observaciones de División de Estudios Profesionales</div>
             <div class="small">{{ expediente.observaciones_division }}</div>
         </div>
         {% endif %}

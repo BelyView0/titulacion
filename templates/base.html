@@ -510,20 +510,28 @@
                         <i class="bi bi-house"></i> Inicio
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if request.resolver_match.url_name == 'usuarios' or request.resolver_match.url_name == 'usuario_crear' or request.resolver_match.url_name == 'usuario_editar' %}active{% endif %}" href="{% url 'administracion:usuarios' %}">
-                        <i class="bi bi-people"></i> Usuarios
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle {% if 'usuarios' in request.path or 'carreras' in request.path or 'jefes' in request.path or 'departamentos' in request.path or 'profesores' in request.path %}active{% endif %}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-list-ul"></i> Registros
                     </a>
+                    <ul class="dropdown-menu shadow-sm border-0">
+                        <li><a class="dropdown-item" href="{% url 'administracion:usuarios' %}"><i class="bi bi-people me-2 text-muted"></i>Usuarios</a></li>
+                        <li><a class="dropdown-item" href="{% url 'administracion:carreras' %}"><i class="bi bi-mortarboard me-2 text-muted"></i>Carreras</a></li>
+                        <li><a class="dropdown-item" href="{% url 'administracion:jefes' %}"><i class="bi bi-person-badge me-2 text-muted"></i>Jefes de Depto.</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'administracion:departamentos' %}"><i class="bi bi-building me-2 text-muted"></i>Departamentos</a></li>
+                        <li><a class="dropdown-item" href="{% url 'administracion:profesores' %}"><i class="bi bi-person-badge me-2 text-muted"></i>Profesores / Sinodales</a></li>
+                    </ul>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if request.resolver_match.url_name == 'carreras' or request.resolver_match.url_name == 'carrera_crear' or request.resolver_match.url_name == 'carrera_editar' %}active{% endif %}" href="{% url 'administracion:carreras' %}">
-                        <i class="bi bi-mortarboard"></i> Carreras
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle {% if 'planes' in request.path or 'modalidades' in request.path or 'documentos' in request.path %}active{% endif %}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-journal-bookmark"></i> Catálogos
                     </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if request.resolver_match.url_name == 'jefes' or request.resolver_match.url_name == 'jefe_crear' or request.resolver_match.url_name == 'jefe_editar' %}active{% endif %}" href="{% url 'administracion:jefes' %}">
-                        <i class="bi bi-person-badge"></i> Jefes de Depto.
-                    </a>
+                    <ul class="dropdown-menu shadow-sm border-0">
+                        <li><a class="dropdown-item" href="{% url 'administracion:planes' %}"><i class="bi bi-journal-text me-2 text-muted"></i>Planes de Estudio</a></li>
+                        <li><a class="dropdown-item" href="{% url 'administracion:modalidades' %}"><i class="bi bi-layers me-2 text-muted"></i>Modalidades</a></li>
+                        <li><a class="dropdown-item" href="{% url 'administracion:documentos' %}"><i class="bi bi-file-earmark-text me-2 text-muted"></i>Tipos de Documentos</a></li>
+                    </ul>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link {% if request.resolver_match.url_name == 'importar_exportar' %}active{% endif %}" href="{% url 'administracion:importar_exportar' %}">
@@ -543,7 +551,7 @@
                 {% endif %}
 
                 {% if user.es_jefe_proyecto %}
-                <!-- ── ADMINISTRACIÓN: Jefe de Proyecto ── -->
+                <!-- ── ADMINISTRACIÓN: Jefe de Proyectos / Academia── -->
                 <li class="nav-item">
                     <a class="nav-link {% if request.resolver_match.url_name == 'jefe_dashboard' %}active{% endif %}" href="{% url 'administracion:jefe_dashboard' %}">
                         <i class="bi bi-house"></i> Inicio
@@ -562,6 +570,14 @@
                 <li class="nav-item">
                     <a class="nav-link {% if request.resolver_match.url_name == 'jefe_estadisticas' %}active{% endif %}" href="{% url 'administracion:jefe_estadisticas' %}">
                         <i class="bi bi-bar-chart-line"></i> Estadísticas
+                    </a>
+                </li>
+                <li class="nav-item mt-3">
+                    <span class="nav-link fw-bold text-uppercase text-muted" style="font-size: 0.75rem;">Configuración</span>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'solicitar_cambio_jefe' %}active{% endif %}" href="{% url 'administracion:solicitar_cambio_jefe' %}">
+                        <i class="bi bi-person-badge"></i> Jefe de Departamento
                     </a>
                 </li>
                 {% endif %}
@@ -685,7 +701,7 @@
             <span class="text-muted" style="font-size:.78rem;">
                 <i class="bi bi-building me-1"></i>ITA — TecNM
             </span>
-            {% if user.is_authenticated and user.es_alumno %}
+            {% if user.is_authenticated %}
             <a href="{% url 'alumnos:notificaciones' %}" class="btn btn-sm btn-light position-relative">
                 <i class="bi bi-bell"></i>
                 {% if notificaciones_no_leidas %}
@@ -702,7 +718,7 @@
         {% for message in messages %}
         <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
             <i class="bi bi-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' or message.tags == 'danger' %}x-circle{% elif message.tags == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %} me-2"></i>
-            {{ message }}
+            {{ message|safe }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         {% endfor %}
@@ -817,6 +833,54 @@
 
     bindPaginationLinks();
 })();
+// Script global para prevenir múltiples envíos de formularios (doble clic)
+document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll("form").forEach(function(form) {
+        form.addEventListener("submit", function(e) {
+            // Si el formulario descarga un archivo en otra pestaña, no lo bloqueamos
+            if (form.target === "_blank") return;
+            
+            if (form.classList.contains("is-submitting")) {
+                e.preventDefault();
+                return false;
+            }
+            
+            form.classList.add("is-submitting");
+            
+            const submitButtons = form.querySelectorAll('button[type="submit"], input[type="submit"]');
+            submitButtons.forEach(function(btn) {
+                if (!btn.disabled) {
+                    // Para evitar que el form no envíe el valor del botón (si se usa en la vista), 
+                    // a veces se usa setTimeout.
+                    setTimeout(() => {
+                        btn.disabled = true;
+                        const originalText = btn.innerHTML || btn.value;
+                        btn.setAttribute('data-original-text', originalText);
+                        
+                        if (btn.tagName.toLowerCase() === 'button') {
+                            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
+                        } else {
+                            btn.value = 'Procesando...';
+                        }
+                    }, 10);
+                }
+            });
+            
+            // Desbloqueo de seguridad tras 8 segundos por si la petición falla silenciosamente
+            setTimeout(function() {
+                form.classList.remove("is-submitting");
+                submitButtons.forEach(function(btn) {
+                    btn.disabled = false;
+                    if (btn.tagName.toLowerCase() === 'button' && btn.hasAttribute('data-original-text')) {
+                        btn.innerHTML = btn.getAttribute('data-original-text');
+                    } else if (btn.tagName.toLowerCase() === 'input' && btn.hasAttribute('data-original-text')) {
+                        btn.value = btn.getAttribute('data-original-text');
+                    }
+                });
+            }, 8000);
+        });
+    });
+});
 </script>
 
 {% block extra_scripts %}{% endblock %}
