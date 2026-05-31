@@ -16,12 +16,12 @@ class AdminRequeridoMixin(LoginRequiredMixin, UserPassesTestMixin):
 
 class JefeDepartamentoListView(AdminRequeridoMixin, ListView):
     model = JefeDepartamento
-    template_name = 'administracion/jefes/lista.html'
+    template_name = 'administracion/jefe_departamento_list.html'
     context_object_name = 'jefes'
 
 class JefeDepartamentoCreateView(AdminRequeridoMixin, CreateView):
     model = JefeDepartamento
-    template_name = 'administracion/jefes/form.html'
+    template_name = 'administracion/jefe_departamento_form.html'
     fields = ['departamento', 'titulo_academico', 'nombre', 'apellido_paterno', 'apellido_materno', 'genero']
     success_url = reverse_lazy('administracion:jefes')
 
@@ -36,7 +36,7 @@ class JefeDepartamentoCreateView(AdminRequeridoMixin, CreateView):
 
 class JefeDepartamentoUpdateView(AdminRequeridoMixin, UpdateView):
     model = JefeDepartamento
-    template_name = 'administracion/jefes/form.html'
+    template_name = 'administracion/jefe_departamento_form.html'
     fields = ['titulo_academico', 'nombre', 'apellido_paterno', 'apellido_materno', 'genero']
     success_url = reverse_lazy('administracion:jefes')
 
@@ -59,7 +59,7 @@ class JefeDepartamentoDeleteView(AdminRequeridoMixin, DeleteView):
 
 class SolicitudesCambioJefeListView(AdminRequeridoMixin, ListView):
     model = SolicitudCambioJefe
-    template_name = 'administracion/jefes/solicitudes.html'
+    template_name = 'administracion/solicitudes_cambio_jefe.html'
     context_object_name = 'solicitudes'
     
     def get_queryset(self):
