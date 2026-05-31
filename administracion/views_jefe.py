@@ -3,12 +3,12 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.contrib import messages
-from .models import JefeDepartamento, SolicitudCambioJefe
+from .models import JefeDepartamento, SolicitudCambioJefe, Rol
 from .utils import procesar_resolucion_solicitud
 
 class AdminRequeridoMixin(LoginRequiredMixin, UserPassesTestMixin):
     def test_func(self):
-        return self.request.user.rol == 'ADMINISTRADOR'
+        return self.request.user.rol == Rol.ADMINISTRADOR
 
 # ─────────────────────────────────────────────────────────────
 # GESTIÓN DE JEFES DE DEPARTAMENTO (CRUD)
