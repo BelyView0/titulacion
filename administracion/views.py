@@ -14,6 +14,7 @@ from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.shortcuts import redirect, get_object_or_404
+from django.http import HttpResponse
 from django.utils import timezone
 
 from expediente.mixins import AdminRequeridoMixin, JefeProyectoRequeridoMixin
@@ -822,6 +823,30 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
             jurado.asignado_por = request.user
             jurado.save()
 
+        # Revisar si hay una solicitud de cambio de jefe pendiente (no mayor a 14 días)
+        from administracion.models import SolicitudCambioJefe
+        import datetime
+        limite_fecha = timezone.now() - datetime.timedelta(days=14)
+        
+        solicitud_pendiente = SolicitudCambioJefe.objects.filter(
+            departamento=request.user.departamento,
+            estado='PENDIENTE',
+            fecha_solicitud__gte=limite_fecha
+        ).first()
+
+        # Generar y guardar el PDF estático
+        from administracion.pdf_oficio import generar_oficio_jurado_pdf
+        from django.core.files.base import ContentFile
+        
+        pdf_bytes = generar_oficio_jurado_pdf(jurado, jefe_custom=solicitud_pendiente)
+        filename = f'Oficio_Jurado_{expediente.alumno.username}.pdf'
+        jurado.oficio_pdf.save(filename, ContentFile(pdf_bytes), save=False)
+        
+        if solicitud_pendiente:
+            jurado.solicitud_jefe_usada = solicitud_pendiente
+            
+        jurado.save()
+
         messages.success(request, 'Asignación de jurado registrada exitosamente.')
 
         # Actualizar estado del expediente
@@ -890,12 +915,14 @@ class DescargarOficioJuradoJefeView(JefeProyectoRequeridoMixin, View):
         expediente = get_object_or_404(Expediente, Q(pk=pk) & filter_q)
         asignacion = get_object_or_404(AsignacionJurado, expediente=expediente)
 
-        from administracion.pdf_oficio import generar_oficio_jurado_pdf
-        from django.http import HttpResponse
-
-        pdf_bytes = generar_oficio_jurado_pdf(asignacion)
-        
-        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        if asignacion.oficio_pdf:
+            response = HttpResponse(asignacion.oficio_pdf.read(), content_type='application/pdf')
+        else:
+            # Fallback en caso de que sea un registro viejo sin PDF generado
+            from administracion.pdf_oficio import generar_oficio_jurado_pdf
+            pdf_bytes = generar_oficio_jurado_pdf(asignacion)
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            
         filename = f'Oficio_Jurado_{expediente.alumno.username}.pdf'
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
@@ -1073,6 +1100,12 @@ class ToggleConfirmacionJefeView(JefeProyectoRequeridoMixin, View):
 
             _enviar_correo_confirmacion_recibida(confirmacion, acto)
 
+            # Si el Jefe de Proyectos confirma al alumno por él, se envían invitaciones al jurado
+            if confirmacion.rol == 'ALUMNO':
+                from expediente.views_confirmacion import _enviar_correos_invitacion_jurado
+                _enviar_correos_invitacion_jurado(acto, request)
+                messages.info(request, 'Al confirmar al alumno, se enviaron automáticamente las invitaciones al jurado.')
+
             if acto.confirmaciones_completas():
                 _enviar_correo_acto_confirmado(acto)
                 messages.info(request, '¡Todas las confirmaciones completas! Se envió correo final a todos.')
@@ -1125,6 +1158,13 @@ class ActoProtocolarioView(JefeProyectoRequeridoMixin, CreateView):
 
 
     def form_valid(self, form):
+        from django.utils import timezone
+        from datetime import timedelta
+        fecha = form.cleaned_data.get('fecha_acto')
+        if fecha and fecha < timezone.now() + timedelta(days=2):
+            form.add_error('fecha_acto', 'El acto debe programarse con al menos 2 días de antelación.')
+            return self.form_invalid(form)
+
         expediente = self.get_expediente()
         acto = form.save(commit=False)
         acto.expediente = expediente
@@ -1146,7 +1186,7 @@ class ActoProtocolarioView(JefeProyectoRequeridoMixin, CreateView):
             mensaje=f'Tu acto protocolario ha sido programado para el {acto.fecha_acto.strftime("%d/%m/%Y a las %H:%M")} en {acto.lugar}.',
         )
 
-        # Crear confirmaciones y enviar correos individuales con botón de confirmación
+        # Crear confirmaciones y enviar correo SOLO al alumno inicialmente
         jurado = expediente.jurado
         if jurado:
             import secrets
@@ -1180,52 +1220,22 @@ class ActoProtocolarioView(JefeProyectoRequeridoMixin, CreateView):
                         'confirmado': False,
                     }
                 )
-                confirm_url = f'{base_url}/confirmar/{token}/'
-                rol_display = dict(ConfirmacionActo.ROL_CHOICES).get(rol, rol)
-
-                # Texto diferente para alumno vs jurado
+                
+                # SOLO notificar al alumno en esta fase
                 if rol == 'ALUMNO':
-                    intro_html = (
-                        '<p style="font-size:14px;color:#555;">Se le informa que se ha asignado '
-                        '<strong style="color:#0057B8;">fecha y lugar</strong> para su '
-                        'acto de recepci&oacute;n profesional.</p>'
-                    )
-                    alumno_row = ''
-                else:
-                    intro_html = (
-                        f'<p style="font-size:14px;color:#555;">Se le invita a participar como '
-                        f'<strong style="color:#0057B8;">{rol_display}</strong> en el acto de '
-                        f'recepci&oacute;n profesional del alumno(a):</p>'
-                    )
-                    alumno_row = (
-                        f'<tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Alumno(a)</td>'
-                        f'<td style="padding:6px 12px;font-size:14px;font-weight:700;">{expediente.alumno.get_full_name()}</td></tr>'
-                    )
-
-                html_body = f'''<!DOCTYPE html>
+                    confirm_url = f'{base_url}/confirmar/{token}/'
+                    html_body = f'''<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;">
 <div style="max-width:600px;margin:0 auto;padding:20px;">
   <div style="background:linear-gradient(135deg,#0057B8,#003d82);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
     <div style="font-size:36px;color:#fff;">&#x1F393;</div>
-    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Acto Protocolario</h2>
+    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Acto Protocolario Programado</h2>
     <p style="color:rgba(255,255,255,.8);margin:0;font-size:13px;">Instituto Tecnol&oacute;gico de Apizaco &mdash; TecNM</p>
   </div>
   <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
     <p style="font-size:15px;color:#333;">Estimado(a) <strong>{nombre}</strong>,</p>
-    {intro_html}
-
-    <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin:20px 0;border-left:4px solid #0057B8;">
-      <table style="width:100%;border-collapse:collapse;">
-        {alumno_row}
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Carrera</td>
-            <td style="padding:6px 12px;font-size:14px;">{expediente.alumno.carrera or '&mdash;'}</td></tr>
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Modalidad</td>
-            <td style="padding:6px 12px;font-size:14px;">{expediente.modalidad or '&mdash;'}</td></tr>
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">T&iacute;tulo del trabajo</td>
-            <td style="padding:6px 12px;font-size:14px;">{expediente.titulo_trabajo or '&mdash;'}</td></tr>
-      </table>
-    </div>
+    <p style="font-size:14px;color:#555;">Se le informa que se ha asignado <strong style="color:#0057B8;">fecha y lugar</strong> para su acto de recepci&oacute;n profesional.</p>
 
     <div style="background:linear-gradient(135deg,#f0f7ff,#f3e8ff);border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
       <div style="font-size:12px;color:#6c757d;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Fecha y lugar probable</div>
@@ -1233,60 +1243,43 @@ class ActoProtocolarioView(JefeProyectoRequeridoMixin, CreateView):
       <div style="font-size:14px;color:#555;">&#128205; {acto.lugar}</div>
     </div>
 
-    {'<div style="background:#dbeafe;border-radius:8px;padding:20px;margin:20px 0;text-align:center;">'
-      '<div style="font-size:14px;color:#1e40af;font-weight:700;margin-bottom:8px;">&#128232; Confirme su asistencia</div>'
-      '<p style="font-size:13px;color:#333;margin:0;">'
-      + ('Por favor confirme su asistencia ingresando a la '
-         '<strong>Plataforma de Titulaci&oacute;n</strong> del Instituto Tecnol&oacute;gico de Apizaco.'
-         if rol == 'ALUMNO' else
-         'Por favor comun&iacute;quese con el <strong>Jefe de Departamento</strong> '
-         'correspondiente para confirmar su asistencia.')
-      + '</p></div>'}
+    <div style="background:#dbeafe;border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
+      <div style="font-size:14px;color:#1e40af;font-weight:700;margin-bottom:8px;">&#128232; Confirme su asistencia</div>
+      <p style="font-size:13px;color:#333;margin:0;">
+        Debe confirmar su asistencia con al menos <strong>24 horas de anticipaci&oacute;n</strong>. Ingrese a la Plataforma de Titulaci&oacute;n:
+      </p>
+      <a href="{confirm_url}" style="display:inline-block;margin-top:15px;padding:10px 20px;background:#0057B8;color:#fff;text-decoration:none;border-radius:5px;font-weight:bold;">Confirmar Asistencia</a>
+    </div>
 
     <div style="background:#fef3c7;border-radius:8px;padding:12px 16px;font-size:12px;color:#92400e;">
-      <strong>&#9888;&#65039; Importante:</strong> Si no se confirma la asistencia de todos los participantes,
-      el protocolo ser&aacute; reprogramado. Una vez confirmado por todos, recibir&aacute; un correo con los detalles completos.
+      <strong>&#9888;&#65039; Importante:</strong> Si no confirma a tiempo, el acto no se notificar&aacute; al jurado y ser&aacute; cancelado/reprogramado.
     </div>
   </div>
-  <p style="text-align:center;font-size:11px;color:#999;margin-top:16px;">
-    Este mensaje fue generado autom&aacute;ticamente por el Sistema de Gesti&oacute;n de Titulaci&oacute;n.<br>
-    Instituto Tecnol&oacute;gico de Apizaco &mdash; TecNM.
-  </p>
 </div>
 </body></html>'''
 
-                if rol == 'ALUMNO':
                     text_body = (
                         f'Estimado(a) {nombre},\n\n'
                         f'Se le ha asignado fecha para su acto de recepción profesional.\n'
                         f'Fecha probable: {fecha_fmt}\nLugar: {acto.lugar}\n\n'
-                        f'Confirme su asistencia en: {confirm_url}\n\n'
-                        f'Instituto Tecnológico de Apizaco — TecNM'
-                    )
-                else:
-                    text_body = (
-                        f'Estimado(a) {nombre},\n\n'
-                        f'Se le invita como {rol_display} al acto protocolario.\n'
-                        f'Alumno: {expediente.alumno.get_full_name()}\n'
-                        f'Título: {expediente.titulo_trabajo or "N/A"}\n'
-                        f'Fecha probable: {fecha_fmt}\nLugar: {acto.lugar}\n\n'
-                        f'Confirme su asistencia en: {confirm_url}\n\n'
+                        f'ATENCIÓN: Debe confirmar su asistencia al menos 24 horas antes en el siguiente enlace:\n'
+                        f'{confirm_url}\n\n'
                         f'Instituto Tecnológico de Apizaco — TecNM'
                     )
 
-                try:
-                    msg = EmailMultiAlternatives(
-                        subject=f'[ITA Titulación] Confirme Asistencia — Acto Protocolario',
-                        body=text_body,
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        to=[email],
-                    )
-                    msg.attach_alternative(html_body, "text/html")
-                    msg.send(fail_silently=True)
-                except Exception:
-                    pass
+                    try:
+                        msg = EmailMultiAlternatives(
+                            subject=f'[ITA Titulación] Requiere Confirmación — Acto Protocolario',
+                            body=text_body,
+                            from_email=settings.DEFAULT_FROM_EMAIL,
+                            to=[email],
+                        )
+                        msg.attach_alternative(html_body, "text/html")
+                        msg.send(fail_silently=True)
+                    except Exception:
+                        pass
 
-        messages.success(self.request, 'Acto protocolario programado. Se enviaron correos de confirmación al jurado y al alumno.')
+        messages.success(self.request, 'Acto protocolario programado. Se ha enviado el correo de confirmación al alumno (El jurado será notificado cuando el alumno confirme).')
         return redirect('administracion:jefe_detalle', pk=expediente.pk)
 
     def get_context_data(self, **kwargs):

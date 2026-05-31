@@ -16,7 +16,7 @@ class Genero(models.TextChoices):
 
 class Rol(models.TextChoices):
     ADMINISTRADOR = 'ADMIN', 'Administrador del Sistema'
-    JEFE_PROYECTO = 'JEFE_PROYECTO', 'Jefe de Proyecto / Administración'
+    JEFE_PROYECTO = 'JEFE_PROYECTO', 'Jefe de Proyectos / Academia'
     ESCOLARES = 'ESCOLARES', 'Servicios Escolares'
     ACADEMICO = 'ACADEMICO', 'División de Estudios Profesionales'
     ALUMNO = 'ALUMNO', 'Alumno'
@@ -367,6 +367,73 @@ class JefeDepartamento(models.Model):
     def get_full_name(self):
         partes = [self.nombre, self.apellido_paterno, self.apellido_materno]
         return ' '.join(p.strip() for p in partes if p and p.strip())
+
+
+class SolicitudCambioJefe(models.Model):
+    """
+    Ticket para solicitar la actualización de un Jefe de Departamento.
+    Permite uso urgente en oficios mientras el Administrador lo aprueba.
+    """
+    class EstadoSolicitud(models.TextChoices):
+        PENDIENTE = 'PENDIENTE', 'Pendiente'
+        APROBADO = 'APROBADO', 'Aprobado'
+        RECHAZADO = 'RECHAZADO', 'Rechazado'
+        EXPIRADO = 'EXPIRADO', 'Expirado'
+
+    departamento = models.ForeignKey(
+        Departamento,
+        on_delete=models.CASCADE,
+        related_name='solicitudes_cambio_jefe'
+    )
+    solicitante = models.ForeignKey(
+        'Usuario',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='solicitudes_cambio_jefe'
+    )
+    titulo_academico_nuevo = models.CharField(max_length=50, verbose_name="Título Académico")
+    nombre_nuevo = models.CharField(max_length=150, verbose_name="Nombre(s)")
+    apellido_paterno_nuevo = models.CharField(max_length=150, verbose_name="Apellido Paterno")
+    apellido_materno_nuevo = models.CharField(max_length=150, blank=True, verbose_name="Apellido Materno")
+    genero_nuevo = models.CharField(max_length=1, choices=Genero.choices, default=Genero.FEMENINO)
+    
+    estado = models.CharField(
+        max_length=15,
+        choices=EstadoSolicitud.choices,
+        default=EstadoSolicitud.PENDIENTE
+    )
+    fecha_solicitud = models.DateTimeField(auto_now_add=True)
+    fecha_resolucion = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Solicitud de Cambio de Jefe"
+        verbose_name_plural = "Solicitudes de Cambio de Jefe"
+
+    def __str__(self):
+        return f"Solicitud para {self.departamento.nombre} - {self.get_full_name()}"
+
+    @property
+    def titulo_academico(self):
+        return self.titulo_academico_nuevo
+
+    @property
+    def nombre(self):
+        return self.nombre_nuevo
+
+    @property
+    def apellido_paterno(self):
+        return self.apellido_paterno_nuevo
+
+    @property
+    def apellido_materno(self):
+        return self.apellido_materno_nuevo
+
+    def get_full_name(self):
+        partes = [self.nombre_nuevo, self.apellido_paterno_nuevo, self.apellido_materno_nuevo]
+        return ' '.join(p.strip() for p in partes if p and p.strip())
+
+    def get_genero_display(self):
+        return dict(Genero.choices).get(self.genero_nuevo, self.genero_nuevo)
 
 class PasswordResetOTP(models.Model):
     """

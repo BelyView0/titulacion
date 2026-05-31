@@ -289,3 +289,46 @@ class UsuarioPerfilBasicoForm(forms.ModelForm):
                 self.add_error('correo_institucional', f'El correo institucional debe terminar en @{dominio}')
 
         return cleaned_data
+
+
+class ReprogramarActoForm(forms.Form):
+    reasignar_jurado = forms.BooleanField(
+        label='¿Reasignar Jurado?',
+        required=False,
+        help_text='Activa esta opción si necesitas modificar los integrantes del jurado. Esto cancelará la programación actual y te regresará al paso de asignación de jurado.'
+    )
+    fecha_acto = forms.DateTimeField(
+        label='Nueva Fecha y Hora',
+        required=False,
+        widget=forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'})
+    )
+    lugar = forms.CharField(
+        label='Nuevo Lugar',
+        required=False,
+        max_length=300,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Especifique el lugar...'})
+    )
+    motivo_reprogramacion = forms.CharField(
+        label='Motivo de la Reprogramación',
+        required=True,
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Ej. No se completaron las confirmaciones de asistencia a tiempo.'}),
+        initial='No se completaron las confirmaciones de asistencia a tiempo.'
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        reasignar = cleaned_data.get('reasignar_jurado')
+        fecha_acto = cleaned_data.get('fecha_acto')
+        lugar = cleaned_data.get('lugar')
+
+        if not reasignar:
+            if not fecha_acto:
+                self.add_error('fecha_acto', 'Debes especificar una nueva fecha y hora si no vas a reasignar jurado.')
+            else:
+                from django.utils import timezone
+                if fecha_acto <= timezone.now():
+                    self.add_error('fecha_acto', 'La nueva fecha y hora debe ser posterior a la actual.')
+            if not lugar:
+                self.add_error('lugar', 'Debes especificar el nuevo lugar si no vas a reasignar jurado.')
+
+        return cleaned_data

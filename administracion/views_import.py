@@ -19,9 +19,10 @@ from django.http import HttpResponse, Http404
 from django.contrib.auth import get_user_model
 
 from expediente.mixins import AdminRequeridoMixin
-from administracion.models import Carrera, Departamento, Profesor, Rol, Genero, Usuario
+from administracion.models import Carrera, Departamento, Profesor, Rol, Genero, Usuario, JefeDepartamento
 from expediente.models import PlanEstudios, Modalidad
 from alumnos.models import PerfilAlumno
+import json
 
 Usuario = get_user_model()
 
@@ -38,6 +39,7 @@ class ImportarExportarHubView(AdminRequeridoMixin, TemplateView):
         # Pasar conteos actuales de registros en el sistema para contexto informativo
         ctx['counts'] = {
             'departamentos': Departamento.objects.count(),
+            'jefes_departamento': JefeDepartamento.objects.count(),
             'carreras': Carrera.objects.count(),
             'planes': PlanEstudios.objects.count(),
             'modalidades': Modalidad.objects.count(),
@@ -82,6 +84,11 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
                     p.semestre_egreso if p else '',
                     str(p.promedio) if (p and p.promedio) else '',
                     u.telefono, u.genero, u.generacion or ''
+                ])
+        elif key == 'jefes_departamento':
+            for j in JefeDepartamento.objects.select_related('departamento').all().order_by('departamento__clave'):
+                rows_data.append([
+                    j.departamento.clave, j.titulo_academico, j.nombre, j.apellido_paterno, j.apellido_materno, j.genero
                 ])
         return rows_data
 
@@ -162,6 +169,15 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
                 'help_rows': [
                     ['20141720', 'DANIELA', 'SUAREZ', 'LOPEZ', 'L20141720@apizaco.tecnm.mx', 'ISC', 'ISIC-2010-224', 'Ago-Dic 2024', '91.50', '2411122334', 'F', '2020'],
                     ['20141721', 'CARLOS', 'PEREZ', 'GOMEZ', 'carlos.perez@gmail.com', 'ISC', 'ISIC-2010-224', 'Ene-Jun 2025', '85.40', '2415556677', 'M', '2021']
+                ]
+            },
+            'jefes_departamento': {
+                'title': 'Jefes de Departamento',
+                'headers': ['Clave Departamento', 'Título Académico', 'Nombre(s)', 'Apellido Paterno', 'Apellido Materno', 'Género (M/F)'],
+                'widths': [20, 20, 25, 25, 25, 15],
+                'help_rows': [
+                    ['CB', 'M.C.', 'MARIA', 'LOPEZ', 'GARCIA', 'F'],
+                    ['CH', 'Dr.', 'CARLOS', 'PEREZ', 'GOMEZ', 'M']
                 ]
             }
         }
@@ -271,13 +287,27 @@ class SubirArchivoMasivoView(AdminRequeridoMixin, View):
 
     def post(self, request):
         tipo = request.POST.get('tipo', 'todo')
-        uploaded_file = request.FILES.get('archivo_excel')
+        confirmado = request.POST.get('confirmado') == 'true'
+        temp_file_path = request.POST.get('temp_file_path')
 
-        if not uploaded_file:
-            messages.error(request, "Por favor, selecciona un archivo para subir.")
-            return redirect(reverse('administracion:importar_exportar') + f'?tab={tipo}')
+        if confirmado and temp_file_path:
+            import os
+            from django.conf import settings
+            file_path = os.path.join(settings.MEDIA_ROOT, temp_file_path)
+            if not os.path.exists(file_path):
+                messages.error(request, "El archivo temporal ha expirado. Por favor sube el archivo nuevamente.")
+                return redirect(reverse('administracion:importar_exportar') + f'?tab={tipo}')
             
-        filename = uploaded_file.name.lower()
+            uploaded_file = open(file_path, 'rb')
+            filename = os.path.basename(file_path).lower()
+        else:
+            uploaded_file = request.FILES.get('archivo_excel')
+            if not uploaded_file:
+                messages.error(request, "Por favor, selecciona un archivo para subir.")
+                return redirect(reverse('administracion:importar_exportar') + f'?tab={tipo}')
+                
+            filename = uploaded_file.name.lower()
+
         is_csv = filename.endswith('.csv')
         is_excel = filename.endswith('.xlsx')
 
@@ -292,6 +322,7 @@ class SubirArchivoMasivoView(AdminRequeridoMixin, View):
         # Definir mapeo de pestañas
         sheet_mapping = {
             'departamentos': 'Departamentos',
+            'jefes_departamento': 'Jefes de Departamento',
             'carreras': 'Carreras',
             'planes': 'Planes de Estudio',
             'modalidades': 'Modalidades',
@@ -301,8 +332,10 @@ class SubirArchivoMasivoView(AdminRequeridoMixin, View):
 
         active_keys = sheet_mapping.keys() if tipo == 'todo' else [tipo]
         errors = []
-        stats = {k: {'creados': 0, 'actualizados': 0} for k in sheet_mapping.keys()}
+        stats = {k: {'creados': 0, 'actualizados': 0, 'detalles': []} for k in sheet_mapping.keys()}
         self.newly_created_users = []
+        
+        # Bandera para determinar si es previsualización (ya la leímos arriba)
 
         try:
             with transaction.atomic():
@@ -349,11 +382,38 @@ class SubirArchivoMasivoView(AdminRequeridoMixin, View):
                 if errors:
                     raise ValidationError("Errores de consistencia en datos.")
 
+                # Si no está confirmado, forzamos rollback para solo previsualizar
+                if not confirmado:
+                    # Guardar el archivo temporalmente
+                    import os
+                    from django.conf import settings
+                    from django.core.files.storage import FileSystemStorage
+                    
+                    fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, 'temp_imports'))
+                    # Resetear el puntero del archivo
+                    uploaded_file.seek(0)
+                    saved_name = fs.save(filename, uploaded_file)
+                    temp_path = os.path.join('temp_imports', saved_name)
+                    
+                    raise PreviewModeException(temp_path)
+
+        except PreviewModeException as e:
+            # Renderizar la vista previa
+            ctx = {
+                'stats': stats,
+                'active_tab': tipo,
+                'tipo': tipo,
+                'sheet_mapping': sheet_mapping,
+                'temp_file_path': str(e),
+            }
+            return render(request, 'administracion/importar_preview.html', ctx)
+
         except (ValidationError, Exception) as e:
             # Capturar fallos del rollback y renderizar con listado de errores
             ctx = {
                 'counts': {
                     'departamentos': Departamento.objects.count(),
+                    'jefes_departamento': JefeDepartamento.objects.count(),
                     'carreras': Carrera.objects.count(),
                     'planes': PlanEstudios.objects.count(),
                     'modalidades': Modalidad.objects.count(),
@@ -431,6 +491,14 @@ Instituto Tecnológico de Apizaco — TecNM.
         if not any_change:
             success_msg += "<li>No se detectaron nuevos datos ni modificaciones que guardar (el archivo era idéntico).</li>"
         success_msg += "</ul>"
+        
+        # Eliminar archivo temporal si existía
+        if confirmado and temp_file_path:
+            import os
+            from django.conf import settings
+            file_path = os.path.join(settings.MEDIA_ROOT, temp_file_path)
+            if os.path.exists(file_path):
+                os.remove(file_path)
 
         messages.success(request, success_msg)
         return redirect(reverse('administracion:importar_exportar') + f'?tab={tipo}')
@@ -457,6 +525,8 @@ Instituto Tecnológico de Apizaco — TecNM.
                     self.procesar_profesor(row, idx, stats['profesores'])
                 elif key == 'alumnos':
                     self.procesar_alumno(row, idx, stats['alumnos'])
+                elif key == 'jefes_departamento':
+                    self.procesar_jefe(row, idx, stats['jefes_departamento'])
             except ValueError as e:
                 errors.append({
                     'hoja': sheet_name,
@@ -753,13 +823,70 @@ Instituto Tecnológico de Apizaco — TecNM.
             
             if not created and (cambio or p_cambio):
                 stat['actualizados'] += 1
+                stat['detalles'].append(f"Actualizado Alumno: {control}")
         else:
             if not created:
                 stat['actualizados'] += 1
+                stat['detalles'].append(f"Actualizado Alumno: {control}")
             else:
                 stat['creados'] += 1
+                stat['detalles'].append(f"Creado Alumno: {control}")
+
+    def procesar_jefe(self, row, fila, stat):
+        if len(row) < 6 or not row[0] or not row[1] or not row[2] or not row[3] or not row[5]:
+            raise ValueError("Clave Depto, Título, Nombre, Apellido Paterno y Género son obligatorios.")
+
+        clave_dept = str(row[0]).strip().upper()
+        titulo = str(row[1]).strip()
+        nombre = str(row[2]).strip()
+        paterno = str(row[3]).strip()
+        materno = str(row[4]).strip() if len(row) > 4 and row[4] else ''
+        
+        genero_raw = str(row[5]).strip().upper() if len(row) > 5 and row[5] else 'F'
+        genero = 'F'
+        if genero_raw in ['M', 'MASCULINO', 'H', 'HOMBRE']:
+            genero = Genero.MASCULINO
+        elif genero_raw in ['F', 'FEMENINO', 'M', 'MUJER']:
+            genero = Genero.FEMENINO
+
+        try:
+            dept = Departamento.objects.get(clave=clave_dept)
+        except Departamento.DoesNotExist:
+            raise ValueError(f"El Departamento con clave '{clave_dept}' no existe en el sistema.")
+
+        jefe, created = JefeDepartamento.objects.get_or_create(
+            departamento=dept,
+            defaults={
+                'titulo_academico': titulo,
+                'nombre': nombre,
+                'apellido_paterno': paterno,
+                'apellido_materno': materno,
+                'genero': genero
+            }
+        )
+        if not created:
+            if (jefe.titulo_academico != titulo or jefe.nombre != nombre or
+                jefe.apellido_paterno != paterno or jefe.apellido_materno != materno or
+                jefe.genero != genero):
+                
+                jefe.titulo_academico = titulo
+                jefe.nombre = nombre
+                jefe.apellido_paterno = paterno
+                jefe.apellido_materno = materno
+                jefe.genero = genero
+                jefe.save()
+                stat['actualizados'] += 1
+                stat['detalles'].append(f"Actualizado Jefe: {nombre} {paterno} (Depto {clave_dept})")
+        else:
+            stat['creados'] += 1
+            stat['detalles'].append(f"Creado Jefe: {nombre} {paterno} (Depto {clave_dept})")
 
 
 class ValidationError(Exception):
     """Excepción controlada para forzar rollback de BD al detectar fallos lógicos."""
     pass
+
+class PreviewModeException(Exception):
+    """Excepción para forzar rollback y mostrar la vista previa."""
+    pass
+

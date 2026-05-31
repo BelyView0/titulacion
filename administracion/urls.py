@@ -23,6 +23,10 @@ urlpatterns = [
     path('jefes/nuevo/', views.JefeDepartamentoCreateView.as_view(), name='jefe_crear'),
     path('jefes/<int:pk>/editar/', views.JefeDepartamentoUpdateView.as_view(), name='jefe_editar'),
     path('jefes/<int:pk>/eliminar/', views.JefeDepartamentoDeleteView.as_view(), name='jefe_eliminar'),
+    
+    # Solicitudes de cambio
+    path('jefes/solicitudes/', views.SolicitudesCambioJefeListView.as_view(), name='solicitudes_jefe'),
+    path('jefes/solicitudes/<int:pk>/<str:accion>/', views.ResolucionSolicitudView.as_view(), name='resolucion_solicitud'),
 
     # Carreras
     path('carreras/', views.CarreraListView.as_view(), name='carreras'),
@@ -34,7 +38,7 @@ urlpatterns = [
     path('importar-exportar/descargar/', views_import.DescargarPlantillaView.as_view(), name='descargar_plantilla'),
     path('importar-exportar/subir/', views_import.SubirArchivoMasivoView.as_view(), name='subir_archivo_masivo'),
 
-    # ─── Jefe de Proyecto (administración por carrera) ────────
+    # ─── Jefe de Proyectos / Academia(administración por carrera) ────────
     path('jefe/', views.DashboardJefeProyectoView.as_view(), name='jefe_dashboard'),
     path('jefe/expedientes/', views.ExpedienteListaJefeView.as_view(), name='jefe_expedientes'),
     path('jefe/expedientes/<int:pk>/', views.ExpedienteDetalleJefeView.as_view(), name='jefe_detalle'),
@@ -46,4 +50,5 @@ urlpatterns = [
     path('jefe/estadisticas/', views.EstadisticasJefeView.as_view(), name='jefe_estadisticas'),
     path('jefe/confirmacion/<int:pk>/toggle/', views.ToggleConfirmacionJefeView.as_view(), name='jefe_toggle_confirmacion'),
     path('jefe/acto/<int:pk>/confirmar-realizado/', views.ConfirmarActoLlevadoAcaboJefeView.as_view(), name='jefe_confirmar_acto_realizado'),
+    path('jefe/solicitar-cambio/', views.SolicitarCambioJefeView.as_view(), name='solicitar_cambio_jefe'),
 ]

@@ -3,9 +3,12 @@ Partial reutilizable para renderizar un campo de formulario Django con Bootstrap
 Uso: {% include '_field.html' with field=form.campo %}
 {% endcomment %}
 <div class="mb-3">
+    {% if field.field.widget.input_type != 'checkbox' and not field.field.widget.is_hidden %}
     <label for="{{ field.id_for_label }}" class="form-label fw-semibold">
         {{ field.label }}{% if field.field.required %}<span class="text-danger ms-1">*</span>{% endif %}
     </label>
+    {% endif %}
+    
     {% if field.field.widget.input_type == 'select' %}
         <select name="{{ field.html_name }}" id="{{ field.id_for_label }}"
                 class="form-select {% if field.errors %}is-invalid{% endif %}">
@@ -17,11 +20,13 @@ Uso: {% include '_field.html' with field=form.campo %}
             {% endfor %}
         </select>
     {% elif field.field.widget.input_type == 'checkbox' %}
-        <div class="form-check">
+        <div class="form-check form-switch pt-1">
             <input type="checkbox" name="{{ field.html_name }}" id="{{ field.id_for_label }}"
                    class="form-check-input {% if field.errors %}is-invalid{% endif %}"
                    {% if field.value %}checked{% endif %}>
-            <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            <label class="form-check-label fw-semibold" for="{{ field.id_for_label }}">
+                {{ field.label }}{% if field.field.required %}<span class="text-danger ms-1">*</span>{% endif %}
+            </label>
         </div>
     {% elif field.field.widget.is_hidden %}
         {{ field }}

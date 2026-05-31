@@ -543,7 +543,7 @@
                 {% endif %}
 
                 {% if user.es_jefe_proyecto %}
-                <!-- ── ADMINISTRACIÓN: Jefe de Proyecto ── -->
+                <!-- ── ADMINISTRACIÓN: Jefe de Proyectos / Academia── -->
                 <li class="nav-item">
                     <a class="nav-link {% if request.resolver_match.url_name == 'jefe_dashboard' %}active{% endif %}" href="{% url 'administracion:jefe_dashboard' %}">
                         <i class="bi bi-house"></i> Inicio
@@ -562,6 +562,14 @@
                 <li class="nav-item">
                     <a class="nav-link {% if request.resolver_match.url_name == 'jefe_estadisticas' %}active{% endif %}" href="{% url 'administracion:jefe_estadisticas' %}">
                         <i class="bi bi-bar-chart-line"></i> Estadísticas
+                    </a>
+                </li>
+                <li class="nav-item mt-3">
+                    <span class="nav-link fw-bold text-uppercase text-muted" style="font-size: 0.75rem;">Configuración</span>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'solicitar_cambio_jefe' %}active{% endif %}" href="{% url 'administracion:solicitar_cambio_jefe' %}">
+                        <i class="bi bi-person-badge"></i> Jefe de Departamento
                     </a>
                 </li>
                 {% endif %}

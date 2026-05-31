@@ -1,0 +1,64 @@
+{% extends "administracion/base_admin.html" %}
+
+{% block title %}Vista Previa de Importación{% endblock %}
+{% block page_title %}Revisión de Datos Masivos{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white py-3 border-0">
+                <h5 class="fw-bold mb-0 text-primary"><i class="bi bi-eye-fill me-2"></i>Vista Previa de Importación</h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Atención:</strong> Aún no se han guardado los datos. Revisa el resumen de cambios propuestos abajo.
+                </div>
+                
+                <h6 class="fw-bold mb-3">Resumen de Cambios:</h6>
+                
+                <div class="accordion" id="accordionPreview">
+                    {% for cat_key, stat in stats.items %}
+                    {% if stat.creados > 0 or stat.actualizados > 0 %}
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="heading{{ cat_key }}">
+                            <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ cat_key }}">
+                                {{ sheet_mapping|dictsort:"items"|default:cat_key }} — Creados: <span class="badge bg-success ms-2 me-3">{{ stat.creados }}</span> Actualizados: <span class="badge bg-primary ms-1">{{ stat.actualizados }}</span>
+                            </button>
+                        </h2>
+                        <div id="collapse{{ cat_key }}" class="accordion-collapse collapse" data-bs-parent="#accordionPreview">
+                            <div class="accordion-body">
+                                <ul class="list-group list-group-flush small">
+                                    {% for detalle in stat.detalles %}
+                                    <li class="list-group-item">{{ detalle }}</li>
+                                    {% empty %}
+                                    <li class="list-group-item text-muted">No hay detalles específicos.</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{% url 'administracion:importar_exportar' %}?tab={{ tipo }}" class="btn btn-outline-secondary px-4 fw-bold">
+                        <i class="bi bi-x-circle me-2"></i>Cancelar Importación
+                    </a>
+                    
+                    <form method="post" action="{% url 'administracion:subir_archivo_masivo' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="tipo" value="{{ tipo }}">
+                        <input type="hidden" name="temp_file_path" value="{{ temp_file_path }}">
+                        <input type="hidden" name="confirmado" value="true">
+                        <button type="submit" class="btn btn-primary px-4 fw-bold">
+                            <i class="bi bi-check-circle-fill me-2"></i>Confirmar y Guardar
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
