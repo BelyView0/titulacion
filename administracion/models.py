@@ -289,6 +289,33 @@ class ConfiguracionInstitucional(models.Model):
         verbose_name="Imagen completa del Pie de Página",
         help_text="Sube la imagen completa que servirá de pie de página."
     )
+    
+    # ── Configuración de Correo Electrónico (SMTP) ──
+    email_host = models.CharField(
+        max_length=255, default='smtp.gmail.com',
+        verbose_name='Servidor SMTP (Host)',
+        help_text='Ej: smtp.gmail.com, smtp.office365.com'
+    )
+    email_port = models.IntegerField(
+        default=587,
+        verbose_name='Puerto SMTP',
+        help_text='Ej: 587 (TLS), 465 (SSL)'
+    )
+    email_use_tls = models.BooleanField(
+        default=True,
+        verbose_name='Usar TLS',
+        help_text='Habilitar seguridad TLS (Recomendado para el puerto 587)'
+    )
+    email_remitente = models.EmailField(
+        blank=True, null=True,
+        verbose_name='Correo Remitente',
+        help_text='Cuenta de correo desde donde se enviarán las notificaciones'
+    )
+    email_password = models.CharField(
+        max_length=255, blank=True, null=True,
+        verbose_name='Contraseña de Aplicación',
+        help_text='Contraseña de aplicación generada desde el proveedor de correo'
+    )
 
     class Meta:
         verbose_name = "Configuración Institucional"
