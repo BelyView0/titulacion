@@ -155,7 +155,9 @@ class ExpedienteDetalleEscolaresView(EscolaresRequeridoMixin, DetailView):
             'tipo_documento'
         ).prefetch_related('validaciones__validado_por').order_by('tipo_documento__orden')
         ctx['historial'] = expediente.historial.select_related('realizado_por')[:15]
+        ctx['modalidades'] = Modalidad.objects.filter(activa=True).select_related('plan_estudios')
         return ctx
+
 
 
 
@@ -997,9 +999,9 @@ class EstadisticasEscolaresView(EscolaresRequeridoMixin, TemplateView):
         page_number = self.request.GET.get('page')
         ctx['page_obj'] = paginator.get_page(page_number)
         
-        # Años disponibles para el filtro
+        # Años disponibles para el filtro (asegurando valores únicos y ordenados)
         years = Expediente.objects.dates('fecha_apertura', 'year', order='DESC')
-        ctx['years'] = [d.year for d in years]
+        ctx['years'] = sorted(list(set(d.year for d in years)), reverse=True)
         if not ctx['years']:
             ctx['years'] = [current_year]
         ctx['selected_year'] = int(year) if year.isdigit() else current_year
@@ -1253,3 +1255,52 @@ class RegistroActoEscolaresView(EscolaresRequeridoMixin, View):
             messages.error(request, 'Resultado inválido.')
 
         return redirect('escolares:expediente_detalle', pk=expediente.pk)
+
+
+class EditarDatosExpedienteView(EscolaresRequeridoMixin, View):
+    """Permite a Servicios Escolares editar los datos del expediente del alumno."""
+
+    def post(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+
+        modalidad_id = request.POST.get('modalidad', '').strip()
+        titulo_trabajo = request.POST.get('titulo_trabajo', '').strip()
+        nombre_empresa = request.POST.get('nombre_empresa', '').strip()
+
+        if not modalidad_id or not titulo_trabajo or not nombre_empresa:
+            messages.error(request, 'Todos los campos son requeridos.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        modalidad = get_object_or_404(Modalidad, pk=modalidad_id)
+
+        # Guardar los valores anteriores para el historial
+        modalidad_anterior = expediente.modalidad
+        titulo_anterior = expediente.titulo_trabajo
+        empresa_anterior = expediente.nombre_empresa
+
+        # Actualizar campos
+        expediente.modalidad = modalidad
+        expediente.titulo_trabajo = titulo_trabajo
+        expediente.nombre_empresa = nombre_empresa
+        expediente.save()
+
+        # Registrar en el historial del expediente para trazabilidad
+        from expediente.models import HistorialExpediente
+        descripcion_cambio = (
+            f"Servicios Escolares editó los datos del expediente. "
+            f"Modalidad: {modalidad_anterior} -> {modalidad}. "
+            f"Título de trabajo: '{titulo_anterior}' -> '{titulo_trabajo}'. "
+            f"Empresa: '{empresa_anterior}' -> '{nombre_empresa}'."
+        )
+        HistorialExpediente.objects.create(
+            expediente=expediente,
+            estado_anterior=expediente.estado,
+            estado_nuevo=expediente.estado,
+            realizado_por=request.user,
+            descripcion=descripcion_cambio
+        )
+
+        messages.success(request, 'Datos del expediente actualizados correctamente.')
+        return redirect('escolares:expediente_detalle', pk=pk)
+
+

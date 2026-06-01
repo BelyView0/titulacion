@@ -22,6 +22,7 @@ from escolares.views import (
     EstadisticasEscolaresView,
     ExportarEstadisticasDatosExcelView,
     RegistroActoEscolaresView,
+    EditarDatosExpedienteView,
 )
 
 app_name = 'escolares'
@@ -53,4 +54,6 @@ urlpatterns = [
     path('expedientes/<int:pk>/concluir/', ConcluirProcesoView.as_view(), name='concluir_proceso'),
     path('expedientes/<int:pk>/integrar/', IntegrarExpedienteView.as_view(), name='integrar'),
     path('expedientes/<int:pk>/registrar-acto/', RegistroActoEscolaresView.as_view(), name='registro_acto'),
+    path('expedientes/<int:pk>/editar-datos-expediente/', EditarDatosExpedienteView.as_view(), name='editar_datos_expediente'),
 ]
+

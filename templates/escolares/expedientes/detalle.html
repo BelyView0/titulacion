@@ -28,7 +28,12 @@
         </div>
 
         <div class="content-card p-3 mb-3">
-            <div class="card-header-custom mb-3"><i class="bi bi-info-circle"></i> Datos del Expediente</div>
+            <div class="card-header-custom mb-3 d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-info-circle"></i> Datos del Expediente</span>
+                <button type="button" class="btn btn-sm btn-link text-primary p-0 text-decoration-none fw-semibold" data-bs-toggle="modal" data-bs-target="#editarDatosExpedienteModal" style="font-size: 0.85rem;">
+                    <i class="bi bi-pencil-square me-1"></i>Editar
+                </button>
+            </div>
             <div class="text-center mb-3">
                 <span class="badge bg-{{ expediente.get_estado_display_color }} fs-6 px-3 py-2 w-100">
                     {{ expediente.get_estado_display }}
@@ -739,6 +744,50 @@
 </div>
 {% endif %}
 
+<!-- Modal para Editar Datos del Expediente -->
+<div class="modal fade" id="editarDatosExpedienteModal" tabindex="-1" aria-labelledby="editarDatosExpedienteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0 rounded-3">
+            <div class="modal-header bg-primary text-white py-3">
+                <h5 class="modal-title fw-bold" id="editarDatosExpedienteModalLabel">
+                    <i class="bi bi-pencil-square me-2"></i>Editar Datos del Expediente
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'escolares:editar_datos_expediente' expediente.pk %}">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label for="modalidad" class="form-label small fw-bold">Modalidad <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" id="modalidad" name="modalidad" required>
+                            {% for m in modalidades %}
+                            <option value="{{ m.id }}" {% if expediente.modalidad_id == m.id %}selected{% endif %}>
+                                {{ m.nombre }} ({{ m.plan_estudios.nombre }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="titulo_trabajo" class="form-label small fw-bold">Título del trabajo <span class="text-danger">*</span></label>
+                        <textarea class="form-control form-control-sm" id="titulo_trabajo" name="titulo_trabajo" rows="3" required>{{ expediente.titulo_trabajo|default:"" }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="nombre_empresa" class="form-label small fw-bold">Empresa <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm" id="nombre_empresa" name="nombre_empresa" value="{{ expediente.nombre_empresa|default:"" }}" required>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-end bg-light py-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                        <i class="bi bi-x me-1"></i>Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary btn-sm px-3">
+                        <i class="bi bi-save me-1"></i>Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
 

@@ -356,12 +356,21 @@
                         <p class="small text-muted mb-3">
                             Una vez que hayas ingresado a la plataforma de Validación de Títulos y verificado que tus datos capturados sean correctos, confírmalo aquí para que Servicios Escolares pueda proceder a generar y subir tu Acta de Exención.
                         </p>
-                        <form method="post" action="{% url 'alumnos:confirmar_datos_dgp' %}">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-warning btn-sm text-dark fw-bold px-4">
-                                <i class="bi bi-check-circle-fill me-1"></i>Mis datos son correctos
-                            </button>
-                        </form>
+                        <div class="d-flex justify-content-center gap-3 flex-wrap">
+                            <form method="post" action="{% url 'alumnos:confirmar_datos_dgp' %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-warning btn-sm text-dark fw-bold px-4 shadow-sm">
+                                    <i class="bi bi-check-circle-fill me-1"></i>Mis datos son correctos
+                                </button>
+                            </form>
+                            <form method="post" action="{% url 'alumnos:reportar_incorrecto_dgp' %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger btn-sm fw-bold px-4 shadow-sm">
+                                    <i class="bi bi-x-circle-fill me-1"></i>Incorrectos
+                                </button>
+                            </form>
+                        </div>
+
                     </div>
                     {% else %}
                     <div class="mt-4 p-3 rounded-3 border border-success bg-success bg-opacity-10 text-center">

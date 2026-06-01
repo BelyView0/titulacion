@@ -96,6 +96,65 @@ Por favor no responda a este correo.
     return notificaciones_creadas
 
 
+def notificar_usuarios_escolares(expediente, titulo, mensaje, url=''):
+    """
+    Notifica a todos los usuarios con rol ESCOLARES (Servicios Escolares).
+    """
+    from administracion.models import Usuario, Rol
+    from alumnos.models import Notificacion
+
+    escolares = Usuario.objects.filter(rol=Rol.ESCOLARES, is_active=True)
+    
+    notificaciones_creadas = []
+    correos_destinos = []
+    
+    for esc in escolares:
+        # Notificación interna
+        notif = Notificacion.objects.create(
+            destinatario=esc,
+            tipo='URGENTE',
+            titulo=titulo,
+            mensaje=mensaje,
+            url_relacionada=url,
+        )
+        notificaciones_creadas.append(notif)
+        
+        if esc.email:
+            correos_destinos.append(esc.email)
+            
+    if correos_destinos:
+        cuerpo = f"""
+Estimado(a) Usuario de Servicios Escolares,
+
+{mensaje}
+
+---
+Expediente: {expediente}
+Alumno: {expediente.alumno.get_full_name()}
+N° Control: {expediente.alumno.username}
+Fecha: {timezone.now().strftime('%d/%m/%Y %H:%M')}
+
+Este mensaje fue generado automáticamente por el Sistema de Gestión de Titulación
+del Instituto Tecnológico de Apizaco.
+
+Por favor no responda a este correo.
+        """.strip()
+
+        try:
+            send_mail(
+                subject=f'[ITA Titulación] {titulo}',
+                message=cuerpo,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=correos_destinos,
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+            
+    return notificaciones_creadas
+
+
+
 def _enviar_correo_alumno(alumno, expediente, titulo, mensaje):
     correos_destino = set()
     

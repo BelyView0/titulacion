@@ -481,3 +481,36 @@ class ConfirmarDatosDGPAlumnoView(ExpedientePropioMixin, View):
         messages.success(request, 'Has confirmado que tus datos son correctos. Servicios Escolares ha sido notificado para continuar.')
         return redirect('alumnos:expediente')
 
+
+class ReportarDatosIncorrectosDGPView(ExpedientePropioMixin, View):
+    """El alumno reporta que sus datos de DGP son incorrectos."""
+
+    def post(self, request):
+        expediente = self.get_expediente()
+        if not expediente:
+            messages.error(request, 'No tienes expediente activo.')
+            return redirect('alumnos:dashboard')
+
+        if not expediente.notificacion_dgp_enviada:
+            messages.error(request, 'Aún no se ha enviado la notificación DGP.')
+            return redirect('alumnos:expediente')
+
+        if expediente.datos_dgp_confirmados:
+            messages.info(request, 'Ya confirmaste que tus datos son correctos anteriormente.')
+            return redirect('alumnos:expediente')
+
+        # Create the URGENTE notification for all ESCOLARES users
+        from expediente.notifications import notificar_usuarios_escolares
+        from django.urls import reverse
+
+        notificar_usuarios_escolares(
+            expediente=expediente,
+            titulo='Datos DGP Reportados como Incorrectos',
+            mensaje=f'El alumno {expediente.alumno.get_full_name()} (N° Control {expediente.alumno.username}) ha reportado que sus datos concentrados de DGP son incorrectos.',
+            url=reverse('escolares:expediente_detalle', kwargs={'pk': expediente.pk})
+        )
+
+        messages.success(request, 'Has reportado que tus datos son incorrectos. Servicios Escolares ha sido notificado con carácter de URGENTE para realizar las correcciones necesarias.')
+        return redirect('alumnos:expediente')
+
+
