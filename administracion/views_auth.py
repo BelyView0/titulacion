@@ -176,7 +176,7 @@ class OTPPasswordChangeDoneView(LoginRequiredMixin, View):
 
 class ForcePasswordChangeView(LoginRequiredMixin, View):
     """
-    Vista de cambio de contrasena obligatorio.
+    Vista de cambio de contraseña obligatorio.
     No requiere OTP ya que el usuario acaba de autenticarse
     con las credenciales por defecto del sistema.
     Se muestra cuando debe_cambiar_password=True.
@@ -201,23 +201,23 @@ class ForcePasswordChangeView(LoginRequiredMixin, View):
             return render(request, 'auth/force_password_change.html')
 
         if new_password != new_password_confirm:
-            messages.error(request, 'Las contrasenas no coinciden.')
+            messages.error(request, 'Las contraseñas no coinciden.')
             return render(request, 'auth/force_password_change.html')
 
         if len(new_password) < 8:
-            messages.error(request, 'La contrasena debe tener al menos 8 caracteres.')
+            messages.error(request, 'La contraseña debe tener al menos 8 caracteres.')
             return render(request, 'auth/force_password_change.html')
 
-        # No permitir que use la misma contrasena por defecto
+        # No permitir que use la misma contraseña por defecto
         if request.user.check_password(new_password):
-            messages.error(request, 'No puedes usar la misma contrasena. Elige una nueva.')
+            messages.error(request, 'No puedes usar la misma contraseña. Elige una nueva.')
             return render(request, 'auth/force_password_change.html')
 
         # Actualizar email si lo proporcionaron
         if email:
             request.user.email = email
 
-        # Cambiar contrasena y desactivar bandera
+        # Cambiar contraseña y desactivar bandera
         request.user.set_password(new_password)
         request.user.debe_cambiar_password = False
         request.user.save()
@@ -225,6 +225,6 @@ class ForcePasswordChangeView(LoginRequiredMixin, View):
         # Mantener sesion activa
         update_session_auth_hash(request, request.user)
 
-        messages.success(request, 'Contrasena actualizada exitosamente. Bienvenido al sistema.')
+        messages.success(request, 'Contraseña actualizada exitosamente. Bienvenido al sistema.')
         return redirect('dashboard')
 

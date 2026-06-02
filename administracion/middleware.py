@@ -2,7 +2,7 @@
 Middleware de seguridad para el Sistema de Titulacion ITA.
 
 1. ForcePasswordChangeMiddleware:
-   Redirige al usuario a la pagina de cambio de contrasena obligatorio
+   Redirige al usuario a la pagina de cambio de contraseña obligatorio
    si tiene la bandera `debe_cambiar_password` activa.
 2. ForceEmailVerificationMiddleware:
    Redirige al perfil si no tiene correo verificado.

@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='usuario',
             name='debe_cambiar_password',
-            field=models.BooleanField(default=False, help_text='Si es True, el usuario sera forzado a cambiar su contrasena al iniciar sesion.', verbose_name='Debe cambiar contrasena'),
+            field=models.BooleanField(default=False, help_text='Si es True, el usuario sera forzado a cambiar su contraseña al iniciar sesion.', verbose_name='Debe cambiar contraseña'),
         ),
     ]

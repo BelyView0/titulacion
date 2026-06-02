@@ -6,7 +6,7 @@
 ========================================================================
 
 Medidas de seguridad implementadas:
-  1. Credenciales hasheadas - la contrasena NUNCA se almacena en texto plano
+  1. Credenciales hasheadas - la contraseña NUNCA se almacena en texto plano
      en memoria mas alla de la ejecucion inmediata de set_password().
   2. Logging completo - cada ejecucion deja registro con timestamp, IP y
      usuario del SO que ejecuto el comando.
@@ -37,8 +37,8 @@ logger = logging.getLogger('administracion.security')
 LOCK_FILE = Path(settings.BASE_DIR) / '.admin_ensure_lock'
 
 # --- Credenciales del administrador por defecto ---
-# El hash SHA-256 se usa SOLO para verificar que la contrasena no fue
-# alterada en el codigo fuente. La contrasena real se pasa a Django
+# El hash SHA-256 se usa SOLO para verificar que la contraseña no fue
+# alterada en el codigo fuente. La contraseña real se pasa a Django
 # que aplica PBKDF2-SHA256 con salt aleatorio.
 _ADMIN_USERNAME = 'adminITA'
 _ADMIN_PASSWORD_HASH = hashlib.sha256(b'InstApiz2414172010').hexdigest()
@@ -47,14 +47,14 @@ _ADMIN_EMAIL = 'admin@apizaco.tecnm.mx'
 
 def _get_password():
     """
-    Retorna la contrasena del admin.
+    Retorna la contraseña del admin.
     Aislada en funcion para facilitar limpieza de memoria.
     """
     pwd = 'InstApiz2414172010'
     # Verificar integridad: el hash debe coincidir
     if hashlib.sha256(pwd.encode()).hexdigest() != _ADMIN_PASSWORD_HASH:
         raise RuntimeError(
-            '[SECURITY ALERT] La contrasena del administrador fue '
+            '[SECURITY ALERT] La contraseña del administrador fue '
             'alterada en el codigo fuente. Operacion cancelada.'
         )
     return pwd
@@ -92,7 +92,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--reset-password',
             action='store_true',
-            help='Forzar restablecimiento de la contrasena del admin.',
+            help='Forzar restablecimiento de la contraseña del admin.',
         )
         parser.add_argument(
             '--dry-run',
@@ -170,13 +170,13 @@ class Command(BaseCommand):
                 # -- Verificar integridad del usuario existente --
                 self._verify_integrity(user)
 
-                # -- Reset de contrasena si se solicita --
+                # -- Reset de contraseña si se solicita --
                 if reset_pwd:
                     password = _get_password()
                     user.set_password(password)
                     user.save(update_fields=['password'])
                     self.stdout.write(self.style.SUCCESS(
-                        '[OK] Contrasena restablecida exitosamente.'
+                        '[OK] Contraseña restablecida exitosamente.'
                     ))
                     _log_audit('reset_admin_password', True, f'user_id={user.pk}')
 
@@ -186,7 +186,7 @@ class Command(BaseCommand):
 
         finally:
             # -- 4. Limpieza de memoria --
-            # Sobreescribir la variable de contrasena para que no quede
+            # Sobreescribir la variable de contraseña para que no quede
             # en memoria accesible.
             if password is not None:
                 password = '0' * len(password)  # noqa: F841
