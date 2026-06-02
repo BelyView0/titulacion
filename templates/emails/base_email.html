@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+</head>
+<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;">
+<div style="max-width:600px;margin:0 auto;padding:20px;">
+  <!-- HEADER INSTITUCIONAL -->
+  <div style="background:linear-gradient(135deg,#1B396A,#0f2447);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
+    <div style="font-size:36px;color:#fff;">{% block header_icon %}🎓{% endblock %}</div>
+    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">{% block header_title %}Sistema de Gestión de Titulación{% endblock %}</h2>
+    <p style="color:rgba(255,255,255,.8);margin:0;font-size:13px;">Instituto Tecnológico de Apizaco — TecNM</p>
+  </div>
+  
+  <!-- CONTENIDO -->
+  <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
+    {% block content %}
+    {% endblock %}
+  </div>
+  
+  <!-- PIE DE PÁGINA -->
+  <p style="text-align:center;font-size:11px;color:#999;margin-top:16px;">
+    Este mensaje fue generado automáticamente por la Plataforma de Titulación.<br>
+    Instituto Tecnológico de Apizaco — TecNM.
+  </p>
+</div>
+</body>
+</html>

@@ -1,16 +1,14 @@
-<div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
-    <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-        <div style="background-color: #198754; color: white; padding: 20px; text-align: center;">
-            <h1 style="margin: 0; font-size: 20px;">🛡️ Alerta de Seguridad</h1>
-        </div>
-        <div style="padding: 30px 20px; text-align: center;">
-            <p style="font-size: 16px;">Hola <strong>{{ user_name }}</strong>,</p>
-            <p style="font-size: 16px; color: #198754; font-weight: bold;">Tu contraseña ha sido modificada exitosamente.</p>
-            
-            <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">
-                Si tú realizaste este cambio, no es necesario hacer nada más.<br><br>
-                <strong>Si no fuiste tú</strong>, por favor contacta al administrador del sistema de inmediato.
-            </p>
-        </div>
-    </div>
-</div>
+{% extends "emails/base_email.html" %}
+
+{% block header_icon %}🛡️{% endblock %}
+{% block header_title %}Alerta de Seguridad{% endblock %}
+
+{% block content %}
+<p style="font-size: 16px;">Hola <strong>{{ user_name }}</strong>,</p>
+<p style="font-size: 16px; color: #198754; font-weight: bold;">Tu contraseña ha sido modificada exitosamente.</p>
+
+<p style="color: #6c757d; font-size: 14px; margin-top: 30px;">
+    Si tú realizaste este cambio, no es necesario hacer nada más.<br><br>
+    <strong>Si no fuiste tú</strong>, por favor contacta al administrador del sistema de inmediato.
+</p>
+{% endblock %}

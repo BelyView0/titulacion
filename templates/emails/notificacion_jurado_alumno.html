@@ -1,16 +1,25 @@
-<!DOCTYPE html>
-<html lang="es"><body style="font-family:Arial,sans-serif;font-size:13px;color:#222;">
-<p>Estimado/a <strong>{{ alumno.get_full_name }}</strong>,</p>
-<p>Te informamos que se ha asignado el jurado para tu <strong>Acto Protocolario de Titulación</strong>.</p>
-<table style="border-collapse:collapse;width:100%;margin:12px 0;">
-  <tr style="background:#f0f4ff;"><td style="padding:6px 10px;font-weight:bold;">Presidente:</td><td>{{ asignacion.presidente.get_full_name }}</td></tr>
-  <tr><td style="padding:6px 10px;font-weight:bold;">Secretario/a:</td><td>{{ asignacion.secretario.get_full_name }}</td></tr>
-  {% if asignacion.vocal_propietario %}<tr style="background:#f0f4ff;"><td style="padding:6px 10px;font-weight:bold;">Vocal Propietario/a:</td><td>{{ asignacion.vocal_propietario.get_full_name }}</td></tr>{% endif %}
-  {% if asignacion.vocal_suplente %}<tr><td style="padding:6px 10px;font-weight:bold;">Vocal Suplente:</td><td>{{ asignacion.vocal_suplente.get_full_name }}</td></tr>{% endif %}
-  <tr style="background:#f0f4ff;"><td style="padding:6px 10px;font-weight:bold;">Fecha y hora:</td>
-      <td>{% if asignacion.fecha_acto %}{{ asignacion.fecha_acto|date:"d/m/Y" }} a las {{ asignacion.fecha_acto|time:"H:i" }} hrs{% else %}Por confirmar{% endif %}</td></tr>
-  <tr><td style="padding:6px 10px;font-weight:bold;">Lugar:</td><td>{{ asignacion.lugar_acto|default:"Por confirmar" }}</td></tr>
-</table>
-<p>¡Mucho éxito en tu examen profesional!</p>
-<p>Atentamente,<br><strong>Sistema de Titulación — Instituto Tecnológico de Apizaco</strong></p>
-</body></html>
+{% extends "emails/base_email.html" %}
+
+{% block header_icon %}🎓{% endblock %}
+{% block header_title %}Jurado Asignado{% endblock %}
+
+{% block content %}
+<p style="font-size:15px;color:#333;">Estimado(a) <strong>{{ alumno.get_full_name }}</strong>,</p>
+<p style="font-size:14px;color:#555;line-height:1.6;">
+  Te informamos que se ha asignado el jurado para tu <strong>Acto Protocolario de Titulación</strong>.
+</p>
+
+<div style="background:#f8f9fa;border-radius:8px;padding:20px;margin:20px 0;border-left:4px solid #1B396A;">
+  <h3 style="margin-top:0;color:#1B396A;font-size:15px;">Detalles del Acto:</h3>
+  <table style="width:100%;border-collapse:collapse;font-size:14px;">
+    <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;width:150px;">Presidente:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ asignacion.presidente.get_full_name }}</td></tr>
+    <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">Secretario/a:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ asignacion.secretario.get_full_name }}</td></tr>
+    {% if asignacion.vocal_propietario %}<tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">Vocal Propietario/a:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ asignacion.vocal_propietario.get_full_name }}</td></tr>{% endif %}
+    {% if asignacion.vocal_suplente %}<tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">Vocal Suplente:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ asignacion.vocal_suplente.get_full_name }}</td></tr>{% endif %}
+    <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">Fecha y hora:</td><td style="padding:6px 0;font-weight:700;color:#1B396A;">{% if asignacion.fecha_acto %}{{ asignacion.fecha_acto|date:"d/m/Y" }} a las {{ asignacion.fecha_acto|time:"H:i" }} hrs{% else %}Por confirmar{% endif %}</td></tr>
+    <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">Lugar:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ asignacion.lugar_acto|default:"Por confirmar" }}</td></tr>
+  </table>
+</div>
+
+<p style="font-size:15px;color:#1B396A;font-weight:bold;text-align:center;margin-top:30px;">¡Mucho éxito en tu examen profesional!</p>
+{% endblock %}
