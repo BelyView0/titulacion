@@ -75,6 +75,20 @@ class UsuarioCreateForm(forms.ModelForm):
             dominio = config.dominio_institucional if config else 'apizaco.tecnm.mx'
             if not correo_institucional.endswith(f'@{dominio}'):
                 self.add_error('correo_institucional', f'El correo institucional debe terminar en @{dominio}')
+            elif Usuario.objects.filter(correo_institucional__iexact=correo_institucional).exists():
+                self.add_error('correo_institucional', 'Este correo institucional ya está en uso por otro usuario.')
+
+        first_name = cleaned_data.get('first_name')
+        last_name = cleaned_data.get('last_name')
+        apellido_materno = cleaned_data.get('apellido_materno')
+        if first_name and last_name and apellido_materno:
+            qs = Usuario.objects.filter(
+                first_name__iexact=first_name,
+                last_name__iexact=last_name,
+                apellido_materno__iexact=apellido_materno
+            )
+            if qs.exists():
+                self.add_error(None, 'Ya existe un usuario registrado con este mismo nombre completo. Verifique que no esté duplicando el registro cambiando únicamente el número de control.')
 
         return cleaned_data
 
@@ -135,6 +149,26 @@ class UsuarioUpdateForm(forms.ModelForm):
             dominio = config.dominio_institucional if config else 'apizaco.tecnm.mx'
             if not correo_institucional.endswith(f'@{dominio}'):
                 self.add_error('correo_institucional', f'El correo institucional debe terminar en @{dominio}')
+            
+            qs_correo = Usuario.objects.filter(correo_institucional__iexact=correo_institucional)
+            if self.instance and self.instance.pk:
+                qs_correo = qs_correo.exclude(pk=self.instance.pk)
+            if qs_correo.exists():
+                self.add_error('correo_institucional', 'Este correo institucional ya está en uso por otro usuario.')
+
+        first_name = cleaned_data.get('first_name')
+        last_name = cleaned_data.get('last_name')
+        apellido_materno = cleaned_data.get('apellido_materno')
+        if first_name and last_name and apellido_materno:
+            qs_nombre = Usuario.objects.filter(
+                first_name__iexact=first_name,
+                last_name__iexact=last_name,
+                apellido_materno__iexact=apellido_materno
+            )
+            if self.instance and self.instance.pk:
+                qs_nombre = qs_nombre.exclude(pk=self.instance.pk)
+            if qs_nombre.exists():
+                self.add_error(None, 'Ya existe otro usuario registrado con este mismo nombre completo.')
 
         # Validación de roles críticos y últimos activos
         if self.instance and self.instance.pk:
