@@ -6,7 +6,7 @@ from django.db.models import Count, Prefetch, Case, When, Value, IntegerField
 from django.http import JsonResponse
 import json
 
-from expediente.mixins import AdminRequeridoMixin
+from expediente.mixins import AdminRequeridoMixin, FormMessageMixin
 from expediente.models import PlanEstudios, Modalidad, TipoDocumento
 from administracion.forms_catalogos import PlanEstudiosForm, ModalidadForm, TipoDocumentoForm
 
@@ -20,7 +20,7 @@ class PlanEstudiosListView(AdminRequeridoMixin, ListView):
     def get_queryset(self):
         return PlanEstudios.objects.annotate(num_modalidades=Count('modalidades')).order_by('-nombre')
 
-class PlanEstudiosCreateView(AdminRequeridoMixin, CreateView):
+class PlanEstudiosCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
     model = PlanEstudios
     form_class = PlanEstudiosForm
     template_name = 'administracion/catalogos/form_generico.html'
@@ -37,7 +37,7 @@ class PlanEstudiosCreateView(AdminRequeridoMixin, CreateView):
         messages.success(self.request, 'Plan de estudios creado exitosamente.')
         return super().form_valid(form)
 
-class PlanEstudiosUpdateView(AdminRequeridoMixin, UpdateView):
+class PlanEstudiosUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
     model = PlanEstudios
     form_class = PlanEstudiosForm
     template_name = 'administracion/catalogos/form_generico.html'
@@ -85,7 +85,7 @@ class ModalidadListView(AdminRequeridoMixin, ListView):
         ctx['planes_exist'] = PlanEstudios.objects.exists()
         return ctx
 
-class ModalidadCreateView(AdminRequeridoMixin, CreateView):
+class ModalidadCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
     model = Modalidad
     form_class = ModalidadForm
     template_name = 'administracion/catalogos/form_generico.html'
@@ -102,7 +102,7 @@ class ModalidadCreateView(AdminRequeridoMixin, CreateView):
         messages.success(self.request, 'Modalidad creada exitosamente.')
         return super().form_valid(form)
 
-class ModalidadUpdateView(AdminRequeridoMixin, UpdateView):
+class ModalidadUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
     model = Modalidad
     form_class = ModalidadForm
     template_name = 'administracion/catalogos/form_generico.html'
@@ -157,7 +157,7 @@ class TipoDocumentoListView(AdminRequeridoMixin, ListView):
             )) \
             .order_by('-has_docs', 'plan_estudios__nombre', 'nombre')
 
-class TipoDocumentoCreateView(AdminRequeridoMixin, CreateView):
+class TipoDocumentoCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
     model = TipoDocumento
     form_class = TipoDocumentoForm
     template_name = 'administracion/catalogos/form_generico.html'
@@ -181,7 +181,7 @@ class TipoDocumentoCreateView(AdminRequeridoMixin, CreateView):
         messages.success(self.request, 'Tipo de documento creado exitosamente.')
         return super().form_valid(form)
 
-class TipoDocumentoUpdateView(AdminRequeridoMixin, UpdateView):
+class TipoDocumentoUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
     model = TipoDocumento
     form_class = TipoDocumentoForm
     template_name = 'administracion/catalogos/form_generico.html'
@@ -243,7 +243,7 @@ class DepartamentoListView(AdminRequeridoMixin, ListView):
     ordering = ['nombre']
 
 
-class DepartamentoCreateView(AdminRequeridoMixin, CreateView):
+class DepartamentoCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
     model = Departamento
     form_class = DepartamentoForm
     template_name = 'administracion/catalogos/form_generico.html'
@@ -261,7 +261,7 @@ class DepartamentoCreateView(AdminRequeridoMixin, CreateView):
         return super().form_valid(form)
 
 
-class DepartamentoUpdateView(AdminRequeridoMixin, UpdateView):
+class DepartamentoUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
     model = Departamento
     form_class = DepartamentoForm
     template_name = 'administracion/catalogos/form_generico.html'
@@ -320,7 +320,7 @@ class ProfesorListView(AdminRequeridoMixin, ListView):
         return qs
 
 
-class ProfesorCreateView(AdminRequeridoMixin, CreateView):
+class ProfesorCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
     model = Profesor
     form_class = ProfesorForm
     template_name = 'administracion/catalogos/form_generico.html'
@@ -338,7 +338,7 @@ class ProfesorCreateView(AdminRequeridoMixin, CreateView):
         return super().form_valid(form)
 
 
-class ProfesorUpdateView(AdminRequeridoMixin, UpdateView):
+class ProfesorUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
     model = Profesor
     form_class = ProfesorForm
     template_name = 'administracion/catalogos/form_generico.html'

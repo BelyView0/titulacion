@@ -78,6 +78,16 @@ class UsuarioCreateForm(forms.ModelForm):
 
         return cleaned_data
 
+    def clean_numero_control(self):
+        numero_control = self.cleaned_data.get('numero_control')
+        if numero_control:
+            # Validar que no exista ya un usuario con este numero de control o username
+            if Usuario.objects.filter(numero_control=numero_control).exists():
+                raise ValidationError(f'Ya existe un registro con el número de control o empleado "{numero_control}".')
+            if Usuario.objects.filter(username=numero_control).exists():
+                raise ValidationError(f'Ya existe un usuario con este identificador: "{numero_control}".')
+        return numero_control
+
 
 class UsuarioUpdateForm(forms.ModelForm):
     """Formulario para editar un usuario existente."""

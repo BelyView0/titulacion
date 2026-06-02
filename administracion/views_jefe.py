@@ -3,6 +3,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.contrib import messages
+from django.contrib.messages.views import SuccessMessageMixin
+from expediente.mixins import FormMessageMixin
 from .models import JefeDepartamento, SolicitudCambioJefe, Rol
 from .utils import procesar_resolucion_solicitud
 
@@ -19,7 +21,7 @@ class JefeDepartamentoListView(AdminRequeridoMixin, ListView):
     template_name = 'administracion/jefe_departamento_list.html'
     context_object_name = 'jefes'
 
-class JefeDepartamentoCreateView(AdminRequeridoMixin, CreateView):
+class JefeDepartamentoCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
     model = JefeDepartamento
     template_name = 'administracion/jefe_departamento_form.html'
     fields = ['departamento', 'titulo_academico', 'nombre', 'apellido_paterno', 'apellido_materno', 'genero']
@@ -34,7 +36,7 @@ class JefeDepartamentoCreateView(AdminRequeridoMixin, CreateView):
         messages.success(self.request, 'Jefe de Departamento creado exitosamente.')
         return super().form_valid(form)
 
-class JefeDepartamentoUpdateView(AdminRequeridoMixin, UpdateView):
+class JefeDepartamentoUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
     model = JefeDepartamento
     template_name = 'administracion/jefe_departamento_form.html'
     fields = ['titulo_academico', 'nombre', 'apellido_paterno', 'apellido_materno', 'genero']

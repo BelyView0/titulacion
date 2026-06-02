@@ -17,7 +17,7 @@ from django.shortcuts import redirect, get_object_or_404
 from django.http import HttpResponse
 from django.utils import timezone
 
-from expediente.mixins import AdminRequeridoMixin, JefeProyectoRequeridoMixin
+from expediente.mixins import AdminRequeridoMixin, JefeProyectoRequeridoMixin, FormMessageMixin
 from administracion.models import Carrera, Departamento, Usuario, Rol, ConfiguracionInstitucional, JefeDepartamento, SolicitudCambioJefe
 from administracion.forms import UsuarioCreateForm, UsuarioUpdateForm, ConfiguracionInstitucionalForm, JefeDepartamentoForm
 from expediente.models import (
@@ -29,7 +29,7 @@ from expediente.notifications import notificar_alumno, registrar_cambio_estado
 Usuario = get_user_model()
 
 
-class ConfiguracionUpdateView(AdminRequeridoMixin, UpdateView):
+class ConfiguracionUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
     model = ConfiguracionInstitucional
     form_class = ConfiguracionInstitucionalForm
     template_name = 'administracion/configuracion.html'
@@ -44,7 +44,7 @@ class ConfiguracionUpdateView(AdminRequeridoMixin, UpdateView):
         return super().form_valid(form)
 
 
-class ConfiguracionEmailUpdateView(AdminRequeridoMixin, UpdateView):
+class ConfiguracionEmailUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
     model = ConfiguracionInstitucional
     from .forms import ConfiguracionEmailForm
     form_class = ConfiguracionEmailForm
@@ -298,7 +298,7 @@ class UsuarioListView(AdminRequeridoMixin, ListView):
         return ctx
 
 
-class UsuarioCreateView(AdminRequeridoMixin, CreateView):
+class UsuarioCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
     model = Usuario
     form_class = UsuarioCreateForm
     template_name = 'administracion/usuarios/form.html'
@@ -372,7 +372,7 @@ Instituto Tecnológico de Apizaco — TecNM.
         return redirect(self.success_url)
 
 
-class UsuarioUpdateView(AdminRequeridoMixin, UpdateView):
+class UsuarioUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
     model = Usuario
     form_class = UsuarioUpdateForm
     template_name = 'administracion/usuarios/form.html'
@@ -635,7 +635,7 @@ class CarreraListView(AdminRequeridoMixin, ListView):
         return ctx
 
 
-class CarreraCreateView(AdminRequeridoMixin, CreateView):
+class CarreraCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
     model = Carrera
     template_name = 'administracion/carreras/form.html'
     fields = ['nombre', 'clave', 'activa', 'departamento']
@@ -652,7 +652,7 @@ class CarreraCreateView(AdminRequeridoMixin, CreateView):
         return super().form_valid(form)
 
 
-class CarreraUpdateView(AdminRequeridoMixin, UpdateView):
+class CarreraUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
     model = Carrera
     template_name = 'administracion/carreras/form.html'
     fields = ['nombre', 'clave', 'activa', 'departamento']

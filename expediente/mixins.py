@@ -9,6 +9,22 @@ from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect
 from django.contrib import messages
 
+from django.contrib import messages
+
+
+class FormMessageMixin:
+    """
+    Mixin para mostrar mensajes de error globales cuando un formulario no es válido.
+    Ideal para CreateView y UpdateView.
+    """
+    def form_invalid(self, form):
+        # Muestra una alerta emergente (toast/alert) indicando que hubo un error
+        errores = " ".join([f"{field}: {error}" for field, errors in form.errors.items() for error in errors])
+        if not errores:
+            errores = "Por favor, revisa los datos ingresados. Puede que ya exista un registro con esta información clave."
+        messages.error(self.request, f"Error al procesar el formulario. {errores}")
+        return super().form_invalid(form)
+
 
 class RolRequeridoMixin(LoginRequiredMixin):
     """
