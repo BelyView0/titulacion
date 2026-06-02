@@ -20,6 +20,9 @@ urlpatterns = [
     path('configuracion/email/', views.ConfiguracionEmailUpdateView.as_view(), name='configuracion_email'),
     path('configuracion/email/revelar/', views.RevelarPasswordSMTPView.as_view(), name='configuracion_email_revelar'),
 
+    # Tiempo Real / API
+    path('api/realtime/check/', views.CheckRealTimeUpdatesView.as_view(), name='api_realtime_check'),
+
     # Jefes de Departamento
     path('jefes/', views_jefe.JefeDepartamentoListView.as_view(), name='jefes'),
     path('jefes/nuevo/', views_jefe.JefeDepartamentoCreateView.as_view(), name='jefe_crear'),

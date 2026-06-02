@@ -883,6 +883,83 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 </script>
 
+<!-- ── SISTEMA DE TIEMPO REAL (POLLING) ── -->
+{% if user.is_authenticated %}
+<div class="toast-container position-fixed bottom-0 end-0 p-4" style="z-index: 1080;">
+    <div id="realtimeToast" class="toast align-items-center text-bg-primary border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="15000">
+        <div class="d-flex">
+            <div class="toast-body d-flex align-items-center fs-6">
+                <i class="bi bi-arrow-repeat spin me-3 fs-4"></i>
+                <span>Hay nuevos cambios en el sistema. <a href="javascript:window.location.reload();" class="text-white text-decoration-underline fw-bold">Actualiza la página</a> para verlos.</span>
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes spin-anim { 100% { transform: rotate(360deg); } }
+.spin { animation: spin-anim 1.5s linear infinite; }
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    let globalTimestamp = null;
+    let currentUnreadCount = parseInt("{{ notificaciones_no_leidas|default:'0' }}");
+    const checkUrl = "{% url 'administracion:api_realtime_check' %}";
+    const toastEl = document.getElementById('realtimeToast');
+    const rtToast = new bootstrap.Toast(toastEl);
+    
+    function checkRealtime() {
+        // Evitar polling si la ventana no esta visible para ahorrar recursos
+        if (document.hidden) return;
+
+        fetch(checkUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status !== 'success') return;
+                
+                const newTs = data.global_timestamp;
+                const newCount = data.unread_notifications;
+                
+                // 1. Actualizar notificaciones en la campanita
+                if (newCount !== currentUnreadCount) {
+                    currentUnreadCount = newCount;
+                    const badges = document.querySelectorAll('.notif-badge');
+                    badges.forEach(badge => {
+                        badge.innerText = newCount;
+                        badge.style.display = newCount > 0 ? 'inline-block' : 'none';
+                    });
+                }
+                
+                // 2. Establecer baseline en la primera carga
+                if (globalTimestamp === null) {
+                    globalTimestamp = newTs;
+                    return;
+                }
+                
+                // 3. Detectar cambios (evitando mostrar si el initial era 0.0)
+                if (newTs > globalTimestamp && globalTimestamp > 0) {
+                    globalTimestamp = newTs;
+                    rtToast.show();
+                    // Opcional: recargar tablas automáticamente si estamos en la vista de búsqueda AJAX
+                    const btnSearch = document.querySelector('form input[name="q"]');
+                    if (btnSearch && typeof fetchResults === "function") {
+                        fetchResults(btnSearch.closest('form'));
+                    }
+                } else if (newTs > globalTimestamp && globalTimestamp === 0) {
+                    globalTimestamp = newTs;
+                }
+            })
+            .catch(err => console.debug("RT Polling error:", err));
+    }
+
+    // Consultar cada 8 segundos
+    setInterval(checkRealtime, 8000);
+});
+</script>
+{% endif %}
+
 {% block extra_scripts %}{% endblock %}
 </body>
 </html>

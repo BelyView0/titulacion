@@ -16,6 +16,8 @@ class AdministracionConfig(AppConfig):
         from django.db.models.signals import post_migrate
         post_migrate.connect(_ensure_admin_exists, sender=self)
 
+        import administracion.signals
+
 
 def _ensure_admin_exists(sender, **kwargs):
     """

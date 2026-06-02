@@ -162,8 +162,8 @@ class Usuario(AbstractUser):
     )
     debe_cambiar_password = models.BooleanField(
         default=False,
-        verbose_name='Debe cambiar contrasena',
-        help_text='Si es True, el usuario sera forzado a cambiar su contrasena al iniciar sesion.'
+        verbose_name='Debe cambiar contraseña',
+        help_text='Si es True, el usuario sera forzado a cambiar su contraseña al iniciar sesion.'
     )
     correo_institucional = models.EmailField(
         blank=True, null=True,
@@ -304,6 +304,11 @@ class ConfiguracionInstitucional(models.Model):
         blank=True, null=True,
         verbose_name="Imagen completa del Pie de Página",
         help_text="Sube la imagen completa que servirá de pie de página."
+    )
+    ultima_actualizacion = models.FloatField(
+        default=0.0,
+        verbose_name="Última actualización global",
+        help_text="Timestamp interno para forzar la actualización en tiempo real de los clientes."
     )
     
     # ── Configuración de Correo Electrónico (SMTP) ──

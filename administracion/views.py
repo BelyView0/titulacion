@@ -99,6 +99,36 @@ class RevelarPasswordSMTPView(AdminRequeridoMixin, View):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# TIEMPO REAL (POLLING ENDPOINT)
+# ═══════════════════════════════════════════════════════════════════════════════
+class CheckRealTimeUpdatesView(View):
+    """
+    Endpoint para polling ligero. 
+    Devuelve el timestamp de la última actualización global en el sistema
+    y la cantidad actual de notificaciones no leídas del usuario.
+    """
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'status': 'unauthorized'}, status=401)
+        
+        config = ConfiguracionInstitucional.objects.first()
+        global_ts = config.ultima_actualizacion if config else 0.0
+        
+        unread_count = 0
+        try:
+            from alumnos.models import Notificacion
+            unread_count = Notificacion.objects.filter(destinatario=request.user, leida=False).count()
+        except Exception:
+            pass
+
+        return JsonResponse({
+            'status': 'success',
+            'global_timestamp': global_ts,
+            'unread_notifications': unread_count
+        })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # VISTAS PARA JEFES DE DEPARTAMENTO
 # ═══════════════════════════════════════════════════════════════════════════════
 class JefeDepartamentoListView(AdminRequeridoMixin, ListView):
