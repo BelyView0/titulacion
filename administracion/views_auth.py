@@ -217,9 +217,10 @@ class ForcePasswordChangeView(LoginRequiredMixin, View):
         if email:
             request.user.email = email
 
-        # Cambiar contraseña y desactivar bandera
+        # Cambiar contraseña, verificar correo institucional y desactivar bandera
         request.user.set_password(new_password)
         request.user.debe_cambiar_password = False
+        request.user.correo_institucional_verificado = True
         request.user.save()
 
         # Mantener sesion activa
