@@ -177,11 +177,11 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
             },
             'alumnos': {
                 'title': 'Alumnos',
-                'headers': ['Número de Control', 'Nombre(s)', 'Apellido Paterno', 'Apellido Materno', 'Email', 'Clave Carrera', 'Plan de Estudios Nombre', 'Semestre de Egreso', 'Promedio General', 'Teléfono', 'Género (M/F/O)', 'Generación (Año)'],
-                'widths': [20, 25, 25, 25, 35, 18, 25, 25, 18, 18, 18, 18],
+                'headers': ['Número de Control', 'Nombre(s)', 'Apellido Paterno', 'Apellido Materno', 'Correo Institucional (Obligatorio)', 'Correo Personal (Opcional)', 'Clave Carrera', 'Plan de Estudios Nombre', 'Semestre de Egreso', 'Promedio General', 'Teléfono', 'Género (M/F/O)', 'Generación (Año)'],
+                'widths': [20, 25, 25, 25, 35, 35, 20, 30, 22, 18, 15, 18, 18],
                 'help_rows': [
-                    ['20141720', 'DANIELA', 'SUAREZ', 'LOPEZ', 'L20141720@apizaco.tecnm.mx', 'ISC', 'ISIC-2010-224', 'Ago-Dic 2024', '91.50', '2411122334', 'F', '2020'],
-                    ['20141721', 'CARLOS', 'PEREZ', 'GOMEZ', 'carlos.perez@gmail.com', 'ISC', 'ISIC-2010-224', 'Ene-Jun 2025', '85.40', '2415556677', 'M', '2021']
+                    ['20141720', 'DANIELA', 'SUAREZ', 'LOPEZ', 'L20141720@apizaco.tecnm.mx', 'dsuarez@gmail.com', 'ISC', 'ISIC-2010-224', 'Ago-Dic 2024', '91.50', '2411122334', 'F', '2020'],
+                    ['20141721', 'CARLOS', 'PEREZ', 'GOMEZ', 'carlos.perez@gmail.com', '', 'ISC', 'ISIC-2010-224', 'Ene-Jun 2025', '85.40', '2415556677', 'M', '2021']
                 ]
             },
             'jefes_departamento': {
@@ -475,7 +475,7 @@ Datos de Acceso:
 
 Puedes ingresar a la plataforma abriendo tu navegador web e introduciendo la dirección habitual de la institución.
 
-IMPORTANTE: Por motivos de seguridad, el sistema te pedirá cambiar tu contraseña en tu primer inicio de sesión.
+IMPORTANTE: Por motivos de seguridad, el sistema te pedirá cambiar tu contraseña en tu primer inicio de sesión usando una combinación segura.
 
 Instituto Tecnológico de Apizaco — TecNM.
 """
@@ -734,29 +734,30 @@ Instituto Tecnológico de Apizaco — TecNM.
             stat['creados'] += 1
 
     def procesar_alumno(self, row, fila, stat):
-        if len(row) < 7 or not row[0] or not row[1] or not row[2] or not row[4] or not row[5] or not row[6]:
-            raise ValueError("N° Control, Nombre, Apellido Paterno, Email, Clave Carrera y Plan de Estudios son obligatorios.")
+        if len(row) < 8 or not row[0] or not row[1] or not row[2] or not row[4] or not row[6] or not row[7]:
+            raise ValueError("N° Control, Nombre, Apellido Paterno, Correo Institucional, Clave Carrera y Plan de Estudios son obligatorios.")
 
         control = str(row[0]).strip().upper()
         first_name = str(row[1]).strip()
         last_name = str(row[2]).strip()
         apellido_materno = str(row[3]).strip() if len(row) > 3 and row[3] else ''
-        email = str(row[4]).strip()
-        clave_carrera = str(row[5]).strip().upper()
-        plan_nombre = str(row[6]).strip().upper()
+        correo_institucional = str(row[4]).strip()
+        email = str(row[5]).strip() if len(row) > 5 and row[5] else ''
+        clave_carrera = str(row[6]).strip().upper()
+        plan_nombre = str(row[7]).strip().upper()
         
-        semestre_egreso = str(row[7]).strip() if len(row) > 7 and row[7] else ''
-        promedio = row[8] if len(row) > 8 and row[8] is not None else None
-        telefono = str(row[9]).strip() if len(row) > 9 and row[9] else ''
+        semestre_egreso = str(row[8]).strip() if len(row) > 8 and row[8] else ''
+        promedio = row[9] if len(row) > 9 and row[9] is not None else None
+        telefono = str(row[10]).strip() if len(row) > 10 and row[10] else ''
         
-        genero_raw = str(row[10]).strip().upper() if len(row) > 10 and row[10] else 'O'
+        genero_raw = str(row[11]).strip().upper() if len(row) > 11 and row[11] else 'O'
         genero = 'O'
         if genero_raw in ['M', 'MASCULINO', 'H', 'HOMBRE']:
             genero = Genero.MASCULINO
         elif genero_raw in ['F', 'FEMENINO', 'M', 'MUJER']:
             genero = Genero.FEMENINO
 
-        generacion = int(row[11]) if len(row) > 11 and row[11] is not None else None
+        generacion = int(row[12]) if len(row) > 12 and row[12] is not None else None
 
         # 1. Validar Carrera y Plan
         try:
@@ -796,19 +797,30 @@ Instituto Tecnológico de Apizaco — TecNM.
                 telefono=telefono,
                 genero=genero,
                 generacion=generacion,
-                correo_institucional=email,
+                correo_institucional=correo_institucional,
                 debe_cambiar_password=True  # Forzar cambio de contraseña en su primer login
             )
-            # Contraseña por defecto siguiendo el patrón corporativo seguro: Ita.[Control]!
-            default_pwd = f"Ita.{control}!"
+            
+            # Generar contraseña segura automáticamente garantizando requisitos
+            import random
+            chars = [
+                random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ'),
+                random.choice('abcdefghijklmnopqrstuvwxyz'),
+                random.choice('0123456789'),
+                random.choice('!@#$%^&*(-_=+)'),
+            ]
+            chars += [random.choice('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*(-_=+)') for _ in range(8)]
+            random.shuffle(chars)
+            default_pwd = "".join(chars)
+            
             user.set_password(default_pwd)
             user.save()
             created = True
 
-            # Registrar para enviar correo post-commit
+            # Registrar para enviar correo post-commit (al correo institucional)
             self.newly_created_users.append({
                 'username': control,
-                'email': email,
+                'email': correo_institucional,
                 'password': default_pwd,
                 'full_name': f"{first_name} {last_name} {apellido_materno}".strip().upper()
             })
@@ -830,7 +842,7 @@ Instituto Tecnológico de Apizaco — TecNM.
                 user.genero = genero
                 user.generacion = generacion
                 user.numero_control = control
-                user.correo_institucional = email
+                user.correo_institucional = correo_institucional
                 user.save()
                 cambio = True
 
