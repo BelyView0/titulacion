@@ -614,11 +614,7 @@ class UsuarioDeleteView(AdminRequeridoMixin, DeleteView):
             messages.error(request, 'No puedes eliminar tu propia cuenta.')
             return redirect('administracion:usuarios')
             
-        # Prevenir ir a la página de confirmación si tiene registros protegidos (Expediente)
-        from expediente.models import Expediente
-        if Expediente.objects.filter(alumno=usuario).exists():
-            messages.error(request, 'No se puede eliminar este usuario porque tiene expedientes o registros protegidos vinculados en el sistema.')
-            return redirect('administracion:usuarios')
+        # Se permite eliminar usuarios sin importar si tienen Expediente.
             
         # Regla: Al menos un usuario de roles críticos / Jefe de Proyecto
         roles_criticos = [Rol.ADMINISTRADOR, Rol.ACADEMICO, Rol.ESCOLARES]
@@ -644,8 +640,8 @@ class UsuarioDeleteView(AdminRequeridoMixin, DeleteView):
         except Http404:
             messages.info(request, 'El usuario ya ha sido eliminado.')
             return redirect(self.success_url)
-        except ProtectedError:
-            messages.error(request, 'No se puede eliminar este usuario porque tiene expedientes o registros protegidos vinculados en el sistema.')
+        except ProtectedError as e:
+            messages.error(request, f'No se pudo completar la eliminación debido a registros protegidos en el sistema (contacte a soporte). Detalles: {e}')
             return redirect(self.success_url)
 
     def delete(self, request, *args, **kwargs):
@@ -658,10 +654,17 @@ class UsuarioDeleteView(AdminRequeridoMixin, DeleteView):
             return redirect('administracion:usuarios')
             
         nombre_usuario = usuario.get_full_name() or usuario.username
+        
+        # Eliminar el Expediente de forma explícita para evitar ProtectedError (Manual Cascade)
+        from expediente.models import Expediente
+        expedientes = Expediente.objects.filter(alumno=usuario)
+        for exp in expedientes:
+            exp.delete()
+            
         response = super().delete(request, *args, **kwargs)
         
         # Agregamos el mensaje de éxito solo si super().delete() no lanzó ninguna excepción
-        messages.success(request, f'Usuario {nombre_usuario} eliminado exitosamente.')
+        messages.success(request, f'Usuario {nombre_usuario} y todo su historial han sido eliminados de forma permanente y sin posibilidad de recuperación.')
         return response
 
 
