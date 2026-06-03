@@ -336,7 +336,19 @@ class UsuarioCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
 
     def form_valid(self, form):
         usuario = form.save(commit=False)
-        password_clear = form.cleaned_data['password']
+        
+        # Generar contraseña segura automáticamente garantizando requisitos
+        import random
+        chars = [
+            random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ'),
+            random.choice('abcdefghijklmnopqrstuvwxyz'),
+            random.choice('0123456789'),
+            random.choice('!@#$%^&*(-_=+)'),
+        ]
+        chars += [random.choice('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*(-_=+)') for _ in range(8)]
+        random.shuffle(chars)
+        password_clear = "".join(chars)
+
         usuario.set_password(password_clear)
         usuario.debe_cambiar_password = True  # Forzar cambio de contraseña en su primer login por seguridad
         usuario.save()
@@ -355,11 +367,11 @@ class UsuarioCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
             if viejos.exists():
                 messages.info(self.request, f'El Jefe de Proyecto anterior para {usuario.departamento.nombre} ha sido desactivado automáticamente para mantener solo uno activo.')
 
-        # Enviar correo de bienvenida y verificación
+        # Enviar correo de bienvenida y verificación (al correo institucional obligatoriamente)
         from django.core.mail import EmailMultiAlternatives
         from django.conf import settings
         
-        email = usuario.email
+        email = usuario.correo_institucional
         if email:
             subject = "[ITA Titulación] Tu cuenta ha sido creada — Datos de Acceso"
             full_name = usuario.get_full_name() or usuario.numero_control
@@ -378,11 +390,11 @@ Te informamos que tu cuenta de acceso para la plataforma de titulación del Inst
 
 Datos de Acceso:
 - Número de control / empleado: {usuario.numero_control}
-- Contraseña: {password_clear}
+- Contraseña temporal: {password_clear}
 
 Puedes ingresar a la plataforma abriendo tu navegador web e introduciendo la dirección habitual de la institución.
 
-IMPORTANTE: Por motivos de seguridad, el sistema te pedirá cambiar tu contraseña en tu primer inicio de sesión.
+IMPORTANTE: Por motivos de seguridad, el sistema te pedirá cambiar tu contraseña en tu primer inicio de sesión usando una combinación segura.
 
 Instituto Tecnológico de Apizaco — TecNM.
 """
@@ -398,7 +410,7 @@ Instituto Tecnológico de Apizaco — TecNM.
             except Exception:
                 pass
 
-        messages.success(self.request, f'Usuario {usuario.get_full_name()} creado exitosamente y notificado por correo.')
+        messages.success(self.request, f'Usuario {usuario.get_full_name()} creado exitosamente. Se envió la contraseña temporal a {usuario.correo_institucional}.')
         return redirect(self.success_url)
 
 

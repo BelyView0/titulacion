@@ -9,17 +9,7 @@ from .models import Usuario, Carrera, Departamento, Profesor, Rol, Configuracion
 
 
 class UsuarioCreateForm(forms.ModelForm):
-    """Formulario para crear un nuevo usuario. Todos los campos son obligatorios."""
-    password = forms.CharField(
-        label='Contraseña',
-        widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}),
-        min_length=8,
-        help_text='Mínimo 8 caracteres.'
-    )
-    password_confirm = forms.CharField(
-        label='Confirmar contraseña',
-        widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}),
-    )
+    """Formulario para crear un nuevo usuario. La contraseña se autogenera."""
 
     class Meta:
         model = Usuario
