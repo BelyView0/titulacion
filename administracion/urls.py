@@ -3,6 +3,7 @@ from . import views
 from . import views_import
 from . import views_jefe
 from . import views_catalogos
+from . import export_views
 app_name = 'administracion'
 
 urlpatterns = [
@@ -80,6 +81,8 @@ urlpatterns = [
     path('jefe/acto/<int:pk>/reprogramar/', views.ReprogramarActoView.as_view(), name='jefe_reprogramar'),
     path('jefe/calendario/', views.CalendarioJefeView.as_view(), name='jefe_calendario'),
     path('jefe/estadisticas/', views.EstadisticasJefeView.as_view(), name='jefe_estadisticas'),
+    path('jefe/estadisticas/excel/', export_views.ExportarEstadisticasExcelView.as_view(), name='jefe_estadisticas_excel'),
+    path('jefe/estadisticas/pptx/', export_views.ExportarEstadisticasPPTXView.as_view(), name='jefe_estadisticas_pptx'),
     path('jefe/confirmacion/<int:pk>/toggle/', views.ToggleConfirmacionJefeView.as_view(), name='jefe_toggle_confirmacion'),
     path('jefe/acto/<int:pk>/confirmar-realizado/', views.ConfirmarActoLlevadoAcaboJefeView.as_view(), name='jefe_confirmar_acto_realizado'),
     path('jefe/solicitar-cambio/', views.SolicitarCambioJefeView.as_view(), name='solicitar_cambio_jefe'),

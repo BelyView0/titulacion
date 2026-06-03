@@ -5,6 +5,16 @@
 {% block content %}
 <div class="fade-in">
 
+<!-- ── BOTONES DE EXPORTACIÓN ── -->
+<div class="d-flex flex-wrap justify-content-end gap-2 mb-3">
+    <a href="{% url 'administracion:jefe_estadisticas_excel' %}" class="btn btn-sm btn-success fw-semibold shadow-sm">
+        <i class="bi bi-file-earmark-excel me-1"></i> Exportar Excel
+    </a>
+    <a href="{% url 'administracion:jefe_estadisticas_pptx' %}" class="btn btn-sm fw-semibold shadow-sm text-white" style="background-color: #fd7e14;">
+        <i class="bi bi-file-earmark-slides me-1"></i> Generar Presentación PPTX
+    </a>
+</div>
+
 <!-- ── RE-01 / RE-02: Resumen general ─────────────────────────────── -->
 <div class="row g-3 mb-3">
     <div class="col-sm-6 col-lg-3">
