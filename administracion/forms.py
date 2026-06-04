@@ -426,3 +426,63 @@ class ReprogramarActoForm(forms.Form):
                 self.add_error('lugar', 'Debes especificar el nuevo lugar si no vas a reasignar jurado.')
 
         return cleaned_data
+
+class SolicitarCambioJefeForm(forms.ModelForm):
+    password_confirmacion = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Ingresa tu contraseña actual para autorizar el cambio'}),
+        label='Confirmar con Contraseña',
+        required=True,
+        help_text='Por motivos de seguridad, ingresa tu contraseña para confirmar esta acción.'
+    )
+
+    class Meta:
+        from administracion.models import SolicitudCambioJefe
+        model = SolicitudCambioJefe
+        fields = ['titulo_academico_nuevo', 'nombre_nuevo', 'apellido_paterno_nuevo', 'apellido_materno_nuevo', 'genero_nuevo']
+        widgets = {
+            'titulo_academico_nuevo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Ing., M.C., Dra.'}),
+            'nombre_nuevo': forms.TextInput(attrs={'class': 'form-control'}),
+            'apellido_paterno_nuevo': forms.TextInput(attrs={'class': 'form-control'}),
+            'apellido_materno_nuevo': forms.TextInput(attrs={'class': 'form-control'}),
+            'genero_nuevo': forms.Select(attrs={'class': 'form-select'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
+    def clean_password_confirmacion(self):
+        password = self.cleaned_data.get('password_confirmacion')
+        if self.user and not self.user.check_password(password):
+            raise forms.ValidationError('La contraseña es incorrecta. Acción denegada.')
+        return password
+
+class JefeDepartamentoUpdateForm(forms.ModelForm):
+    password_confirmacion = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Contraseña de Administrador'}),
+        label='Confirmar con Contraseña',
+        required=True,
+        help_text='Ingresa tu contraseña de Administrador para confirmar esta modificación.'
+    )
+
+    class Meta:
+        from administracion.models import JefeDepartamento
+        model = JefeDepartamento
+        fields = ['titulo_academico', 'nombre', 'apellido_paterno', 'apellido_materno', 'genero']
+        widgets = {
+            'titulo_academico': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Ing., M.C., Dra.'}),
+            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'apellido_paterno': forms.TextInput(attrs={'class': 'form-control'}),
+            'apellido_materno': forms.TextInput(attrs={'class': 'form-control'}),
+            'genero': forms.Select(attrs={'class': 'form-select'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
+    def clean_password_confirmacion(self):
+        password = self.cleaned_data.get('password_confirmacion')
+        if self.user and not self.user.check_password(password):
+            raise forms.ValidationError('La contraseña es incorrecta. Acción denegada.')
+        return password

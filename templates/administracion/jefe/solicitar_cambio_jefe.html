@@ -56,29 +56,48 @@
                 <form method="post" action="{% url 'administracion:solicitar_cambio_jefe' %}">
                     {% csrf_token %}
                     <div class="row g-3">
+                        {% if form.errors and not form.password_confirmacion.errors %}
+                        <div class="col-12 mb-2">
+                            <div class="alert alert-danger py-2 mb-0">
+                                <strong>Por favor, corrige los errores en el formulario.</strong>
+                            </div>
+                        </div>
+                        {% endif %}
+
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold">Título Académico</label>
-                            <input type="text" name="titulo_academico_nuevo" class="form-control" placeholder="Ej: Ing., M.C., Dra." required>
+                            <label class="form-label fw-semibold">{{ form.titulo_academico_nuevo.label }}</label>
+                            {{ form.titulo_academico_nuevo }}
                         </div>
                         <div class="col-md-8">
-                            <label class="form-label fw-semibold">Nombre(s)</label>
-                            <input type="text" name="nombre_nuevo" class="form-control" required>
+                            <label class="form-label fw-semibold">{{ form.nombre_nuevo.label }}</label>
+                            {{ form.nombre_nuevo }}
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Apellido Paterno</label>
-                            <input type="text" name="apellido_paterno_nuevo" class="form-control" required>
+                            <label class="form-label fw-semibold">{{ form.apellido_paterno_nuevo.label }}</label>
+                            {{ form.apellido_paterno_nuevo }}
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Apellido Materno</label>
-                            <input type="text" name="apellido_materno_nuevo" class="form-control">
+                            <label class="form-label fw-semibold">{{ form.apellido_materno_nuevo.label }}</label>
+                            {{ form.apellido_materno_nuevo }}
                         </div>
                         <div class="col-md-12">
-                            <label class="form-label fw-semibold">Género</label>
-                            <select name="genero_nuevo" class="form-select" required>
-                                <option value="F">Femenino</option>
-                                <option value="M">Masculino</option>
-                            </select>
+                            <label class="form-label fw-semibold">{{ form.genero_nuevo.label }}</label>
+                            {{ form.genero_nuevo }}
                         </div>
+                        
+                        {% if form.password_confirmacion %}
+                        <div class="col-12 mt-4 pt-3 border-top border-danger border-2">
+                            <div class="alert alert-danger mb-0">
+                                <h6 class="fw-bold"><i class="bi bi-shield-lock me-2"></i>Autorización de Seguridad</h6>
+                                <p class="small mb-2">{{ form.password_confirmacion.help_text }}</p>
+                                <label class="form-label fw-bold">{{ form.password_confirmacion.label }} *</label>
+                                {{ form.password_confirmacion }}
+                                {% if form.password_confirmacion.errors %}
+                                <div class="text-danger small mt-1 fw-bold">{{ form.password_confirmacion.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                     
                     <div class="mt-4 text-end">

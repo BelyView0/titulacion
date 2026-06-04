@@ -38,9 +38,15 @@ class JefeDepartamentoCreateView(AdminRequeridoMixin, FormMessageMixin, CreateVi
 
 class JefeDepartamentoUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
     model = JefeDepartamento
+    from administracion.forms import JefeDepartamentoUpdateForm
+    form_class = JefeDepartamentoUpdateForm
     template_name = 'administracion/jefe_departamento_form.html'
-    fields = ['titulo_academico', 'nombre', 'apellido_paterno', 'apellido_materno', 'genero']
     success_url = reverse_lazy('administracion:jefes')
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
 
     def form_valid(self, form):
         messages.success(self.request, 'Jefe de Departamento actualizado exitosamente.')
