@@ -22,8 +22,18 @@
                 <div>{{ expediente.alumno.carrera.nombre|default:"No asignada" }}</div>
             </div>
             <div class="mb-2">
-                <small class="text-muted fw-semibold">Correo</small>
-                <div>{{ expediente.alumno.email|default:"—" }}</div>
+                <small class="text-muted fw-semibold">Correo Institucional</small>
+                <div>{{ expediente.alumno.correo_institucional|default:"—" }}</div>
+            </div>
+            {% if expediente.alumno.email and expediente.alumno.email != expediente.alumno.correo_institucional %}
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Correo Personal</small>
+                <div>{{ expediente.alumno.email }}</div>
+            </div>
+            {% endif %}
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Teléfono</small>
+                <div>{{ expediente.alumno.telefono|default:"No registrado" }}</div>
             </div>
         </div>
 
