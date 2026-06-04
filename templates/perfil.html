@@ -72,6 +72,28 @@
                 {% endif %}
             </div>
 
+            {% if not usuario.email or not usuario.email_verificado %}
+            <div class="alert alert-info text-start mt-3 p-2 border-0 border-start border-4 border-info shadow-sm" style="background-color: #f0f9ff; font-size: 0.8rem;">
+                <div class="d-flex align-items-start gap-2">
+                    <i class="bi bi-lightbulb-fill text-info fs-5"></i>
+                    <div>
+                        <strong class="d-block text-dark mb-1">Recibe avisos en tu cuenta personal</strong>
+                        <span class="text-muted">Si deseas que las notificaciones del sistema lleguen a tu correo personal, debes <strong>agregarlo en "Editar Perfil" y verificarlo</strong>.</span>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-success text-start mt-3 p-2 border-0 border-start border-4 border-success shadow-sm" style="background-color: #f0fdf4; font-size: 0.8rem;">
+                <div class="d-flex align-items-start gap-2">
+                    <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                    <div>
+                        <strong class="d-block text-dark mb-1">Notificaciones duales activas</strong>
+                        <span class="text-muted">Recibirás todos los avisos tanto en tu correo institucional como en el personal.</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             {% if perfil_basico_form %}
             <button type="button" class="btn btn-sm btn-outline-primary mt-3 w-100" data-bs-toggle="modal" data-bs-target="#modalPerfilBasico">
                 <i class="bi bi-pencil-square me-1"></i> Editar Perfil
