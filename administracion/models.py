@@ -310,6 +310,11 @@ class ConfiguracionInstitucional(models.Model):
         verbose_name="Última actualización global",
         help_text="Timestamp interno para forzar la actualización en tiempo real de los clientes."
     )
+    permitir_jefe_proyectos_cambiar_jefe_departamento = models.BooleanField(
+        default=False,
+        verbose_name="Permitir a Jefes de Proyecto cambiar Jefe de Departamento directamente",
+        help_text="Si está activo, los Jefes de Proyecto no necesitarán solicitar el cambio a un administrador, el cambio será directo."
+    )
     
     # ── Configuración de Correo Electrónico (SMTP) ──
     email_host = models.CharField(

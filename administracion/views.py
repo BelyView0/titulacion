@@ -1596,12 +1596,44 @@ class ConfirmarActoLlevadoAcaboJefeView(JefeProyectoRequeridoMixin, View):
 
 class SolicitarCambioJefeView(JefeProyectoRequeridoMixin, CreateView):
     model = SolicitudCambioJefe
-    template_name = 'administracion/jefe_proyecto/solicitar_cambio.html'
-    fields = ['titulo_academico_nuevo', 'nombre_nuevo', 'apellido_paterno_nuevo', 'apellido_materno_nuevo', 'genero_nuevo', 'motivo']
+    template_name = 'administracion/jefe/solicitar_cambio_jefe.html'
+    fields = ['titulo_academico_nuevo', 'nombre_nuevo', 'apellido_paterno_nuevo', 'apellido_materno_nuevo', 'genero_nuevo']
     success_url = reverse_lazy('administracion:jefe_dashboard')
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from administracion.models import JefeDepartamento, SolicitudCambioJefe, ConfiguracionInstitucional
+        departamento = self.request.user.departamento
+        context['jefe_actual'] = JefeDepartamento.objects.filter(departamento=departamento).first()
+        context['solicitud'] = SolicitudCambioJefe.objects.filter(
+            departamento=departamento, 
+            estado=SolicitudCambioJefe.EstadoSolicitud.PENDIENTE
+        ).first()
+        context['departamento'] = departamento
+        context['config'] = ConfiguracionInstitucional.objects.first()
+        return context
+
     def form_valid(self, form):
+        from administracion.models import ConfiguracionInstitucional, JefeDepartamento
+        config = ConfiguracionInstitucional.objects.first()
+        
         form.instance.departamento = self.request.user.departamento
         form.instance.solicitante = self.request.user
+        
+        if config and config.permitir_jefe_proyectos_cambiar_jefe_departamento:
+            form.instance.estado = SolicitudCambioJefe.EstadoSolicitud.APROBADO
+            form.instance.fecha_resolucion = timezone.now()
+            
+            jefe, _ = JefeDepartamento.objects.get_or_create(departamento=form.instance.departamento)
+            jefe.titulo_academico = form.instance.titulo_academico_nuevo
+            jefe.nombre = form.instance.nombre_nuevo
+            jefe.apellido_paterno = form.instance.apellido_paterno_nuevo
+            jefe.apellido_materno = form.instance.apellido_materno_nuevo
+            jefe.genero = form.instance.genero_nuevo
+            jefe.save()
+            
+            messages.success(self.request, 'Cambio de Jefe de Departamento actualizado exitosamente.')
+            return super().form_valid(form)
+            
         messages.success(self.request, 'Solicitud de cambio de Jefe enviada al administrador. Se utilizarán estos datos para documentos urgentes mientras se revisa.')
         return super().form_valid(form)

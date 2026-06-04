@@ -190,11 +190,12 @@ class UsuarioUpdateForm(forms.ModelForm):
 class ConfiguracionInstitucionalForm(forms.ModelForm):
     class Meta:
         model = ConfiguracionInstitucional
-        fields = ['dominio_institucional', 'imagen_encabezado', 'imagen_pie_pagina']
+        fields = ['dominio_institucional', 'imagen_encabezado', 'imagen_pie_pagina', 'permitir_jefe_proyectos_cambiar_jefe_departamento']
         widgets = {
             'dominio_institucional': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ej: apizaco.tecnm.mx'}),
             'imagen_encabezado': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'imagen_pie_pagina': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+            'permitir_jefe_proyectos_cambiar_jefe_departamento': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 
