@@ -190,12 +190,27 @@ class UsuarioUpdateForm(forms.ModelForm):
 class ConfiguracionInstitucionalForm(forms.ModelForm):
     class Meta:
         model = ConfiguracionInstitucional
-        fields = ['dominio_institucional', 'imagen_encabezado', 'imagen_pie_pagina', 'permitir_jefe_proyectos_cambiar_jefe_departamento']
+        fields = [
+            'dominio_institucional', 'permitir_jefe_proyectos_cambiar_jefe_departamento',
+            'nombre_institucion', 'siglas', 'logo_sistema',
+            'mostrar_cintillo', 'imagen_cintillo',
+            'color_header', 'color_menu', 'color_botones', 'color_cintillo',
+            'imagen_encabezado', 'imagen_pie_pagina'
+        ]
         widgets = {
             'dominio_institucional': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ej: apizaco.tecnm.mx'}),
+            'permitir_jefe_proyectos_cambiar_jefe_departamento': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'nombre_institucion': forms.TextInput(attrs={'class': 'form-control'}),
+            'siglas': forms.TextInput(attrs={'class': 'form-control'}),
+            'logo_sistema': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+            'mostrar_cintillo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'imagen_cintillo': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+            'color_header': forms.TextInput(attrs={'type': 'color', 'class': 'form-control form-control-color', 'style': 'max-width: 100px;'}),
+            'color_menu': forms.TextInput(attrs={'type': 'color', 'class': 'form-control form-control-color', 'style': 'max-width: 100px;'}),
+            'color_botones': forms.TextInput(attrs={'type': 'color', 'class': 'form-control form-control-color', 'style': 'max-width: 100px;'}),
+            'color_cintillo': forms.TextInput(attrs={'type': 'color', 'class': 'form-control form-control-color', 'style': 'max-width: 100px;'}),
             'imagen_encabezado': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'imagen_pie_pagina': forms.ClearableFileInput(attrs={'class': 'form-control'}),
-            'permitir_jefe_proyectos_cambiar_jefe_departamento': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 

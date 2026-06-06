@@ -49,6 +49,71 @@
                     </div>
                     
                     <hr class="my-4">
+                    <h6 class="fw-bold mb-3"><i class="bi bi-palette text-primary me-2"></i>Identidad Institucional y Branding</h6>
+                    
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold"><i class="bi bi-building me-1 text-primary"></i> {{ form.nombre_institucion.label }}</label>
+                            {{ form.nombre_institucion }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold"><i class="bi bi-fonts me-1 text-primary"></i> {{ form.siglas.label }}</label>
+                            {{ form.siglas }}
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold"><i class="bi bi-image-fill me-1 text-primary"></i> {{ form.logo_sistema.label }}</label>
+                        {{ form.logo_sistema }}
+                        <div class="form-text text-muted">{{ form.logo_sistema.help_text }}</div>
+                        {% if form.instance.logo_sistema %}
+                        <div class="mt-2 border rounded p-2 text-center" style="background:#f8f9fa;">
+                            <img src="{{ form.instance.logo_sistema.url }}" style="max-height: 50px;" alt="Logo actual">
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-4 bg-light p-3 rounded border">
+                        <div class="form-check form-switch d-flex align-items-center gap-2">
+                            {{ form.mostrar_cintillo }}
+                            <label class="form-check-label fw-bold mb-0 mt-1" for="{{ form.mostrar_cintillo.id_for_label }}">
+                                {{ form.mostrar_cintillo.label }}
+                            </label>
+                        </div>
+                        <div class="form-text text-muted mt-2"><i class="bi bi-info-circle me-1"></i> {{ form.mostrar_cintillo.help_text }}</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold"><i class="bi bi-image me-1 text-primary"></i> {{ form.imagen_cintillo.label }}</label>
+                        {{ form.imagen_cintillo }}
+                        <div class="form-text text-muted">{{ form.imagen_cintillo.help_text }}</div>
+                        {% if form.instance.imagen_cintillo %}
+                        <div class="mt-2 border rounded p-2 text-center" style="background:#f8f9fa;">
+                            <img src="{{ form.instance.imagen_cintillo.url }}" style="max-height: 50px;" alt="Imagen cintillo actual">
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small text-muted">{{ form.color_header.label }}</label>
+                            {{ form.color_header }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small text-muted">{{ form.color_menu.label }}</label>
+                            {{ form.color_menu }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small text-muted">{{ form.color_botones.label }}</label>
+                            {{ form.color_botones }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small text-muted">{{ form.color_cintillo.label }}</label>
+                            {{ form.color_cintillo }}
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
                     <h6 class="fw-bold mb-3"><i class="bi bi-images text-primary me-2"></i>Imágenes para PDFs</h6>
 
                     <div class="mb-4">

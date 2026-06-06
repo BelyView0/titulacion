@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Sistema de Titulación{% endblock %} — ITA</title>
-    <meta name="description" content="Sistema de Gestión del Proceso de Titulación — Instituto Tecnológico de Apizaco, TecNM">
+    <title>{% block title %}Sistema de Titulación{% endblock %} — {{ institucion.siglas|default:"ITA" }}</title>
+    <meta name="description" content="Sistema de Gestión del Proceso de Titulación — {{ institucion.nombre_institucion|default:'Instituto Tecnológico de Apizaco' }}">
 
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -19,11 +19,11 @@
         :root {
             --ita-rojo: #CC0000;
             --ita-rojo-oscuro: #990000;
-            --ita-azul: #003B73;
-            --ita-azul-claro: #0057B8;
+            --ita-azul: {{ institucion.color_menu|default:"#003B73" }};
+            --ita-azul-claro: {{ institucion.color_botones|default:"#0057B8" }};
             --ita-gris: #F4F6F9;
-            --ita-cintillo-bg: #611232;
-            --ita-header-bg: #1B396A;
+            --ita-cintillo-bg: {{ institucion.color_cintillo|default:"#611232" }};
+            --ita-header-bg: {{ institucion.color_header|default:"#1B396A" }};
             --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
             --shadow-md: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -1px rgba(0,0,0,.06);
             --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.1);
@@ -468,17 +468,29 @@
 <body>
 
 <!-- ── CINTILLO DEL GOBIERNO DE MÉXICO ──────────────────────── -->
+{% if institucion is None or institucion.mostrar_cintillo %}
 <div class="cintillo-gobierno">
-    <img src="{% static 'img/cintillo-gobierno.png' %}" alt="Gobierno de México">
+    {% if institucion and institucion.imagen_cintillo %}
+        <img src="{{ institucion.imagen_cintillo.url }}" alt="Cintillo Gubernamental">
+    {% else %}
+        <img src="{% static 'img/cintillo-gobierno.png' %}" alt="Gobierno de México">
+    {% endif %}
 </div>
+{% endif %}
 
 <!-- ── HEADER INSTITUCIONAL ────────────────────────────────── -->
 <header class="header-institucional">
     <div class="header-contenedor">
         <div class="header-logos">
+            {% if not institucion or not institucion.imagen_cintillo %}
             <img src="{% static 'img/logo-sep.png' %}" alt="SEP" class="logo-sep">
             <img src="{% static 'img/logo-tecnm.png' %}" alt="TecNM" class="logo-tecnm">
+            {% endif %}
+            {% if institucion and institucion.logo_sistema %}
+            <img src="{{ institucion.logo_sistema.url }}" alt="{{ institucion.nombre_institucion|default:'Instituto Tecnológico de Apizaco' }}" class="logo-ita">
+            {% else %}
             <img src="{% static 'img/logo-ita.png' %}" alt="Instituto Tecnológico de Apizaco" class="logo-ita">
+            {% endif %}
         </div>
         <div class="d-none d-md-block">
             <span style="font-size:.85rem; font-weight:600; color:rgba(255,255,255,.9); letter-spacing:.02em;">
@@ -493,8 +505,13 @@
 <nav class="navbar navbar-expand-lg navbar-rol">
     <div class="container-fluid px-4">
         <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'dashboard' %}" style="text-decoration:none;">
+            {% if institucion and institucion.logo_sistema %}
+            <img src="{{ institucion.logo_sistema.url }}" alt="{{ institucion.nombre_institucion|default:'Instituto Tecnológico de Apizaco' }}"
+                 style="height:38px; width:auto; object-fit:contain;">
+            {% else %}
             <img src="{% static 'img/logo-ita.png' %}" alt="Instituto Tecnológico de Apizaco"
                  style="height:38px; width:auto; object-fit:contain;">
+            {% endif %}
             <span style="color:rgba(255,255,255,.55); font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em;">Titulación</span>
         </a>
         <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navRol" aria-label="Toggle navigation">
@@ -733,7 +750,7 @@
     <!-- Footer Institucional -->
     <footer class="footer-institucional">
         <p><strong>Tecnológico Nacional de México</strong></p>
-        <p>Instituto Tecnológico de Apizaco</p>
+        <p>{{ institucion.nombre_institucion|default:"Instituto Tecnológico de Apizaco" }}</p>
         <p style="opacity:.6; font-size:.75rem;">© 2026 Todos los derechos reservados</p>
     </footer>
 </div>

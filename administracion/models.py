@@ -316,6 +316,59 @@ class ConfiguracionInstitucional(models.Model):
         help_text="Si está activo, los Jefes de Proyecto no necesitarán solicitar el cambio a un administrador, el cambio será directo."
     )
     
+    # ── Identidad Institucional y Branding ──
+    nombre_institucion = models.CharField(
+        max_length=255,
+        default="Instituto Tecnológico de Apizaco",
+        verbose_name="Nombre de la Institución"
+    )
+    siglas = models.CharField(
+        max_length=50,
+        default="ITApizaco",
+        verbose_name="Siglas de la Institución"
+    )
+    logo_sistema = models.ImageField(
+        upload_to='configuracion/',
+        blank=True, null=True,
+        verbose_name="Logotipo del Sistema",
+        help_text="Logotipo para la barra de navegación (se recomienda PNG transparente)."
+    )
+    mostrar_cintillo = models.BooleanField(
+        default=True,
+        verbose_name="Mostrar Cintillo Gubernamental",
+        help_text="Activar para mostrar la barra superior con los logos institucionales/gubernamentales."
+    )
+    imagen_cintillo = models.ImageField(
+        upload_to='configuracion/',
+        blank=True, null=True,
+        verbose_name="Imagen del Cintillo",
+        help_text="Opcional. Sube una imagen para reemplazar los logos del cintillo superior."
+    )
+    color_header = models.CharField(
+        max_length=7,
+        default="#1B396A",
+        verbose_name="Color de Barra de Navegación",
+        help_text="Color en formato hexadecimal."
+    )
+    color_menu = models.CharField(
+        max_length=7,
+        default="#003B73",
+        verbose_name="Color Primario (Botones y acentos)",
+        help_text="Color en formato hexadecimal."
+    )
+    color_botones = models.CharField(
+        max_length=7,
+        default="#0057B8",
+        verbose_name="Color Secundario (Hovers y enlaces)",
+        help_text="Color en formato hexadecimal."
+    )
+    color_cintillo = models.CharField(
+        max_length=7,
+        default="#611232",
+        verbose_name="Color de Fondo del Cintillo",
+        help_text="Color en formato hexadecimal."
+    )
+    
     # ── Configuración de Correo Electrónico (SMTP) ──
     email_host = models.CharField(
         max_length=255, default='smtp.gmail.com',
