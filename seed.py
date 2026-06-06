@@ -8,7 +8,7 @@ from expediente.models import PlanEstudios, Modalidad, TipoDocumento
 
 obj, created = ConfiguracionInstitucional.objects.get_or_create(
     id=1,
-    defaults=dict(anio_en_curso=2026, dominio_institucional='apizaco.tecnm.mx', imagen_encabezado=<ImageFieldFile: configuracion/Captura_de_pantalla_2026-04-23_171510.png>, imagen_pie_pagina=<ImageFieldFile: configuracion/Captura_de_pantalla_2026-04-23_180505.png>, ultima_actualizacion=1780533250.854532, permitir_jefe_proyectos_cambiar_jefe_departamento=False, nombre_institucion='Instituto Tecnológico de Apizaco', siglas='ITApizaco', logo_sistema=<ImageFieldFile: configuracion/tec_ita_RzhzJ5t.png>, mostrar_cintillo=True, imagen_cintillo=<ImageFieldFile: None>, color_header='#1b396a', color_menu='#003b73', color_botones='#0057b8', color_cintillo='#611232', email_host='smtp.gmail.com', email_port=587, email_use_tls=True, email_remitente='belyersua24@gmail.com', email_password='gAAAAABqG451IGHe56hquOkCO1FocuDB2qqd1YE6VGrw_lEkPVzBAOvTv359EY20739qr7GGmMMGi4CxwI0Pz0YsTjrEikpehgLr_BI6F3XPMgmstjU6de0=')
+    defaults=dict(anio_en_curso=2026, dominio_institucional='apizaco.tecnm.mx', imagen_encabezado='configuracion/Captura_de_pantalla_2026-04-23_171510.png', imagen_pie_pagina='configuracion/Captura_de_pantalla_2026-04-23_180505.png', ultima_actualizacion=1780533250.854532, permitir_jefe_proyectos_cambiar_jefe_departamento=False, nombre_institucion='Instituto Tecnológico de Apizaco', siglas='ITApizaco', logo_sistema='configuracion/tec_ita_RzhzJ5t.png', mostrar_cintillo=True, imagen_cintillo='', color_header='#1b396a', color_menu='#003b73', color_botones='#0057b8', color_cintillo='#611232', email_host='smtp.gmail.com', email_port=587, email_use_tls=True, email_remitente='belyersua24@gmail.com', email_password='gAAAAABqG451IGHe56hquOkCO1FocuDB2qqd1YE6VGrw_lEkPVzBAOvTv359EY20739qr7GGmMMGi4CxwI0Pz0YsTjrEikpehgLr_BI6F3XPMgmstjU6de0=')
 )
 
 obj, created = Departamento.objects.get_or_create(
@@ -123,19 +123,19 @@ obj, created = Carrera.objects.get_or_create(
 
 obj, created = Usuario.objects.get_or_create(
     username='escolares',
-    defaults=dict(email='belyersua24@gmail.com', rol='ESCOLARES', numero_control='escolares', telefono='2411721355', genero='M', generacion=2017, foto_perfil=<ImageFieldFile: None>, first_name='Marcos Manuel', last_name='Díaz', apellido_materno='Meza', debe_cambiar_password=False, correo_institucional='l21370903@apizaco.tecnm.mx', correo_institucional_verificado=False, email_verificado=True)
+    defaults=dict(email='belyersua24@gmail.com', rol='ESCOLARES', numero_control='escolares', telefono='2411721355', genero='M', generacion=2017, foto_perfil='', first_name='Marcos Manuel', last_name='Díaz', apellido_materno='Meza', debe_cambiar_password=False, correo_institucional='l21370903@apizaco.tecnm.mx', correo_institucional_verificado=False, email_verificado=True)
 )
 if created: obj.set_password('Temporal123!'); obj.save()
 
 obj, created = Usuario.objects.get_or_create(
     username='academico',
-    defaults=dict(email='belyersua24@gmail.com', rol='ACADEMICO', numero_control='academico', telefono='2411721355', genero='M', generacion=2021, foto_perfil=<ImageFieldFile: None>, first_name='Roberto', last_name='Torres', apellido_materno='Marquéz', debe_cambiar_password=False, correo_institucional='l21370903@apizaco.tecnm.mx', correo_institucional_verificado=False, email_verificado=False)
+    defaults=dict(email='belyersua24@gmail.com', rol='ACADEMICO', numero_control='academico', telefono='2411721355', genero='M', generacion=2021, foto_perfil='', first_name='Roberto', last_name='Torres', apellido_materno='Marquéz', debe_cambiar_password=False, correo_institucional='l21370903@apizaco.tecnm.mx', correo_institucional_verificado=False, email_verificado=False)
 )
 if created: obj.set_password('Temporal123!'); obj.save()
 
 obj, created = Usuario.objects.get_or_create(
     username='jefe_proy',
-    defaults=dict(email='belyersua24@gmail.com', rol='JEFE_PROYECTO', numero_control='jefe_proy', telefono='2411721355', genero='F', generacion=2021, foto_perfil=<ImageFieldFile: None>, first_name='María del Rocio', last_name='Ojeda', apellido_materno='Lopéz', departamento_id=6, debe_cambiar_password=False, correo_institucional='l21370903@apizaco.tecnm.mx', correo_institucional_verificado=True, email_verificado=False)
+    defaults=dict(email='belyersua24@gmail.com', rol='JEFE_PROYECTO', numero_control='jefe_proy', telefono='2411721355', genero='F', generacion=2021, foto_perfil='', first_name='María del Rocio', last_name='Ojeda', apellido_materno='Lopéz', departamento_id=6, debe_cambiar_password=False, correo_institucional='l21370903@apizaco.tecnm.mx', correo_institucional_verificado=True, email_verificado=False)
 )
 if created: obj.set_password('Temporal123!'); obj.save()
 
