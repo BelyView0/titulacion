@@ -73,6 +73,16 @@
                 <small class="text-muted fw-semibold">Fecha de apertura</small>
                 <div>{{ expediente.fecha_apertura|date:"d/m/Y H:i" }}</div>
             </div>
+            {% if expediente.preficha_pago %}
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">Preficha de Pago</small>
+                <div>
+                    <a href="{{ expediente.preficha_pago.url }}" target="_blank" class="btn btn-outline-success btn-xs py-0 px-2 fw-semibold" style="font-size: .75rem;">
+                        <i class="bi bi-file-earmark-pdf me-1"></i>Ver Preficha (PDF)
+                    </a>
+                </div>
+            </div>
+            {% endif %}
             {% if expediente.comprobante_pago %}
             <div class="mb-2">
                 <small class="text-muted fw-semibold">Comprobante de Pago</small>
@@ -136,10 +146,60 @@
             {% endif %}
 
             {% elif expediente.estado == 'PAGO_PENDIENTE' %}
+            {% if not expediente.preficha_enviada %}
+            <div class="alert alert-warning py-2 mb-3 small">
+                <i class="bi bi-file-earmark-pdf me-1"></i>
+                <strong>Preficha Pendiente:</strong> Genera la preficha para verificarla y envíala al alumno para que pueda realizar su depósito.
+            </div>
+            <div class="d-flex gap-2 mb-2">
+                <form action="{% url 'escolares:generar_preficha_pago' expediente.pk %}" method="post" class="flex-fill">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-secondary btn-sm w-100">
+                        <i class="bi bi-gear-fill me-1"></i>Generar Preficha
+                    </button>
+                </form>
+                <form action="{% url 'escolares:enviar_preficha_pago' expediente.pk %}" method="post" class="flex-fill">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-send-fill me-1"></i>Enviar Preficha
+                    </button>
+                </form>
+            </div>
+            {% if expediente.preficha_pago %}
+            <div class="mb-2">
+                <a href="{{ expediente.preficha_pago.url }}" target="_blank" class="btn btn-outline-success btn-sm w-100">
+                    <i class="bi bi-eye-fill me-1"></i>Ver Preficha Generada (PDF)
+                </a>
+            </div>
+            {% endif %}
+
+            <div class="mt-3 pt-2 border-top">
+                <form action="{% url 'escolares:subir_preficha_pago' expediente.pk %}" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <label class="form-label small fw-semibold mb-1" style="font-size: 0.8rem; color: #555;">O subir preficha manualmente (PDF):</label>
+                    <div class="input-group input-group-sm">
+                        <input type="file" name="preficha_pdf" class="form-control" accept=".pdf" required>
+                        <button class="btn btn-outline-primary" type="submit">
+                            <i class="bi bi-upload"></i> Subir
+                        </button>
+                    </div>
+                </form>
+            </div>
+            {% else %}
+            <div class="alert alert-success py-2 mb-2 small">
+                <i class="bi bi-check-circle-fill me-1"></i>
+                <strong>Preficha Enviada:</strong> La preficha de pago ya fue enviada al alumno.
+            </div>
+            <div class="mb-3">
+                <a href="{{ expediente.preficha_pago.url }}" target="_blank" class="btn btn-outline-success btn-sm w-100">
+                    <i class="bi bi-file-earmark-pdf me-1"></i>Ver Preficha de Pago (PDF)
+                </a>
+            </div>
             <div class="alert alert-warning py-2 mb-0 small">
                 <i class="bi bi-hourglass-split me-1"></i>
                 <strong>Esperando pago:</strong> El estudiante debe subir su comprobante de pago de titulación en PDF para continuar.
             </div>
+            {% endif %}
 
             {% elif expediente.estado == 'PAGO_EN_REVISION' %}
             <div class="alert alert-info py-2 mb-3 small">

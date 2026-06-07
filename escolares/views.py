@@ -298,9 +298,9 @@ class MarcarPapelesRecibidosView(EscolaresRequeridoMixin, View):
             expediente=expediente,
             tipo='AVANCE',
             titulo='Papeles Originales Integrados — Pendiente de Pago',
-            mensaje='Servicios Escolares ha integrado tus papeles originales. Por favor, sube tu comprobante de pago para continuar.',
+            mensaje='Servicios Escolares ha integrado tus papeles originales. Próximamente se te enviará la Preficha de Pago para que puedas realizar tu depósito.',
         )
-        messages.success(request, 'Papeles integrados confirmados. El expediente está en etapa de pago.')
+        messages.success(request, 'Papeles integrados confirmados. El expediente está en etapa de pago y espera generación de preficha.')
         return redirect('escolares:expediente_detalle', pk=pk)
 
 
@@ -368,6 +368,131 @@ class ValidarPagoEscolaresView(EscolaresRequeridoMixin, View):
 
         else:
             messages.error(request, 'Acción no válida.')
+
+        return redirect('escolares:expediente_detalle', pk=pk)
+
+
+class GenerarPrefichaPagoView(EscolaresRequeridoMixin, View):
+    """Servicios Escolares genera la preficha de pago sin enviarla formalmente al alumno."""
+
+    def post(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+        if expediente.estado != EstadoExpediente.PAGO_PENDIENTE:
+            messages.error(request, 'El expediente no se encuentra en la etapa de pago pendiente.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        try:
+            from escolares.pdf_preficha import generar_preficha_pdf
+            from django.core.files.base import ContentFile
+            
+            # Generar PDF
+            pdf_bytes = generar_preficha_pdf(expediente)
+            filename = f"Preficha_Pago_{expediente.alumno.numero_control}.pdf"
+            
+            # Guardar en expediente sin marcar como enviada
+            expediente.preficha_pago.save(filename, ContentFile(pdf_bytes), save=False)
+            expediente.save(update_fields=['preficha_pago', 'fecha_ultima_actualizacion'])
+            
+            messages.success(request, 'Preficha de pago generada con éxito. Puedes ver el PDF para verificarlo.')
+        except Exception as e:
+            messages.error(request, f'Error al generar la preficha: {str(e)}')
+            
+        return redirect('escolares:expediente_detalle', pk=pk)
+
+
+class EnviarPrefichaPagoView(EscolaresRequeridoMixin, View):
+    """Servicios Escolares envía la preficha de pago al alumno (la genera si no existe)."""
+
+    def post(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+        if expediente.estado != EstadoExpediente.PAGO_PENDIENTE:
+            messages.error(request, 'El expediente no se encuentra en la etapa de pago pendiente.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        try:
+            # Si no se ha generado la preficha, la generamos primero
+            if not expediente.preficha_pago:
+                from escolares.pdf_preficha import generar_preficha_pdf
+                from django.core.files.base import ContentFile
+                
+                pdf_bytes = generar_preficha_pdf(expediente)
+                filename = f"Preficha_Pago_{expediente.alumno.numero_control}.pdf"
+                expediente.preficha_pago.save(filename, ContentFile(pdf_bytes), save=False)
+
+            expediente.preficha_enviada = True
+            expediente.save(update_fields=['preficha_pago', 'preficha_enviada', 'fecha_ultima_actualizacion'])
+            
+            # Registrar en el historial
+            from expediente.models import HistorialExpediente
+            HistorialExpediente.objects.create(
+                expediente=expediente,
+                estado_anterior=expediente.estado,
+                estado_nuevo=expediente.estado,
+                realizado_por=request.user,
+                descripcion='Servicios Escolares envió la Preficha de Pago al alumno.'
+            )
+            
+            # Notificar al alumno
+            notificar_alumno(
+                expediente=expediente,
+                tipo='INFO',
+                titulo='Preficha de Pago Disponible',
+                mensaje='Servicios Escolares ha generado tu Preficha de Pago. Por favor descárgala de tu panel, realiza el pago y sube tu comprobante.',
+            )
+            
+            messages.success(request, 'Preficha de pago enviada al alumno con éxito.')
+        except Exception as e:
+            messages.error(request, f'Error al enviar la preficha: {str(e)}')
+            
+        return redirect('escolares:expediente_detalle', pk=pk)
+
+
+class SubirPrefichaEscolaresView(EscolaresRequeridoMixin, View):
+    """Servicios Escolares sube manualmente el PDF de la preficha de pago para el alumno."""
+
+    def post(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+        if expediente.estado != EstadoExpediente.PAGO_PENDIENTE:
+            messages.error(request, 'El expediente no se encuentra en la etapa de pago pendiente.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        archivo_pdf = request.FILES.get('preficha_pdf')
+        if not archivo_pdf:
+            messages.error(request, 'Por favor, selecciona un archivo PDF.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        # Validar extensión
+        if not archivo_pdf.name.lower().endswith('.pdf'):
+            messages.error(request, 'El archivo debe estar en formato PDF.')
+            return redirect('escolares:expediente_detalle', pk=pk)
+
+        try:
+            # Guardar archivo, marcar como enviada y actualizar
+            expediente.preficha_pago = archivo_pdf
+            expediente.preficha_enviada = True
+            expediente.save(update_fields=['preficha_pago', 'preficha_enviada', 'fecha_ultima_actualizacion'])
+
+            # Registrar en el historial
+            from expediente.models import HistorialExpediente
+            HistorialExpediente.objects.create(
+                expediente=expediente,
+                estado_anterior=expediente.estado,
+                estado_nuevo=expediente.estado,
+                realizado_por=request.user,
+                descripcion='Servicios Escolares subió manualmente la Preficha de Pago.'
+            )
+
+            # Notificar al alumno
+            notificar_alumno(
+                expediente=expediente,
+                tipo='INFO',
+                titulo='Preficha de Pago Disponible',
+                mensaje='Servicios Escolares ha subido tu Preficha de Pago. Por favor descárgala de tu panel, realiza el pago y sube tu comprobante.',
+            )
+
+            messages.success(request, 'Preficha de pago subida y enviada al alumno con éxito.')
+        except Exception as e:
+            messages.error(request, f'Error al subir la preficha: {str(e)}')
 
         return redirect('escolares:expediente_detalle', pk=pk)
 

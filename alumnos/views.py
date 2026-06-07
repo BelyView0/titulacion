@@ -267,6 +267,10 @@ class SubirComprobantePagoView(ExpedientePropioMixin, View):
             messages.error(request, 'No estás en la etapa de pago actualmente.')
             return redirect('alumnos:expediente')
 
+        if not expediente.preficha_enviada:
+            messages.error(request, 'Servicios Escolares aún no ha generado tu Preficha de Pago.')
+            return redirect('alumnos:expediente')
+
         comprobante = request.FILES.get('comprobante_pago')
         if not comprobante:
             messages.error(request, 'Por favor, selecciona un archivo.')

@@ -219,6 +219,18 @@ class Expediente(models.Model):
     )
     fecha_subida_pago = models.DateTimeField(null=True, blank=True)
     fecha_validacion_pago = models.DateTimeField(null=True, blank=True)
+    
+    # Preficha de Pago
+    preficha_pago = models.FileField(
+        upload_to='prefichas/%Y/',
+        null=True, blank=True,
+        verbose_name='Preficha de Pago (PDF)'
+    )
+    preficha_enviada = models.BooleanField(
+        default=False,
+        verbose_name='¿Preficha de Pago enviada?'
+    )
+
     # Constancia de No Inconveniencia (subida manualmente por Escolares)
     constancia_no_inconveniencia = models.FileField(
         upload_to='constancias/%Y/',
