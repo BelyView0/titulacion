@@ -54,6 +54,11 @@ class Departamento(models.Model):
     def __str__(self):
         return self.nombre
 
+    @property
+    def jefe_asignado(self):
+        """Retorna el jefe que está actualmente activo para este departamento."""
+        return self.jefes_historial.filter(activo=True).first()
+
 
 class Profesor(models.Model):
     """
@@ -414,11 +419,16 @@ class JefeDepartamento(models.Model):
     Representa al Jefe o Jefa de un Departamento Académico o Administrativo.
     Se utiliza principalmente para estampar la firma y el cargo en los oficios generados.
     """
-    departamento = models.OneToOneField(
+    departamento = models.ForeignKey(
         Departamento,
         on_delete=models.CASCADE,
-        related_name='jefe_asignado',
+        related_name='jefes_historial',
         verbose_name="Departamento"
+    )
+    activo = models.BooleanField(
+        default=True,
+        verbose_name="¿Es el jefe activo actualmente?",
+        help_text="Solo debe haber un jefe activo por departamento a la vez."
     )
     titulo_academico = models.CharField(
         max_length=50,

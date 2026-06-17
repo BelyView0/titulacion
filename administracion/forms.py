@@ -258,7 +258,7 @@ class ConfiguracionEmailForm(forms.ModelForm):
 class JefeDepartamentoForm(forms.ModelForm):
     class Meta:
         model = JefeDepartamento
-        fields = ['departamento', 'titulo_academico', 'nombre', 'apellido_paterno', 'apellido_materno', 'genero']
+        fields = ['departamento', 'titulo_academico', 'nombre', 'apellido_paterno', 'apellido_materno', 'genero', 'activo']
         widgets = {
             'departamento': forms.Select(attrs={'class': 'form-select'}),
             'titulo_academico': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Ing., M.C., Dra.'}),
@@ -266,6 +266,7 @@ class JefeDepartamentoForm(forms.ModelForm):
             'apellido_paterno': forms.TextInput(attrs={'class': 'form-control'}),
             'apellido_materno': forms.TextInput(attrs={'class': 'form-control'}),
             'genero': forms.Select(attrs={'class': 'form-select'}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 
@@ -483,13 +484,14 @@ class JefeDepartamentoUpdateForm(forms.ModelForm):
     class Meta:
         from administracion.models import JefeDepartamento
         model = JefeDepartamento
-        fields = ['titulo_academico', 'nombre', 'apellido_paterno', 'apellido_materno', 'genero']
+        fields = ['titulo_academico', 'nombre', 'apellido_paterno', 'apellido_materno', 'genero', 'activo']
         widgets = {
             'titulo_academico': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Ing., M.C., Dra.'}),
             'nombre': forms.TextInput(attrs={'class': 'form-control'}),
             'apellido_paterno': forms.TextInput(attrs={'class': 'form-control'}),
             'apellido_materno': forms.TextInput(attrs={'class': 'form-control'}),
             'genero': forms.Select(attrs={'class': 'form-select'}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
     def __init__(self, *args, **kwargs):
