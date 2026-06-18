@@ -923,12 +923,8 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
         vocal_id = request.POST.get('vocal')
         suplente_id = request.POST.get('suplente')
         
-        numero_oficio = request.POST.get('numero_oficio')
-        fecha_acto = request.POST.get('fecha_acto')
-        lugar_acto = request.POST.get('lugar_acto')
-
-        if not all([presidente_id, secretario_id, vocal_id, suplente_id, numero_oficio, fecha_acto, lugar_acto]):
-            messages.error(request, 'Debes llenar todos los campos (roles, oficio, fecha y lugar).')
+        if not all([presidente_id, secretario_id, vocal_id, suplente_id]):
+            messages.error(request, 'Debes seleccionar los cuatro miembros del jurado.')
             return redirect('administracion:jefe_jurado', pk=pk)
 
         if len({presidente_id, secretario_id, vocal_id, suplente_id}) < 4:
@@ -942,9 +938,6 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
                 'secretario_id': secretario_id,
                 'vocal_propietario_id': vocal_id,
                 'vocal_suplente_id': suplente_id,
-                'numero_oficio': numero_oficio,
-                'fecha_acto': fecha_acto,
-                'lugar_acto': lugar_acto,
                 'fecha_oficio': timezone.now().date(),
                 'asignado_por': request.user,
             }
@@ -954,45 +947,18 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
             jurado.secretario_id = secretario_id
             jurado.vocal_propietario_id = vocal_id
             jurado.vocal_suplente_id = suplente_id
-            jurado.numero_oficio = numero_oficio
-            jurado.fecha_acto = fecha_acto
-            jurado.lugar_acto = lugar_acto
             jurado.fecha_oficio = timezone.now().date()
             jurado.asignado_por = request.user
             jurado.save()
 
-        # Revisar si hay una solicitud de cambio de jefe pendiente (no mayor a 14 días)
-        from administracion.models import SolicitudCambioJefe
-        import datetime
-        limite_fecha = timezone.now() - datetime.timedelta(days=14)
-        
-        solicitud_pendiente = SolicitudCambioJefe.objects.filter(
-            departamento=request.user.departamento,
-            estado='PENDIENTE',
-            fecha_solicitud__gte=limite_fecha
-        ).first()
-
-        # Generar y guardar el PDF estático
-        from administracion.pdf_oficio import generar_oficio_jurado_pdf
-        from django.core.files.base import ContentFile
-        
-        pdf_bytes = generar_oficio_jurado_pdf(jurado, jefe_custom=solicitud_pendiente)
-        filename = f'Oficio_Jurado_{expediente.alumno.username}.pdf'
-        jurado.oficio_pdf.save(filename, ContentFile(pdf_bytes), save=False)
-        
-        if solicitud_pendiente:
-            jurado.solicitud_jefe_usada = solicitud_pendiente
-            
-        jurado.save()
-
-        messages.success(request, 'Asignación de jurado registrada exitosamente.')
+        messages.success(request, 'Asignación de jurado registrada exitosamente. Ahora puedes programar el acto.')
 
         # Actualizar estado del expediente
         registrar_cambio_estado(
             expediente=expediente,
             estado_nuevo=EstadoExpediente.JURADO_ASIGNADO,
             realizado_por=request.user,
-            descripcion=f'Jurado asignado. Oficio {numero_oficio}. Acto: {fecha_acto} en {lugar_acto}'
+            descripcion='Jurado asignado.'
         )
         notificar_alumno(
             expediente=expediente,
@@ -1310,6 +1276,39 @@ class ActoProtocolarioView(JefeProyectoRequeridoMixin, CreateView):
         acto.resultado = 'PENDIENTE'
         acto.programado_por = self.request.user
         acto.save()
+
+        # Actualizar AsignacionJurado
+        jurado = expediente.jurado
+        if jurado:
+            jurado.fecha_acto = acto.fecha_acto
+            jurado.lugar_acto = acto.lugar
+            numero_oficio = self.request.POST.get('numero_oficio')
+            if numero_oficio:
+                jurado.numero_oficio = numero_oficio
+            
+            # Revisar si hay una solicitud de cambio de jefe pendiente (no mayor a 14 días)
+            from administracion.models import SolicitudCambioJefe
+            import datetime
+            limite_fecha = timezone.now() - datetime.timedelta(days=14)
+            
+            solicitud_pendiente = SolicitudCambioJefe.objects.filter(
+                departamento=self.request.user.departamento if self.request.user.departamento else None,
+                estado='PENDIENTE',
+                fecha_solicitud__gte=limite_fecha
+            ).first()
+
+            # Generar y guardar el PDF estático
+            from administracion.pdf_oficio import generar_oficio_jurado_pdf
+            from django.core.files.base import ContentFile
+            
+            pdf_bytes = generar_oficio_jurado_pdf(jurado, jefe_custom=solicitud_pendiente)
+            filename = f'Oficio_Jurado_{expediente.alumno.username}.pdf'
+            jurado.oficio_pdf.save(filename, ContentFile(pdf_bytes), save=False)
+            
+            if solicitud_pendiente:
+                jurado.solicitud_jefe_usada = solicitud_pendiente
+                
+            jurado.save()
 
         registrar_cambio_estado(
             expediente=expediente,

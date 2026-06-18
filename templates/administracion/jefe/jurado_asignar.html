@@ -89,27 +89,7 @@
                     {% csrf_token %}
 
                     <div class="row g-4">
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Número de Oficio</label>
-                            <input type="text" name="numero_oficio" class="form-control" value="{{ jurado.numero_oficio|default:'' }}" required placeholder="ej: S.C./OPV/0099/2026">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Fecha y Hora del Acto</label>
-                            <input type="datetime-local" name="fecha_acto" class="form-control" value="{{ jurado.fecha_acto|date:'Y-m-d\TH:i' }}" required>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label fw-semibold">Lugar del Acto</label>
-                            <select id="select_lugar_acto" class="form-select mb-2">
-                                <option value="">— Seleccionar lugar —</option>
-                                <option value="SALA MAGNA (Edificio T)" {% if jurado.lugar_acto == 'SALA MAGNA (Edificio T)' %}selected{% endif %}>SALA MAGNA (Edificio T)</option>
-                                <option value="SALA DE TITULACIÓN (Edificio E)" {% if jurado.lugar_acto == 'SALA DE TITULACIÓN (Edificio E)' %}selected{% endif %}>SALA DE TITULACIÓN (Edificio E)</option>
-                                <option value="Otra" {% if jurado.lugar_acto and jurado.lugar_acto != 'SALA MAGNA (Edificio T)' and jurado.lugar_acto != 'SALA DE TITULACIÓN (Edificio E)' %}selected{% endif %}>Otra</option>
-                            </select>
-                            <input type="text" name="lugar_acto" id="input_lugar_acto" class="form-control" value="{{ jurado.lugar_acto|default:'' }}" required placeholder="Especifique el lugar...">
-                        </div>
-
-                        <div class="col-12 mt-4">
-                            <hr>
+                        <div class="col-12 mt-2">
                             <h6 class="fw-bold mb-3"><i class="bi bi-people"></i> Integrantes del Jurado</h6>
                         </div>
 
@@ -273,34 +253,5 @@ document.getElementById('btn-confirm-submit').addEventListener('click', function
     document.getElementById('formJurado').submit();
 });
 
-(function initLugarSelect() {
-    const select = document.getElementById('select_lugar_acto');
-    const input = document.getElementById('input_lugar_acto');
-    
-    if (!select || !input) return;
-
-    function toggleInput() {
-        if (select.value === 'Otra') {
-            input.style.display = 'block';
-            input.readOnly = false;
-            if (input.value === 'SALA MAGNA (Edificio T)' || input.value === 'SALA DE TITULACIÓN (Edificio E)') {
-                input.value = '';
-            }
-            input.focus();
-        } else {
-            input.style.display = 'none';
-            input.readOnly = true;
-            input.value = select.value;
-        }
-    }
-
-    select.addEventListener('change', toggleInput);
-    
-    // Al cargar la página, si no hay valor predefinido y es "Otra", asegurarse que el select lo refleje
-    if (!select.value && input.value && input.value !== 'SALA MAGNA (Edificio T)' && input.value !== 'SALA DE TITULACIÓN (Edificio E)') {
-        select.value = 'Otra';
-    }
-    toggleInput();
-})();
 </script>
 {% endblock %}

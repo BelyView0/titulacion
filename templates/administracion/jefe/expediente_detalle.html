@@ -95,16 +95,20 @@
                     {% endif %}
                 </div>
             </div>
-            {% if expediente.estado >= 'JURADO_ASIGNADO' %}
+            {% if expediente.jurado %}
             <div class="d-grid gap-2">
+                {% if expediente.acto_protocolario %}
                 <a href="{% url 'administracion:jefe_oficio' expediente.pk %}" target="_blank" class="btn btn-outline-danger btn-sm">
                     <i class="bi bi-file-earmark-pdf me-1"></i>Descargar Oficio S.C.
                 </a>
+                <a href="{% url 'administracion:jefe_programar' expediente.pk %}" class="btn btn-outline-info btn-sm">
+                    <i class="bi bi-calendar-event me-1"></i>Modificar Acto
+                </a>
+                {% endif %}
                 <a href="{% url 'administracion:jefe_jurado' expediente.pk %}" class="btn btn-outline-warning btn-sm">
                     <i class="bi bi-pencil me-1"></i>Modificar Jurado
                 </a>
             </div>
-            {% endif %}
             {% elif expediente.estado == 'EMPASTADO_RECIBIDO' %}
             <p class="small text-muted">El empastado ha sido recibido. Procede a asignar el jurado para el acto protocolario.</p>
             <a href="{% url 'administracion:jefe_jurado' expediente.pk %}" class="btn btn-primary btn-sm w-100">
