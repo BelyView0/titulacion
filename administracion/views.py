@@ -964,7 +964,7 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
             expediente=expediente,
             tipo='AVANCE',
             titulo='Jurado asignado para tu examen profesional',
-            mensaje=f'Se ha asignado el jurado y fecha para tu acto protocolario. Fecha: {fecha_acto} en {lugar_acto}.',
+            mensaje='Se ha asignado el jurado para tu acto protocolario. En breve se te notificará la fecha y lugar.',
         )
 
         # Enviar correos
@@ -985,8 +985,7 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
 
 Se notifica que han sido designados como jurado para el acto de recepción profesional del alumno(a) {expediente.alumno.get_full_name()} ({expediente.alumno.carrera}).
 
-Lugar: {lugar_acto}
-Fecha y hora: {fecha_acto}
+En breve se programará la fecha y lugar del acto protocolario.
 
 Jurado:
 - Presidente: {jurado.presidente.get_nombre_con_titulo()}
