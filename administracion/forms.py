@@ -291,7 +291,7 @@ class ProfesorForm(forms.ModelForm):
             'titulo_academico': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Doctor en Sistemas Computacionales'}),
             'cedula': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Número de cédula profesional'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
-            'departamentos': forms.CheckboxSelectMultiple(),
+            'departamentos': forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
             'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
