@@ -995,13 +995,16 @@ Jurado:
 
 Instituto Tecnológico de Apizaco
 '''
-            send_mail(
-                subject=f'{settings.EMAIL_SUBJECT_PREFIX}Oficio Asignación Jurado - {expediente.alumno.get_full_name()}',
-                message=cuerpo,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=correos_destinos,
-                fail_silently=True,
-            )
+            def _enviar():
+                send_mail(
+                    subject=f'{settings.EMAIL_SUBJECT_PREFIX}Oficio Asignación Jurado - {expediente.alumno.get_full_name()}',
+                    message=cuerpo,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=correos_destinos,
+                    fail_silently=True,
+                )
+            import threading
+            threading.Thread(target=_enviar).start()
 
         return redirect('administracion:jefe_detalle', pk=pk)
 

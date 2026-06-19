@@ -10,7 +10,17 @@ Flujo:
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 
+import threading
+
 from expediente.models import ConfirmacionActo
+
+def _send_async(msg):
+    def _send():
+        try:
+            msg.send(fail_silently=True)
+        except Exception:
+            pass
+    threading.Thread(target=_send).start()
 
 
 def confirmar_asistencia(request, token):
@@ -148,7 +158,7 @@ def _enviar_correos_invitacion_jurado(acto, request):
                 to=[conf.email],
             )
             msg.attach_alternative(html_body, "text/html")
-            msg.send(fail_silently=True)
+            _send_async(msg)
         except Exception:
             pass
 
@@ -243,7 +253,7 @@ def _enviar_correo_confirmacion_recibida(confirmacion, acto):
             to=[confirmacion.email],
         )
         msg.attach_alternative(html_body, "text/html")
-        msg.send(fail_silently=True)
+        _send_async(msg)
     except Exception:
         pass
 
@@ -379,6 +389,6 @@ def _enviar_correo_acto_confirmado(acto):
                 to=[conf_dest.email],
             )
             msg.attach_alternative(html_body, "text/html")
-            msg.send(fail_silently=True)
+            _send_async(msg)
         except Exception:
             pass
