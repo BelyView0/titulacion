@@ -1426,27 +1426,20 @@ class ActoProtocolarioView(JefeProyectoRequeridoMixin, CreateView):
 
 class ReprogramarActoView(JefeProyectoRequeridoMixin, View):
     """
-    POST — Reprograma el acto protocolario cuando la fecha ya pasó
-    y las confirmaciones de asistencia NO se completaron.
+    POST — Reprograma el acto protocolario (nueva fecha y lugar).
     """
 
     def post(self, request, pk):
+        import threading
         from expediente.models import ConfirmacionActo
         from django.core.mail import EmailMultiAlternatives
         from django.conf import settings
         from django.http import Http404
 
-        try:
-            acto = get_object_or_404(ActoProtocolario, pk=pk)
-            expediente = acto.expediente
-        except Http404:
-            # Si el acto no existe (quizás ya se borró), intentamos redirigir al dashboard
-            messages.info(request, 'El acto ya no existe o ya fue reprogramado.')
-            return redirect('administracion:jefe_dashboard')
-
-        user = request.user
+        acto = get_object_or_404(ActoProtocolario, pk=pk)
+        expediente = acto.expediente
         
-        # Security check
+        user = request.user
         if user.departamento:
             if expediente.alumno.carrera.departamento != user.departamento:
                 messages.error(request, 'No tienes permiso para modificar este expediente.')
@@ -1455,107 +1448,151 @@ class ReprogramarActoView(JefeProyectoRequeridoMixin, View):
             messages.error(request, 'No tienes permiso para modificar este expediente.')
             return redirect('administracion:jefe_dashboard')
 
-
-        if acto.fecha_acto > timezone.now():
-            messages.error(request, 'No puedes reprogramar un acto cuya fecha aún no ha pasado.')
-            return redirect('administracion:jefe_detalle', pk=expediente.pk)
-
-
-
-        # Guardar datos para los correos antes de borrar
-        fecha_anterior = acto.fecha_acto.strftime('%d/%m/%Y a las %H:%M')
+        fecha_anterior_str = acto.fecha_acto.strftime('%d/%m/%Y a las %H:%M')
         lugar_anterior = acto.lugar
         alumno_nombre = expediente.alumno.get_full_name()
         motivo = request.POST.get('motivo', 'Motivos administrativos u otra eventualidad.')
 
-        # Recopilar destinatarios
-        destinatarios = []
-        for conf in acto.confirmaciones.all():
-            if conf.email:
-                destinatarios.append((conf.nombre_participante, conf.email, conf.get_rol_display()))
+        nueva_fecha_str = request.POST.get('fecha_acto')
+        nuevo_lugar = request.POST.get('lugar')
+        
+        if not nueva_fecha_str or not nuevo_lugar:
+            messages.error(request, 'Debes proporcionar la nueva fecha y lugar.')
+            return redirect('administracion:jefe_detalle', pk=expediente.pk)
 
-        # Eliminar el acto (esto elimina en cascada las confirmaciones)
-        acto.delete()
+        from django.utils.dateparse import parse_datetime
+        nueva_fecha = parse_datetime(nueva_fecha_str)
 
-        # Regresar estado del expediente
+        acto.fecha_acto = nueva_fecha
+        acto.lugar = nuevo_lugar
+        acto.resultado = 'PENDIENTE'
+        acto.save()
+
+        jurado = acto.jurado
+        if jurado:
+            jurado.fecha_acto = nueva_fecha
+            jurado.lugar_acto = nuevo_lugar
+            jurado.save()
+            from administracion.pdf_oficio import generar_oficio_jurado_pdf
+            from django.core.files.base import ContentFile
+            jefe_custom = None
+            if hasattr(jurado, 'solicitud_jefe_usada'):
+                jefe_custom = jurado.solicitud_jefe_usada
+            pdf_bytes = generar_oficio_jurado_pdf(jurado, jefe_custom=jefe_custom)
+            filename = f'Oficio_Jurado_{expediente.alumno.username}.pdf'
+            jurado.oficio_pdf.save(filename, ContentFile(pdf_bytes), save=True)
+
+        acto.confirmaciones.all().delete()
+
+        import secrets
+        participantes = [
+            ('PRESIDENTE', jurado.presidente.get_nombre_corto() if jurado else 'Presidente', jurado.presidente.email if jurado else None),
+            ('SECRETARIO', jurado.secretario.get_nombre_corto() if jurado else 'Secretario', jurado.secretario.email if jurado else None),
+        ]
+        if jurado and jurado.vocal_propietario:
+            participantes.append(('VOCAL_PROPIETARIO', jurado.vocal_propietario.get_nombre_corto(), jurado.vocal_propietario.email))
+        if jurado and jurado.vocal_suplente:
+            participantes.append(('VOCAL_SUPLENTE', jurado.vocal_suplente.get_nombre_corto(), jurado.vocal_suplente.email))
+        participantes.append(('ALUMNO', expediente.alumno.get_full_name(), expediente.alumno.email))
+
+        confirmaciones = []
+        for rol, nombre, email in participantes:
+            if not email:
+                continue
+            conf = ConfirmacionActo.objects.create(
+                acto=acto, rol=rol,
+                nombre_participante=nombre,
+                email=email,
+                token=secrets.token_urlsafe(48),
+                confirmado=False
+            )
+            confirmaciones.append((conf, nombre, email, conf.get_rol_display()))
+
         registrar_cambio_estado(
             expediente=expediente,
-            estado_nuevo=EstadoExpediente.JURADO_ASIGNADO,
+            estado_nuevo=EstadoExpediente.ACTO_PROGRAMADO,
             realizado_por=request.user,
-            descripcion=f'Acto protocolario reprogramado. Motivo: {motivo}. Fecha anterior: {fecha_anterior}.'
+            descripcion=f'Acto reprogramado. Motivo: {motivo}. Fecha anterior: {fecha_anterior_str}. Nueva fecha: {nueva_fecha.strftime("%d/%m/%Y a las %H:%M")}'
         )
 
         notificar_alumno(
             expediente=expediente,
-            tipo='INFO',
+            tipo='AVANCE',
             titulo='Tu acto protocolario ha sido reprogramado',
-            mensaje=f'El acto protocolario programado para el {fecha_anterior} en {lugar_anterior} ha sido reprogramado. Motivo: {motivo}. Recibirás una nueva notificación cuando se asigne la nueva fecha.',
+            mensaje=f'El acto protocolario programado originalmente para el {fecha_anterior_str} ha sido reprogramado para el {nueva_fecha.strftime("%d/%m/%Y a las %H:%M")} en {nuevo_lugar}. Motivo: {motivo}. Recibirás un correo con la invitación.',
         )
 
-        # Enviar correos
-        for nombre, email, rol_display in destinatarios:
-            html_body = f"""<!DOCTYPE html>
+        nueva_fecha_fmt = nueva_fecha.strftime('%d/%m/%Y a las %H:%M')
+        base_url = request.build_absolute_uri('/')[:-1]
+
+        def _enviar():
+            for conf, nombre, email, rol_display in confirmaciones:
+                html_body = f"""<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;">
 <div style="max-width:600px;margin:0 auto;padding:20px;">
-  <div style="background:linear-gradient(135deg,#dc3545,#b02a37);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
-    <div style="font-size:42px;color:#fff;">&#x1F504;</div>
+  <div style="background:linear-gradient(135deg,#eab308,#ca8a04);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
+    <div style="font-size:42px;color:#fff;">&#x23F0;</div>
     <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Acto Protocolario Reprogramado</h2>
     <p style="color:rgba(255,255,255,.8);margin:0;font-size:13px;">Instituto Tecnol&oacute;gico de Apizaco &mdash; TecNM</p>
   </div>
   <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
     <p style="font-size:15px;color:#333;">Estimado(a) <strong>{nombre}</strong>,</p>
-    <p style="font-size:14px;color:#555;">Le informamos que el acto protocolario en el que participar&iacute;a como
-    <strong style="color:#dc3545;">{rol_display}</strong> ha sido <strong>reprogramado</strong>.</p>
+    <p style="font-size:14px;color:#555;">Le informamos que el acto protocolario del alumno(a) <strong>{alumno_nombre}</strong> en el que participar&iacute;a como <strong>{rol_display}</strong> ha sido <strong>reprogramado</strong>.</p>
 
-    <div style="background:#fef2f2;border-radius:8px;padding:16px;margin:20px 0;border-left:4px solid #dc3545;">
-      <table style="width:100%;border-collapse:collapse;">
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Alumno(a)</td>
-            <td style="padding:6px 12px;font-size:14px;font-weight:700;">{alumno_nombre}</td></tr>
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Fecha anterior</td>
-            <td style="padding:6px 12px;font-size:14px;text-decoration:line-through;color:#dc3545;">{fecha_anterior}</td></tr>
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Lugar anterior</td>
-            <td style="padding:6px 12px;font-size:14px;">{lugar_anterior}</td></tr>
-      </table>
-    </div>
-
-    <div style="background:#fff3cd;border-radius:8px;padding:14px 16px;font-size:13px;color:#856404;margin:20px 0;">
+    <div style="background:#fffbeb;border-radius:8px;padding:14px 16px;font-size:13px;color:#92400e;margin:20px 0;border-left:4px solid #f59e0b;">
       <strong>&#9888;&#65039; Motivo:</strong> {motivo}
     </div>
 
-    <p style="font-size:14px;color:#555;">
-      Se le notificar&aacute; oportunamente cuando se asigne una <strong>nueva fecha y lugar</strong> para el acto protocolario.
-    </p>
+    <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin:20px 0;border-left:4px solid #0057B8;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Nueva Fecha</td>
+            <td style="padding:6px 12px;font-size:14px;font-weight:700;color:#0057B8;">{nueva_fecha_fmt}</td></tr>
+        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Nuevo Lugar</td>
+            <td style="padding:6px 12px;font-size:14px;">{nuevo_lugar}</td></tr>
+        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;vertical-align:top;">Fecha Anterior</td>
+            <td style="padding:6px 12px;font-size:12px;color:#dc3545;text-decoration:line-through;">{fecha_anterior_str} en {lugar_anterior}</td></tr>
+      </table>
+    </div>
+
+    <div style="background:#dbeafe;border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
+      <div style="font-size:14px;color:#1e40af;font-weight:700;margin-bottom:8px;">&#128232; Confirme su nueva asistencia</div>
+      <p style="font-size:13px;color:#333;margin:0;">
+        Por favor comun&iacute;quese con el <strong>Jefe de Departamento</strong> correspondiente para confirmar que est&aacute; enterado y puede asistir en esta nueva fecha.
+      </p>
+    </div>
   </div>
-  <p style="text-align:center;font-size:11px;color:#999;margin-top:16px;">
-    Sistema de Gesti&oacute;n de Titulaci&oacute;n &mdash; TecNM / Instituto Tecnol&oacute;gico de Apizaco
-  </p>
 </div>
 </body></html>"""
 
-            text_body = (
-                f'Estimado(a) {nombre},\n\n'
-                f'El acto protocolario del alumno(a) {alumno_nombre} ha sido reprogramado.\n\n'
-                f'Fecha anterior: {fecha_anterior}\n'
-                f'Lugar: {lugar_anterior}\n'
-                f'Motivo: {motivo}\n\n'
-                f'Se le notificará cuando se asigne la nueva fecha.\n\n'
-                f'Instituto Tecnológico de Apizaco — TecNM'
-            )
-
-            try:
-                msg = EmailMultiAlternatives(
-                    subject=f'[ITA Titulación] Acto Protocolario Reprogramado — {alumno_nombre}',
-                    body=text_body,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    to=[email],
+                text_body = (
+                    f'Estimado(a) {nombre},\n\n'
+                    f'El acto protocolario del alumno(a) {alumno_nombre} ha sido reprogramado.\n\n'
+                    f'Nueva Fecha: {nueva_fecha_fmt}\n'
+                    f'Nuevo Lugar: {nuevo_lugar}\n'
+                    f'Fecha Anterior: {fecha_anterior_str}\n'
+                    f'Motivo: {motivo}\n\n'
+                    f'Por favor comuníquese con el Jefe de Departamento para confirmar su asistencia a la nueva fecha.\n\n'
+                    f'Instituto Tecnológico de Apizaco — TecNM'
                 )
-                msg.attach_alternative(html_body, "text/html")
-                msg.send(fail_silently=True)
-            except Exception:
-                pass
 
-        messages.success(request, f'Acto protocolario reprogramado. Se notificó a {len(destinatarios)} participantes por correo.')
+                try:
+                    msg = EmailMultiAlternatives(
+                        subject=f'[ITA Titulación] Acto Reprogramado — {alumno_nombre}',
+                        body=text_body,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        to=[email]
+                    )
+                    msg.attach_alternative(html_body, "text/html")
+                    msg.send(fail_silently=True)
+                except Exception:
+                    pass
+
+        # Iniciar hilo de correo
+        import threading
+        threading.Thread(target=_enviar).start()
+
+        messages.success(request, 'El acto ha sido reprogramado exitosamente y se enviaron los correos con la nueva fecha.')
         return redirect('administracion:jefe_detalle', pk=expediente.pk)
 
 

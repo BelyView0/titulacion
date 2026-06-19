@@ -214,11 +214,21 @@
                         <div class="modal-body">
                             <div class="alert alert-warning py-2 small mb-3">
                                 <i class="bi bi-exclamation-triangle-fill me-1"></i>
-                                <strong>¿Estás seguro de reprogramar?</strong> Esta acción eliminará la fecha actual, regresará el expediente a "Jurado Asignado" y enviará notificaciones por correo a todos los participantes cancelando la cita actual.
+                                <strong>Reprogramar Acto:</strong> Se actualizará la fecha y el lugar, y se enviarán correos a todos los participantes (Alumno y Jurado) para que vuelvan a confirmar su asistencia con los nuevos datos.
+                            </div>
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-semibold">Nueva Fecha y Hora</label>
+                                    <input type="datetime-local" name="fecha_acto" class="form-control form-control-sm" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-semibold">Nuevo Lugar</label>
+                                    <input type="text" name="lugar" class="form-control form-control-sm" value="{{ acto.lugar }}" required>
+                                </div>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label small fw-semibold">Motivo</label>
-                                <textarea name="motivo" class="form-control form-control-sm" rows="3">No se completaron las confirmaciones de asistencia a tiempo.</textarea>
+                                <label class="form-label small fw-semibold">Motivo de Reprogramación</label>
+                                <textarea name="motivo" class="form-control form-control-sm" rows="2" required>No se completaron las confirmaciones de asistencia a tiempo.</textarea>
                             </div>
                         </div>
                         <div class="modal-footer">
