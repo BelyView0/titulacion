@@ -182,12 +182,9 @@
                         <strong>Fecha alcanzada:</strong> La fecha y hora del acto han pasado. Por favor, confirma si el acto se llevó a cabo o si es necesario reprogramarlo.
                     </div>
                     <div class="mt-3">
-                        <form method="post" action="{% url 'administracion:jefe_confirmar_acto_realizado' acto.pk %}" class="mb-2" onsubmit="return confirm('¿Estás seguro de que deseas confirmar que el acto se llevó a cabo de manera exitosa? Esta acción avanzará el expediente.');">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-success btn-sm w-100 fw-semibold">
-                                <i class="bi bi-calendar-check me-1"></i>El acto protocolario se llevó a cabo
-                            </button>
-                        </form>
+                        <button type="button" class="btn btn-success btn-sm w-100 mb-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#modalConfirmarActoRealizado">
+                            <i class="bi bi-calendar-check me-1"></i>El acto protocolario se llevó a cabo
+                        </button>
                         <button type="button" class="btn btn-outline-warning btn-sm w-100" data-bs-toggle="modal" data-bs-target="#modalReprogramarJefe">
                             <i class="bi bi-arrow-repeat me-1"></i>Reprogramar Acto
                         </button>
@@ -212,10 +209,13 @@
                         </h6>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
-                    <form method="post" action="{% url 'administracion:jefe_reprogramar' acto.pk %}" id="form-reprogramar-jefe" onsubmit="return confirm('¿Estás seguro de que deseas cancelar este acto y reprogramarlo? Se enviarán notificaciones a todos los participantes.');">
+                    <form method="post" action="{% url 'administracion:jefe_reprogramar' acto.pk %}" id="form-reprogramar-jefe">
                         {% csrf_token %}
                         <div class="modal-body">
-                            <p class="small text-muted">Esta acción eliminará la fecha actual y regresará el expediente al estado de "Jurado Asignado" para que puedas elegir una nueva fecha.</p>
+                            <div class="alert alert-warning py-2 small mb-3">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                                <strong>¿Estás seguro de reprogramar?</strong> Esta acción eliminará la fecha actual, regresará el expediente a "Jurado Asignado" y enviará notificaciones por correo a todos los participantes cancelando la cita actual.
+                            </div>
                             <div class="mb-3">
                                 <label class="form-label small fw-semibold">Motivo</label>
                                 <textarea name="motivo" class="form-control form-control-sm" rows="3">No se completaron las confirmaciones de asistencia a tiempo.</textarea>
@@ -224,6 +224,33 @@
                         <div class="modal-footer">
                             <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                             <button type="submit" class="btn btn-sm btn-warning" id="btn-reprogramar-submit">Confirmar Reprogramación</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% if acto_expirado and confirmaciones_completas %}
+        {# Modal Confirmar Acto Realizado #}
+        <div class="modal fade" id="modalConfirmarActoRealizado" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-success bg-opacity-10">
+                        <h6 class="modal-title fw-bold text-success">
+                            <i class="bi bi-check-circle me-2"></i>Confirmar Acto Realizado
+                        </h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="post" action="{% url 'administracion:jefe_confirmar_acto_realizado' acto.pk %}" id="form-confirmar-acto">
+                        {% csrf_token %}
+                        <div class="modal-body text-center pt-4 pb-3">
+                            <i class="bi bi-calendar-check text-success mb-3" style="font-size:3rem;"></i>
+                            <h6 class="fw-bold">¿Estás seguro de avanzar el expediente?</h6>
+                            <p class="small text-muted mt-2 mb-0">Esta acción confirmará de manera definitiva que el acto protocolario se llevó a cabo exitosamente y el expediente pasará a Servicios Escolares.</p>
+                        </div>
+                        <div class="modal-footer justify-content-center border-top-0 pt-0 pb-4">
+                            <button type="button" class="btn btn-sm btn-light px-3" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-sm btn-success px-4" id="btn-confirmar-acto-submit">Sí, confirmar acto</button>
                         </div>
                     </form>
                 </div>
@@ -352,12 +379,22 @@
         const formReprogramar = document.getElementById('form-reprogramar-jefe');
         if (formReprogramar) {
             formReprogramar.addEventListener('submit', function(e) {
-                // El onsubmit inline con el confirm ya se evaluó para este momento, 
-                // así que si llega aquí es porque el usuario dijo que sí.
                 const btn = document.getElementById('btn-reprogramar-submit');
                 if (btn) {
                     btn.disabled = true;
                     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Enviando notificaciones por correo...';
+                }
+            });
+        }
+
+        // Manejar loading en formulario de confirmar acto
+        const formConfirmarActo = document.getElementById('form-confirmar-acto');
+        if (formConfirmarActo) {
+            formConfirmarActo.addEventListener('submit', function(e) {
+                const btn = document.getElementById('btn-confirmar-acto-submit');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Procesando...';
                 }
             });
         }
