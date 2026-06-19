@@ -1460,15 +1460,13 @@ class ReprogramarActoView(JefeProyectoRequeridoMixin, View):
             messages.error(request, 'No puedes reprogramar un acto cuya fecha aún no ha pasado.')
             return redirect('administracion:jefe_detalle', pk=expediente.pk)
 
-        if acto.confirmaciones_completas():
-            messages.error(request, 'No puedes reprogramar: todas las confirmaciones están completas. Registra el resultado.')
-            return redirect('administracion:jefe_detalle', pk=expediente.pk)
+
 
         # Guardar datos para los correos antes de borrar
         fecha_anterior = acto.fecha_acto.strftime('%d/%m/%Y a las %H:%M')
         lugar_anterior = acto.lugar
         alumno_nombre = expediente.alumno.get_full_name()
-        motivo = request.POST.get('motivo', 'No se completaron las confirmaciones de asistencia.')
+        motivo = request.POST.get('motivo', 'Motivos administrativos u otra eventualidad.')
 
         # Recopilar destinatarios
         destinatarios = []
