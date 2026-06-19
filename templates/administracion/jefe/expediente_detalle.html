@@ -148,14 +148,14 @@
                         <div class="small text-muted" style="font-size:.75rem;">{{ conf.nombre_participante|truncatechars:35 }}</div>
                     </div>
                 </div>
-                <form method="post" action="{% url 'administracion:jefe_toggle_confirmacion' conf.pk %}" class="m-0">
+                <form method="post" action="{% url 'administracion:jefe_toggle_confirmacion' conf.pk %}" class="m-0 form-confirmacion">
                     {% csrf_token %}
                     {% if conf.confirmado %}
-                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Quitar confirmación">
+                    <button type="submit" class="btn btn-outline-danger btn-sm btn-confirmar" title="Quitar confirmación">
                         <i class="bi bi-x-lg"></i>
                     </button>
                     {% else %}
-                    <button type="submit" class="btn btn-success btn-sm" title="Confirmar asistencia">
+                    <button type="submit" class="btn btn-success btn-sm btn-confirmar" title="Confirmar asistencia">
                         <i class="bi bi-check-lg me-1"></i>Confirmar
                     </button>
                     {% endif %}
@@ -310,6 +310,36 @@
         if (progressBar) {
             progressBar.style.width = '{{ expediente.porcentaje_progreso }}%';
         }
+
+        // Manejar loading en formularios de confirmación
+        const confirmForms = document.querySelectorAll('.form-confirmacion');
+        confirmForms.forEach(form => {
+            form.addEventListener('submit', function(e) {
+                // Prevenir doble submit
+                if (this.dataset.submitting) {
+                    e.preventDefault();
+                    return;
+                }
+                this.dataset.submitting = 'true';
+                
+                // Deshabilitar el botón presionado y cambiar su texto
+                const btn = this.querySelector('.btn-confirmar');
+                if (btn) {
+                    const originalHtml = btn.innerHTML;
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span><span class="d-none d-sm-inline">Enviando notificaciones por correo...</span>';
+                    btn.disabled = true;
+                    btn.classList.add('disabled');
+                }
+
+                // Deshabilitar todos los demás botones de confirmación en la página
+                document.querySelectorAll('.btn-confirmar').forEach(otherBtn => {
+                    if (otherBtn !== btn) {
+                        otherBtn.disabled = true;
+                        otherBtn.classList.add('disabled');
+                    }
+                });
+            });
+        });
     });
 </script>
 {% endblock %}

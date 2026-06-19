@@ -249,7 +249,7 @@ document.getElementById('btn-asignar').addEventListener('click', function(e) {
 document.getElementById('btn-confirm-submit').addEventListener('click', function() {
     // Cambiar estado del botón para evitar doble envío
     this.disabled = true;
-    this.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Procesando...';
+    this.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Enviando notificaciones por correo...';
     document.getElementById('formJurado').submit();
 });
 
