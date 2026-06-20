@@ -57,19 +57,26 @@ class ConfiguracionEmailUpdateView(AdminRequeridoMixin, FormMessageMixin, Update
 
     def form_valid(self, form):
         response = super().form_valid(form)
-        from django.core.mail import send_mail
+        from django.core.mail import EmailMultiAlternatives
+        from django.template.loader import render_to_string
         from django.conf import settings
         
         user_email = self.request.user.email
         if user_email:
             try:
-                send_mail(
+                html_content = render_to_string('emails/notificacion_generica.html', {
+                    'titulo': 'Verificación de Configuración de Correo',
+                    'saludo': f'¡Hola {self.request.user.get_full_name()}!',
+                    'mensaje': 'Si has recibido este correo, significa que la configuración SMTP ha sido guardada correctamente y el sistema ya puede enviar correos usando este servidor.'
+                })
+                msg = EmailMultiAlternatives(
                     subject='[ITA Titulación] Verificación de Configuración de Correo',
-                    message='¡Hola! Si has recibido este correo, significa que la configuración SMTP ha sido guardada correctamente y el sistema ya puede enviar correos usando este servidor.',
+                    body='¡Hola! Si has recibido este correo, significa que la configuración SMTP ha sido guardada correctamente y el sistema ya puede enviar correos usando este servidor.',
                     from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[user_email],
-                    fail_silently=False
+                    to=[user_email]
                 )
+                msg.attach_alternative(html_content, "text/html")
+                msg.send(fail_silently=False)
                 messages.success(self.request, 'Configuración guardada y correo de prueba enviado exitosamente a tu dirección.')
             except Exception as e:
                 messages.error(self.request, f'Configuración guardada, pero falló el correo de prueba. Revisa tus credenciales o conexión: {str(e)}')

@@ -3,7 +3,8 @@ Sistema de notificaciones del sistema.
 - Notificaciones internas (Notificacion model)
 - Notificaciones por correo institucional
 """
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
+from django.template.loader import render_to_string
 from django.conf import settings
 from django.utils import timezone
 
@@ -82,14 +83,27 @@ del Instituto Tecnológico de Apizaco.
 Por favor no responda a este correo.
         """.strip()
 
+        html_content = render_to_string('emails/notificacion_generica.html', {
+            'titulo': titulo,
+            'saludo': 'Estimado(a) Usuario de División de Estudios,',
+            'mensaje': mensaje,
+            'datos_adicionales': {
+                'Expediente': str(expediente),
+                'Alumno': expediente.alumno.get_full_name(),
+                'N° Control': expediente.alumno.username,
+                'Fecha': timezone.now().strftime('%d/%m/%Y %H:%M')
+            }
+        })
+
         try:
-            send_mail(
+            msg = EmailMultiAlternatives(
                 subject=f'[ITA Titulación] {titulo}',
-                message=cuerpo,
+                body=cuerpo,
                 from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=correos_destinos,
-                fail_silently=True,
+                to=correos_destinos,
             )
+            msg.attach_alternative(html_content, "text/html")
+            msg.send(fail_silently=True)
         except Exception:
             pass
             
@@ -140,14 +154,27 @@ del Instituto Tecnológico de Apizaco.
 Por favor no responda a este correo.
         """.strip()
 
+        html_content = render_to_string('emails/notificacion_generica.html', {
+            'titulo': titulo,
+            'saludo': 'Estimado(a) Usuario de Servicios Escolares,',
+            'mensaje': mensaje,
+            'datos_adicionales': {
+                'Expediente': str(expediente),
+                'Alumno': expediente.alumno.get_full_name(),
+                'N° Control': expediente.alumno.username,
+                'Fecha': timezone.now().strftime('%d/%m/%Y %H:%M')
+            }
+        })
+
         try:
-            send_mail(
+            msg = EmailMultiAlternatives(
                 subject=f'[ITA Titulación] {titulo}',
-                message=cuerpo,
+                body=cuerpo,
                 from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=correos_destinos,
-                fail_silently=True,
+                to=correos_destinos,
             )
+            msg.attach_alternative(html_content, "text/html")
+            msg.send(fail_silently=True)
         except Exception:
             pass
             
@@ -186,14 +213,26 @@ del Instituto Tecnológico de Apizaco.
 Por favor no responda a este correo.
     """.strip()
 
+    html_content = render_to_string('emails/notificacion_generica.html', {
+        'titulo': titulo,
+        'saludo': f'Estimado(a) {alumno.get_full_name()},',
+        'mensaje': mensaje,
+        'datos_adicionales': {
+            'Expediente': str(expediente),
+            'Matrícula': getattr(getattr(alumno, 'perfil_alumno', None), 'numero_control', 'N/A'),
+            'Fecha': timezone.now().strftime('%d/%m/%Y %H:%M')
+        }
+    })
+
     try:
-        send_mail(
+        msg = EmailMultiAlternatives(
             subject=f'[ITA Titulación] {titulo}',
-            message=cuerpo,
+            body=cuerpo,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=correos_destino,
-            fail_silently=True,  # El proceso no debe fallar por problemas de correo
+            to=correos_destino,
         )
+        msg.attach_alternative(html_content, "text/html")
+        msg.send(fail_silently=True)
     except Exception:
         pass  # Silencio: las notificaciones internas siguen funcionando
 

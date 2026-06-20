@@ -5,8 +5,9 @@ from django.contrib import messages
 from django import forms
 from administracion.models import Rol, Usuario, EmailVerificationOTP
 from django.utils.crypto import get_random_string
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
 from django.conf import settings
+from django.template.loader import render_to_string
 from django.utils import timezone
 from expediente.models import Expediente, Documento
 from alumnos.forms import ExpedienteForm
@@ -151,13 +152,20 @@ class EnviarVerificacionEmailView(LoginRequiredMixin, View):
         subject = f"Código de Verificación para Correo {tipo.capitalize()}"
         message = f"Tu código de verificación es: {codigo}\nEste código expirará en 15 minutos."
         try:
-            send_mail(
+            # We already have an otp_codigo.html template, let's use it or generic
+            html_content = render_to_string('emails/otp_codigo.html', {
+                'codigo': codigo,
+                'full_name': user.get_full_name(),
+                'minutos_validez': 15
+            })
+            msg = EmailMultiAlternatives(
                 subject,
                 message,
                 settings.DEFAULT_FROM_EMAIL,
                 [correo_destino],
-                fail_silently=False,
             )
+            msg.attach_alternative(html_content, "text/html")
+            msg.send(fail_silently=False)
             messages.success(request, f'Se ha enviado un código de verificación a {correo_destino}.')
         except Exception as e:
             EmailVerificationOTP.objects.filter(usuario=user, tipo_correo=tipo.upper(), codigo=codigo).delete()
@@ -244,13 +252,20 @@ class SolicitarCorreccionControlView(LoginRequiredMixin, View):
             # Enviar correo
             if admin.email:
                 try:
-                    send_mail(
+                    html_content = render_to_string('emails/notificacion_generica.html', {
+                        'titulo': 'Solicitud de cambio de Número de Control',
+                        'saludo': f'Hola {admin.get_full_name()},',
+                        'mensaje': mensaje,
+                        'url_accion': url_admin
+                    })
+                    msg = EmailMultiAlternatives(
                         'Solicitud de cambio de Número de Control',
                         f'{mensaje}\n\nPuedes revisar y editar el usuario aquí: {url_admin}',
                         settings.DEFAULT_FROM_EMAIL,
-                        [admin.email],
-                        fail_silently=True,
+                        [admin.email]
                     )
+                    msg.attach_alternative(html_content, "text/html")
+                    msg.send(fail_silently=True)
                 except Exception:
                     pass
 
