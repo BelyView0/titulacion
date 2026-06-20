@@ -354,7 +354,7 @@
                 <div class="col-md-4">
                     <div class="p-3 rounded" style="background:var(--bg-secondary, #f8f9fa);">
                         <small class="text-muted d-block mb-1">Resultado</small>
-                        <span class="badge bg-{% if acto.resultado == 'APROBADO' or acto.resultado == 'APROBADO_MENCION' %}success{% elif acto.resultado == 'SUSPENDIDO' %}danger{% elif acto.resultado == 'NO_PRESENTADO' %}warning{% else %}secondary{% endif %} px-3 py-2">
+                        <span class="badge bg-{% if acto.resultado == 'APROBADO' %}success{% elif acto.resultado == 'SUSPENDIDO' %}danger{% elif acto.resultado == 'NO_PRESENTADO' %}warning{% else %}secondary{% endif %} px-3 py-2">
                             {{ acto.get_resultado_display }}
                         </span>
                     </div>
@@ -585,7 +585,7 @@
                             <td>{{ a.expediente.alumno.get_full_name }}</td>
                             <td>{{ a.lugar }}</td>
                             <td class="text-center">
-                                <span class="badge bg-{% if a.resultado == 'APROBADO' or a.resultado == 'APROBADO_MENCION' %}success{% elif a.resultado == 'SUSPENDIDO' %}danger{% else %}secondary{% endif %}">
+                                <span class="badge bg-{% if a.resultado == 'APROBADO' %}success{% elif a.resultado == 'SUSPENDIDO' %}danger{% else %}secondary{% endif %}">
                                     {{ a.get_resultado_display }}
                                 </span>
                             </td>

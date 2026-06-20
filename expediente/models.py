@@ -660,7 +660,7 @@ class ActoProtocolario(models.Model):
     RESULTADO_CHOICES = [
         ('PENDIENTE', 'Pendiente'),
         ('APROBADO', 'Aprobado'),
-        ('APROBADO_MENCION', 'Aprobado con Mención Honorífica'),
+
         ('SUSPENDIDO', 'Suspendido'),
         ('NO_PRESENTADO', 'No se presentó'),
     ]
