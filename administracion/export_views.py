@@ -227,6 +227,11 @@ class ExportarEstadisticasPPTXView(JefeProyectoRequeridoMixin, View):
         stats = get_estadisticas_data(request.user)
 
         prs = Presentation()
+        
+        # Helper colors
+        BLUE_DARK = RGBColor(27, 57, 106)
+        BLUE_LIGHT = RGBColor(0, 114, 198)
+        GRAY = RGBColor(108, 117, 125)
 
         # Portada
         title_slide_layout = prs.slide_layouts[0]
@@ -234,13 +239,20 @@ class ExportarEstadisticasPPTXView(JefeProyectoRequeridoMixin, View):
         title = slide.shapes.title
         subtitle = slide.placeholders[1]
 
-        title.text = "Reporte de Titulación"
-        subtitle.text = f"Departamento: {stats['departamento']}\nGenerado automáticamente"
+        title.text = "Reporte Ejecutivo de Titulación"
+        title.text_frame.paragraphs[0].font.color.rgb = BLUE_DARK
+        title.text_frame.paragraphs[0].font.bold = True
+        
+        subtitle.text = f"Departamento: {stats['departamento']}\nSistema HEDS"
+        subtitle.text_frame.paragraphs[0].font.color.rgb = GRAY
 
         # Diapositiva 2: Resumen
         bullet_slide_layout = prs.slide_layouts[1]
         slide2 = prs.slides.add_slide(bullet_slide_layout)
-        slide2.shapes.title.text = "Resumen General"
+        title_shape = slide2.shapes.title
+        title_shape.text = "Resumen General"
+        title_shape.text_frame.paragraphs[0].font.color.rgb = BLUE_DARK
+        
         tf = slide2.shapes.placeholders[1].text_frame
         tf.text = f"Total de Expedientes: {stats['total_expedientes']}"
         tf.add_paragraph().text = f"Total de Titulados: {stats['total_concluidos']} ({stats['porcentaje_titulados']}%)"
@@ -251,6 +263,7 @@ class ExportarEstadisticasPPTXView(JefeProyectoRequeridoMixin, View):
         blank_slide_layout = prs.slide_layouts[5] # Título solamente
         slide_estados = prs.slides.add_slide(blank_slide_layout)
         slide_estados.shapes.title.text = "Distribución por Estatus del Expediente"
+        slide_estados.shapes.title.text_frame.paragraphs[0].font.color.rgb = BLUE_DARK
 
         if stats['expedientes_por_estado']:
             chart_data = CategoryChartData()
@@ -265,31 +278,82 @@ class ExportarEstadisticasPPTXView(JefeProyectoRequeridoMixin, View):
             chart.legend.position = XL_LEGEND_POSITION.RIGHT
             chart.plots[0].has_data_labels = True
 
-        # Diapositiva 4: Demografía
-        slide_demo = prs.slides.add_slide(bullet_slide_layout)
-        slide_demo.shapes.title.text = "Demografía (Titulación)"
-        tf_demo = slide_demo.shapes.placeholders[1].text_frame
-        tf_demo.text = f"Iniciaron Proceso:\n - Hombres: {stats['iniciados_hombres']}\n - Mujeres: {stats['iniciados_mujeres']}"
-        tf_demo.add_paragraph().text = f"Titulados:\n - Hombres: {stats['titulados_hombres']}\n - Mujeres: {stats['titulados_mujeres']}"
+        # Diapositiva 4: Demografía (Barras apiladas)
+        slide_demo = prs.slides.add_slide(blank_slide_layout)
+        slide_demo.shapes.title.text = "Demografía: Hombres vs Mujeres"
+        slide_demo.shapes.title.text_frame.paragraphs[0].font.color.rgb = BLUE_DARK
+        
+        chart_data_demo = CategoryChartData()
+        chart_data_demo.categories = ['Iniciaron Proceso', 'Titulados (Concluidos)']
+        chart_data_demo.add_series('Hombres', (stats['iniciados_hombres'], stats['titulados_hombres']))
+        chart_data_demo.add_series('Mujeres', (stats['iniciados_mujeres'], stats['titulados_mujeres']))
+        if stats['iniciados_sin_dato'] > 0 or stats['titulados_sin_dato'] > 0:
+            chart_data_demo.add_series('No especificado', (stats['iniciados_sin_dato'], stats['titulados_sin_dato']))
+
+        x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4.5)
+        chart_demo = slide_demo.shapes.add_chart(
+            XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data_demo
+        ).chart
+        chart_demo.has_legend = True
+        chart_demo.legend.position = XL_LEGEND_POSITION.BOTTOM
 
         # Diapositiva 5: Gráfica de Modalidades (Barras)
         slide_mod = prs.slides.add_slide(blank_slide_layout)
         slide_mod.shapes.title.text = "Top Modalidades de Titulación"
+        slide_mod.shapes.title.text_frame.paragraphs[0].font.color.rgb = BLUE_DARK
 
         if stats['por_modalidad']:
             chart_data_mod = CategoryChartData()
             # Tomar top 5
             top_mod = stats['por_modalidad'][:5]
-            chart_data_mod.categories = [item['modalidad__nombre'][:20] + '...' for item in top_mod]
+            chart_data_mod.categories = [item['modalidad__nombre'][:25] + '...' if len(item['modalidad__nombre']) > 25 else item['modalidad__nombre'] for item in top_mod]
             chart_data_mod.add_series('Concluidos', (item['concluidos'] for item in top_mod))
             chart_data_mod.add_series('Iniciados', (item['total'] for item in top_mod))
 
-            x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4.5)
+            x, y, cx, cy = Inches(0.5), Inches(2), Inches(9), Inches(4.5)
             chart_mod = slide_mod.shapes.add_chart(
-                XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data_mod
+                XL_CHART_TYPE.BAR_CLUSTERED, x, y, cx, cy, chart_data_mod
             ).chart
             chart_mod.has_legend = True
             chart_mod.legend.position = XL_LEGEND_POSITION.BOTTOM
+            
+        # Diapositiva 6: Gráfica por Carrera
+        if stats['por_carrera']:
+            slide_car = prs.slides.add_slide(blank_slide_layout)
+            slide_car.shapes.title.text = "Expedientes por Carrera"
+            slide_car.shapes.title.text_frame.paragraphs[0].font.color.rgb = BLUE_DARK
+            
+            chart_data_car = CategoryChartData()
+            chart_data_car.categories = [item['alumno__carrera__nombre'][:25] + '...' if len(item['alumno__carrera__nombre']) > 25 else item['alumno__carrera__nombre'] for item in stats['por_carrera']]
+            chart_data_car.add_series('Iniciados', (item['total'] for item in stats['por_carrera']))
+            chart_data_car.add_series('Concluidos', (item['concluidos'] for item in stats['por_carrera']))
+            
+            x, y, cx, cy = Inches(0.5), Inches(2), Inches(9), Inches(4.5)
+            chart_car = slide_car.shapes.add_chart(
+                XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data_car
+            ).chart
+            chart_car.has_legend = True
+            chart_car.legend.position = XL_LEGEND_POSITION.BOTTOM
+
+        # Diapositiva 7: Gráfica por Generación
+        if stats['por_generacion']:
+            slide_gen = prs.slides.add_slide(blank_slide_layout)
+            slide_gen.shapes.title.text = "Expedientes por Generación"
+            slide_gen.shapes.title.text_frame.paragraphs[0].font.color.rgb = BLUE_DARK
+            
+            chart_data_gen = CategoryChartData()
+            top_gen = stats['por_generacion'][:10] # Mostrar las últimas 10 generaciones
+            top_gen.reverse() # Cronológico de izquierda a derecha
+            chart_data_gen.categories = [str(item['alumno__generacion']) for item in top_gen]
+            chart_data_gen.add_series('Iniciados', (item['total'] for item in top_gen))
+            chart_data_gen.add_series('Concluidos', (item['concluidos'] for item in top_gen))
+            
+            x, y, cx, cy = Inches(0.5), Inches(2), Inches(9), Inches(4.5)
+            chart_gen = slide_gen.shapes.add_chart(
+                XL_CHART_TYPE.LINE, x, y, cx, cy, chart_data_gen
+            ).chart
+            chart_gen.has_legend = True
+            chart_gen.legend.position = XL_LEGEND_POSITION.BOTTOM
 
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.presentationml.presentation')
         response['Content-Disposition'] = f'attachment; filename="Presentacion_Estadisticas.pptx"'
