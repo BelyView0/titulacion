@@ -92,44 +92,18 @@ def _enviar_correos_invitacion_jurado(acto, request):
             f'<td style="padding:6px 12px;font-size:14px;font-weight:700;">{expediente.alumno.get_full_name()}</td></tr>'
         )
 
-        html_body = f'''<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;">
-<div style="max-width:600px;margin:0 auto;padding:20px;">
-  <div style="background:linear-gradient(135deg,#0057B8,#003d82);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
-    <div style="font-size:36px;color:#fff;">&#x1F393;</div>
-    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Invitaci&oacute;n a Acto Protocolario</h2>
-    <p style="color:rgba(255,255,255,.8);margin:0;font-size:13px;">Instituto Tecnol&oacute;gico de Apizaco &mdash; TecNM</p>
-  </div>
-  <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
-    <p style="font-size:15px;color:#333;">Estimado(a) <strong>{nombre}</strong>,</p>
-    {intro_html}
-
-    <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin:20px 0;border-left:4px solid #0057B8;">
-      <table style="width:100%;border-collapse:collapse;">
-        {alumno_row}
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Carrera</td>
-            <td style="padding:6px 12px;font-size:14px;">{expediente.alumno.carrera or '&mdash;'}</td></tr>
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">T&iacute;tulo del trabajo</td>
-            <td style="padding:6px 12px;font-size:14px;">{expediente.titulo_trabajo or '&mdash;'}</td></tr>
-      </table>
-    </div>
-
-    <div style="background:linear-gradient(135deg,#f0f7ff,#f3e8ff);border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
-      <div style="font-size:12px;color:#6c757d;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Fecha y lugar probable</div>
-      <div style="font-size:20px;font-weight:700;color:#7c3aed;margin:8px 0;">{fecha_fmt}</div>
-      <div style="font-size:14px;color:#555;">&#128205; {acto.lugar}</div>
-    </div>
-
-    <div style="background:#dbeafe;border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
-      <div style="font-size:14px;color:#1e40af;font-weight:700;margin-bottom:8px;">&#128232; Confirme su asistencia</div>
-      <p style="font-size:13px;color:#333;margin:0;">
-        Por favor comun&iacute;quese con el <strong>Jefe de Departamento</strong> correspondiente para confirmar su asistencia.
-      </p>
-    </div>
-  </div>
-</div>
-</body></html>'''
+        from django.template.loader import render_to_string
+        html_content = render_to_string('emails/notificacion_generica.html', {
+            'titulo': 'Invitación a Acto Protocolario',
+            'saludo': f'Estimado(a) {nombre},',
+            'mensaje': f'Se le invita a participar como {rol_display} en el acto de recepción profesional del alumno(a) {expediente.alumno.get_full_name()}.\n\nPor favor comuníquese con el Jefe de Departamento correspondiente para confirmar su asistencia.',
+            'datos_adicionales': {
+                'Alumno(a)': expediente.alumno.get_full_name(),
+                'Carrera': expediente.alumno.carrera.nombre if expediente.alumno.carrera else '—',
+                'Título del trabajo': expediente.titulo_trabajo or '—',
+                'Fecha y lugar probable': f'{fecha_fmt} en {acto.lugar}'
+            }
+        })
 
         text_body = (
             f'Estimado(a) {nombre},\n\n'
@@ -147,7 +121,7 @@ def _enviar_correos_invitacion_jurado(acto, request):
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 to=[conf.email],
             )
-            msg.attach_alternative(html_body, "text/html")
+            msg.attach_alternative(html_content, "text/html")
             msg.send(fail_silently=True)
         except Exception:
             pass
@@ -181,41 +155,22 @@ def _enviar_correo_confirmacion_recibida(confirmacion, acto):
             f'<td style="padding:6px 12px;font-size:14px;font-weight:700;">{alumno}</td></tr>'
         )
 
-    html_body = f"""<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;">
-<div style="max-width:600px;margin:0 auto;padding:20px;">
-  <div style="background:linear-gradient(135deg,#16a34a,#15803d);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
-    <div style="font-size:42px;color:#fff;">&#10004;</div>
-    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Asistencia Confirmada</h2>
-    <p style="color:rgba(255,255,255,.8);margin:0;font-size:13px;">Instituto Tecnol&oacute;gico de Apizaco &mdash; TecNM</p>
-  </div>
-  <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
-    <p style="font-size:15px;color:#333;">Estimado(a) <strong>{nombre}</strong>,</p>
-    {parrafo_intro}
-
-    <div style="background:#f0fdf4;border-radius:8px;padding:16px;margin:20px 0;border-left:4px solid #16a34a;">
-      <table style="width:100%;border-collapse:collapse;">
-        {alumno_row}
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Fecha probable</td>
-            <td style="padding:6px 12px;font-size:14px;">{fecha_fmt}</td></tr>
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Lugar</td>
-            <td style="padding:6px 12px;font-size:14px;">{acto.lugar}</td></tr>
-      </table>
-    </div>
-
-    <div style="background:#f8f9fa;border-radius:8px;padding:14px;margin:20px 0;text-align:center;">
-      <p style="font-size:13px;color:#555;margin:0;">
-        Una vez que todos los participantes confirmen, recibir&aacute; un correo con los
-        <strong>detalles completos del jurado asignado</strong> y la confirmaci&oacute;n definitiva.
-      </p>
-    </div>
-  </div>
-  <p style="text-align:center;font-size:11px;color:#999;margin-top:16px;">
-    Sistema de Gesti&oacute;n de Titulaci&oacute;n &mdash; TecNM / Instituto Tecnol&oacute;gico de Apizaco
-  </p>
-</div>
-</body></html>"""
+    from django.template.loader import render_to_string
+    if confirmacion.rol == 'ALUMNO':
+        mensaje = 'Su asistencia al acto de recepción profesional ha sido registrada exitosamente.\n\nUna vez que todos los participantes confirmen, recibirá un correo con los detalles completos del jurado asignado y la confirmación definitiva.'
+    else:
+        mensaje = f'Su asistencia como {rol_display} al acto protocolario ha sido registrada exitosamente.\n\nUna vez que todos los participantes confirmen, recibirá un correo con los detalles completos del jurado asignado y la confirmación definitiva.'
+    
+    html_content = render_to_string('emails/notificacion_generica.html', {
+        'titulo': 'Asistencia Confirmada',
+        'saludo': f'Estimado(a) {nombre},',
+        'mensaje': mensaje,
+        'datos_adicionales': {
+            'Alumno(a)': alumno if confirmacion.rol != 'ALUMNO' else '',
+            'Fecha probable': fecha_fmt,
+            'Lugar': acto.lugar
+        }
+    })
 
     if confirmacion.rol == 'ALUMNO':
         text_body = (
@@ -242,7 +197,7 @@ def _enviar_correo_confirmacion_recibida(confirmacion, acto):
             from_email=settings.DEFAULT_FROM_EMAIL,
             to=[confirmacion.email],
         )
-        msg.attach_alternative(html_body, "text/html")
+        msg.attach_alternative(html_content, "text/html")
         msg.send(fail_silently=True)
     except Exception:
         pass
@@ -306,56 +261,28 @@ def _enviar_correo_acto_confirmado(acto):
                 '<strong>Jefe de Departamento</strong> correspondiente.'
             )
 
-        html_body = f"""<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;">
-<div style="max-width:600px;margin:0 auto;padding:20px;">
-  <div style="background:linear-gradient(135deg,#7c3aed,#5b21b6);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
-    <div style="font-size:42px;color:#fff;">&#x1F393;</div>
-    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Acto Protocolario Confirmado</h2>
-    <p style="color:rgba(255,255,255,.8);margin:0;font-size:13px;">Todas las asistencias han sido confirmadas</p>
-  </div>
-  <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
-    <p style="font-size:15px;color:#333;">Estimado(a) <strong>{nombre_dest}</strong>,</p>
-    <p style="font-size:14px;color:#555;">Le informamos que <strong style="color:#16a34a;">todos los participantes han confirmado
-       su asistencia</strong>. El acto protocolario se llevar&aacute; a cabo seg&uacute;n lo programado.</p>
+        from django.template.loader import render_to_string
+        mensaje_general = f'Le informamos que todos los participantes han confirmado su asistencia. El acto protocolario se llevará a cabo según lo programado.\n\nSe solicita puntual asistencia.\n{nota_imprevisto}'
+        
+        datos = {
+            'Alumno(a)': alumno.get_full_name(),
+            'Carrera': alumno.carrera.nombre if alumno.carrera else '—',
+            'Modalidad': expediente.modalidad.nombre if expediente.modalidad else '—',
+            'Título del trabajo': expediente.titulo_trabajo or '—',
+            'Fecha confirmada': fecha_fmt,
+            'Lugar confirmado': acto.lugar,
+            'Presidente': jurado_asig.presidente.get_nombre_corto() if jurado_asig.presidente else '',
+            'Secretario/a': jurado_asig.secretario.get_nombre_corto() if jurado_asig.secretario else '',
+        }
+        if vocal_activo:
+            datos[vocal_label] = vocal_activo.get_nombre_corto()
 
-    <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin:20px 0;border-left:4px solid #7c3aed;">
-      <table style="width:100%;border-collapse:collapse;">
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Alumno(a)</td>
-            <td style="padding:6px 12px;font-size:14px;font-weight:700;">{alumno.get_full_name()}</td></tr>
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Carrera</td>
-            <td style="padding:6px 12px;font-size:14px;">{alumno.carrera or '&mdash;'}</td></tr>
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Modalidad</td>
-            <td style="padding:6px 12px;font-size:14px;">{expediente.modalidad or '&mdash;'}</td></tr>
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">T&iacute;tulo del trabajo</td>
-            <td style="padding:6px 12px;font-size:14px;">{expediente.titulo_trabajo or '&mdash;'}</td></tr>
-      </table>
-    </div>
-
-    <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
-      <div style="font-size:12px;color:#16a34a;font-weight:700;text-transform:uppercase;letter-spacing:1px;">&#10004; Fecha y lugar confirmados</div>
-      <div style="font-size:22px;font-weight:700;color:#15803d;margin:8px 0;">{fecha_fmt}</div>
-      <div style="font-size:15px;color:#333;font-weight:600;">&#128205; {acto.lugar}</div>
-    </div>
-
-    <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin:20px 0;">
-      <div style="font-size:13px;font-weight:700;color:#7c3aed;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">
-        &#128101; Jurado Asignado
-      </div>
-      <table style="width:100%;border-collapse:collapse;">{jurado_rows}</table>
-    </div>
-
-    <div style="background:#dbeafe;border-radius:8px;padding:14px 16px;font-size:13px;color:#1e40af;text-align:center;">
-      <strong>Se solicita puntual asistencia.</strong><br>
-      {nota_imprevisto}
-    </div>
-  </div>
-  <p style="text-align:center;font-size:11px;color:#999;margin-top:16px;">
-    Sistema de Gesti&oacute;n de Titulaci&oacute;n &mdash; TecNM / Instituto Tecnol&oacute;gico de Apizaco
-  </p>
-</div>
-</body></html>"""
+        html_content = render_to_string('emails/notificacion_generica.html', {
+            'titulo': 'Acto Protocolario Confirmado',
+            'saludo': f'Estimado(a) {nombre_dest},',
+            'mensaje': mensaje_general,
+            'datos_adicionales': datos
+        })
 
         text_body = (
             f'Estimado(a) {nombre_dest},\n\n'
@@ -378,7 +305,7 @@ def _enviar_correo_acto_confirmado(acto):
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 to=[conf_dest.email],
             )
-            msg.attach_alternative(html_body, "text/html")
+            msg.attach_alternative(html_content, "text/html")
             msg.send(fail_silently=True)
         except Exception:
             pass

@@ -57,33 +57,48 @@ class ConfiguracionEmailUpdateView(AdminRequeridoMixin, FormMessageMixin, Update
 
     def form_valid(self, form):
         response = super().form_valid(form)
+        messages.success(self.request, 'Configuración de servidor de correo guardada correctamente.')
+        return response
+
+class ProbarConfiguracionEmailView(AdminRequeridoMixin, View):
+    """Envía un correo de prueba usando la configuración SMTP actual guardada"""
+    def post(self, request, *args, **kwargs):
         from django.core.mail import EmailMultiAlternatives
         from django.template.loader import render_to_string
         from django.conf import settings
         
-        user_email = self.request.user.email
-        if user_email:
-            try:
-                html_content = render_to_string('emails/notificacion_generica.html', {
-                    'titulo': 'Verificación de Configuración de Correo',
-                    'saludo': f'¡Hola {self.request.user.get_full_name()}!',
-                    'mensaje': 'Si has recibido este correo, significa que la configuración SMTP ha sido guardada correctamente y el sistema ya puede enviar correos usando este servidor.'
-                })
-                msg = EmailMultiAlternatives(
-                    subject='[ITA Titulación] Verificación de Configuración de Correo',
-                    body='¡Hola! Si has recibido este correo, significa que la configuración SMTP ha sido guardada correctamente y el sistema ya puede enviar correos usando este servidor.',
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    to=[user_email]
-                )
-                msg.attach_alternative(html_content, "text/html")
-                msg.send(fail_silently=False)
-                messages.success(self.request, 'Configuración guardada y correo de prueba enviado exitosamente a tu dirección.')
-            except Exception as e:
-                messages.error(self.request, f'Configuración guardada, pero falló el correo de prueba. Revisa tus credenciales o conexión: {str(e)}')
-        else:
-            messages.success(self.request, 'Configuración de correo actualizada correctamente (no se envió correo de prueba porque no tienes un email registrado).')
+        user_email = request.user.email
+        if not user_email:
+            messages.error(request, 'No tienes un correo electrónico registrado en tu perfil para enviar la prueba.')
+            return redirect('administracion:configuracion_email')
             
-        return response
+        try:
+            from administracion.models import ConfiguracionInstitucional
+            config = ConfiguracionInstitucional.objects.first()
+            destinatarios = [user_email]
+            
+            # Si el correo remitente configurado es diferente al del usuario, lo agregamos también
+            if config and config.email_remitente and config.email_remitente != user_email:
+                destinatarios.append(config.email_remitente)
+
+            html_content = render_to_string('emails/notificacion_generica.html', {
+                'titulo': 'Verificación de Configuración de Correo',
+                'saludo': f'¡Hola {request.user.get_full_name()}!',
+                'mensaje': 'Si has recibido este correo, significa que la configuración SMTP funciona correctamente y el sistema ya puede enviar correos usando este servidor.'
+            })
+            msg = EmailMultiAlternatives(
+                subject='[ITA Titulación] Verificación de Configuración de Correo',
+                body='¡Hola! Si has recibido este correo, significa que la configuración SMTP funciona correctamente y el sistema ya puede enviar correos usando este servidor.',
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=destinatarios
+            )
+            msg.attach_alternative(html_content, "text/html")
+            msg.send(fail_silently=False)
+            messages.success(request, f'Correo de prueba enviado exitosamente a tu dirección registrada ({user_email}).')
+        except Exception as e:
+            messages.error(request, f'Falló el envío del correo de prueba. Revisa tus credenciales o conexión: {str(e)}')
+            
+        return redirect('administracion:configuracion_email')
 
 
 from django.http import JsonResponse
@@ -295,6 +310,18 @@ class DashboardAdminView(AdminRequeridoMixin, TemplateView):
                 'mensaje': 'No se han registrado jefes de departamento. Son necesarios para firmar oficios de asignacion de jurado.',
                 'accion_url': reverse_lazy('administracion:jefe_crear'),
                 'accion_texto': 'Asignar jefe',
+            })
+
+        # Verificar configuracion institucional (SMTP / Membretes)
+        config = ConfiguracionInstitucional.objects.first()
+        if not config or not config.email_remitente or not config.email_password:
+            alertas.append({
+                'tipo': 'danger',
+                'icono': 'bi-exclamation-triangle-fill',
+                'titulo': 'Configuracion Institucional Pendiente',
+                'mensaje': 'Alerta critica: El sistema no podra enviar correos electronicos ni notificaciones porque las credenciales SMTP no han sido configuradas. Configure el remitente y la contraseña de aplicacion inmediatamente.',
+                'accion_url': reverse_lazy('administracion:configuracion_institucional'),
+                'accion_texto': 'Configurar ahora',
             })
 
         ctx['alertas_sistema'] = alertas
@@ -1367,39 +1394,17 @@ class ActoProtocolarioView(JefeProyectoRequeridoMixin, CreateView):
                 # SOLO notificar al alumno en esta fase
                 if rol == 'ALUMNO':
                     confirm_url = f'{base_url}/confirmar/{token}/'
-                    html_body = f'''<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;">
-<div style="max-width:600px;margin:0 auto;padding:20px;">
-  <div style="background:linear-gradient(135deg,#0057B8,#003d82);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
-    <div style="font-size:36px;color:#fff;">&#x1F393;</div>
-    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Acto Protocolario Programado</h2>
-    <p style="color:rgba(255,255,255,.8);margin:0;font-size:13px;">Instituto Tecnol&oacute;gico de Apizaco &mdash; TecNM</p>
-  </div>
-  <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
-    <p style="font-size:15px;color:#333;">Estimado(a) <strong>{nombre}</strong>,</p>
-    <p style="font-size:14px;color:#555;">Se le informa que se ha asignado <strong style="color:#0057B8;">fecha y lugar</strong> para su acto de recepci&oacute;n profesional.</p>
-
-    <div style="background:linear-gradient(135deg,#f0f7ff,#f3e8ff);border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
-      <div style="font-size:12px;color:#6c757d;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Fecha y lugar probable</div>
-      <div style="font-size:20px;font-weight:700;color:#7c3aed;margin:8px 0;">{fecha_fmt}</div>
-      <div style="font-size:14px;color:#555;">&#128205; {acto.lugar}</div>
-    </div>
-
-    <div style="background:#dbeafe;border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
-      <div style="font-size:14px;color:#1e40af;font-weight:700;margin-bottom:8px;">&#128232; Confirme su asistencia</div>
-      <p style="font-size:13px;color:#333;margin:0;">
-        Debe confirmar su asistencia con al menos <strong>24 horas de anticipaci&oacute;n</strong>. Ingrese a la Plataforma de Titulaci&oacute;n:
-      </p>
-      <a href="{confirm_url}" style="display:inline-block;margin-top:15px;padding:10px 20px;background:#0057B8;color:#fff;text-decoration:none;border-radius:5px;font-weight:bold;">Confirmar Asistencia</a>
-    </div>
-
-    <div style="background:#fef3c7;border-radius:8px;padding:12px 16px;font-size:12px;color:#92400e;">
-      <strong>&#9888;&#65039; Importante:</strong> Si no confirma a tiempo, el acto no se notificar&aacute; al jurado y ser&aacute; cancelado/reprogramado.
-    </div>
-  </div>
-</div>
-</body></html>'''
+                    from django.template.loader import render_to_string
+                    html_content = render_to_string('emails/notificacion_generica.html', {
+                        'titulo': 'Acto Protocolario Programado',
+                        'saludo': f'Estimado(a) {nombre},',
+                        'mensaje': 'Se le informa que se ha asignado fecha y lugar para su acto de recepción profesional.\n\nDebe confirmar su asistencia con al menos 24 horas de anticipación. Si no confirma a tiempo, el acto no se notificará al jurado y será cancelado/reprogramado.',
+                        'datos_adicionales': {
+                            'Fecha probable': fecha_fmt,
+                            'Lugar': acto.lugar
+                        },
+                        'url_accion': confirm_url
+                    })
 
                     text_body = (
                         f'Estimado(a) {nombre},\n\n'
@@ -1417,7 +1422,7 @@ class ActoProtocolarioView(JefeProyectoRequeridoMixin, CreateView):
                             from_email=settings.DEFAULT_FROM_EMAIL,
                             to=[email],
                         )
-                        msg.attach_alternative(html_body, "text/html")
+                        msg.attach_alternative(html_content, "text/html")
                         msg.send(fail_silently=True)
                     except Exception:
                         pass
@@ -1533,44 +1538,19 @@ class ReprogramarActoView(JefeProyectoRequeridoMixin, View):
         base_url = request.build_absolute_uri('/')[:-1]
 
         def _enviar():
+            from django.template.loader import render_to_string
             for conf, nombre, email, rol_display in confirmaciones:
-                html_body = f"""<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;">
-<div style="max-width:600px;margin:0 auto;padding:20px;">
-  <div style="background:linear-gradient(135deg,#eab308,#ca8a04);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
-    <div style="font-size:42px;color:#fff;">&#x23F0;</div>
-    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Acto Protocolario Reprogramado</h2>
-    <p style="color:rgba(255,255,255,.8);margin:0;font-size:13px;">Instituto Tecnol&oacute;gico de Apizaco &mdash; TecNM</p>
-  </div>
-  <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
-    <p style="font-size:15px;color:#333;">Estimado(a) <strong>{nombre}</strong>,</p>
-    <p style="font-size:14px;color:#555;">Le informamos que el acto protocolario del alumno(a) <strong>{alumno_nombre}</strong> en el que participar&iacute;a como <strong>{rol_display}</strong> ha sido <strong>reprogramado</strong>.</p>
-
-    <div style="background:#fffbeb;border-radius:8px;padding:14px 16px;font-size:13px;color:#92400e;margin:20px 0;border-left:4px solid #f59e0b;">
-      <strong>&#9888;&#65039; Motivo:</strong> {motivo}
-    </div>
-
-    <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin:20px 0;border-left:4px solid #0057B8;">
-      <table style="width:100%;border-collapse:collapse;">
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Nueva Fecha</td>
-            <td style="padding:6px 12px;font-size:14px;font-weight:700;color:#0057B8;">{nueva_fecha_fmt}</td></tr>
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Nuevo Lugar</td>
-            <td style="padding:6px 12px;font-size:14px;">{nuevo_lugar}</td></tr>
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;vertical-align:top;">Fecha Anterior</td>
-            <td style="padding:6px 12px;font-size:12px;color:#dc3545;text-decoration:line-through;">{fecha_anterior_str} en {lugar_anterior}</td></tr>
-      </table>
-    </div>
-
-    <div style="background:#dbeafe;border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
-      <div style="font-size:14px;color:#1e40af;font-weight:700;margin-bottom:8px;">&#128232; Confirme su nueva asistencia</div>
-      <p style="font-size:13px;color:#333;margin:0;">
-        Por favor comun&iacute;quese con el <strong>Jefe de Departamento</strong> correspondiente para confirmar que est&aacute; enterado y puede asistir en esta nueva fecha.
-      </p>
-    </div>
-  </div>
-</div>
-</body></html>"""
+                html_content = render_to_string('emails/notificacion_generica.html', {
+                    'titulo': 'Acto Protocolario Reprogramado',
+                    'saludo': f'Estimado(a) {nombre},',
+                    'mensaje': f'Le informamos que el acto protocolario del alumno(a) {alumno_nombre} en el que participaría como {rol_display} ha sido reprogramado.\n\nPor favor comuníquese con el Jefe de Departamento correspondiente para confirmar que está enterado y puede asistir en esta nueva fecha.',
+                    'datos_adicionales': {
+                        'Nueva Fecha': nueva_fecha_fmt,
+                        'Nuevo Lugar': nuevo_lugar,
+                        'Fecha Anterior': f'{fecha_anterior_str} en {lugar_anterior}',
+                        'Motivo': motivo
+                    }
+                })
 
                 text_body = (
                     f'Estimado(a) {nombre},\n\n'
@@ -1590,7 +1570,7 @@ class ReprogramarActoView(JefeProyectoRequeridoMixin, View):
                         from_email=settings.DEFAULT_FROM_EMAIL,
                         to=[email]
                     )
-                    msg.attach_alternative(html_body, "text/html")
+                    msg.attach_alternative(html_content, "text/html")
                     msg.send(fail_silently=True)
                 except Exception:
                     pass

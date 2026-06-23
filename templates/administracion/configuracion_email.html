@@ -15,7 +15,7 @@
                 <p class="text-muted small mb-4">
                     Configura la cuenta de correo que el sistema utilizará para enviar notificaciones automáticas (como códigos OTP, avisos de jurado, etc.).
                 </p>
-                <form method="post" action="{% url 'administracion:configuracion_email' %}">
+                <form id="email_form" method="post" action="{% url 'administracion:configuracion_email' %}">
                     {% csrf_token %}
                     
                     <div class="mb-3">
@@ -79,16 +79,24 @@
                         {% endif %}
                         <div class="form-text">{{ form.email_password.help_text }}</div>
                     </div>
+                </form>
 
-                    <div class="d-flex justify-content-end gap-2">
+                <div class="d-flex justify-content-between mt-4">
+                    <form method="post" action="{% url 'administracion:configuracion_email_probar' %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-info">
+                            <i class="bi bi-send me-1"></i> Enviar correo de prueba
+                        </button>
+                    </form>
+                    <div class="d-flex gap-2">
                         <a href="{% url 'administracion:dashboard' %}" class="btn btn-outline-secondary">
                             Cancelar
                         </a>
-                        <button type="submit" class="btn btn-primary px-4">
+                        <button type="submit" form="email_form" class="btn btn-primary px-4">
                             <i class="bi bi-save me-1"></i> Guardar Configuración
                         </button>
                     </div>
-                </form>
+                </div>
             </div>
         </div>
     </div>

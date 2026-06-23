@@ -247,8 +247,9 @@ class ConfiguracionEmailForm(forms.ModelForm):
         if pwd and pwd != '********':
             instance.email_password = encrypt(pwd)
         elif pwd == '********':
-            # No modificar la contraseña original si no cambió el valor oculto
-            pass
+            # Recuperar la contraseña original de la BD
+            old_instance = ConfiguracionInstitucional.objects.get(pk=instance.pk)
+            instance.email_password = old_instance.email_password
             
         if commit:
             instance.save()
