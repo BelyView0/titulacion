@@ -1341,7 +1341,8 @@ class RegistroActoEscolaresView(EscolaresRequeridoMixin, View):
             acto.save(update_fields=['resultado'])
 
             from expediente.notifications import registrar_cambio_estado, notificar_alumno
-            from django.core.mail import send_mail
+            from django.core.mail import EmailMultiAlternatives
+            from django.template.loader import render_to_string
             from django.conf import settings
             
             registrar_cambio_estado(
@@ -1364,13 +1365,21 @@ class RegistroActoEscolaresView(EscolaresRequeridoMixin, View):
                 if expediente.alumno.carrera and expediente.alumno.carrera.departamento:
                     jefe = expediente.alumno.carrera.departamento.responsable
                     if jefe and jefe.email:
-                        send_mail(
-                            subject=f'{settings.EMAIL_SUBJECT_PREFIX}Acto No Llevado a Cabo - {expediente.alumno.get_full_name()}',
-                            message=f'Estimado(a) {jefe.get_full_name()},\n\nServicios Escolares ha reportado que el acto protocolario del alumno {expediente.alumno.get_full_name()} programado para el {acto.fecha_acto} NO se llevó a cabo.\n\nPor favor, ingrese al sistema para reprogramarlo.\n',
+                        titulo = f'Acto No Llevado a Cabo - {expediente.alumno.get_full_name()}'
+                        mensaje = f'Servicios Escolares ha reportado que el acto protocolario del alumno {expediente.alumno.get_full_name()} programado para el {acto.fecha_acto} NO se llevó a cabo.\n\nPor favor, ingrese al sistema para reprogramarlo.'
+                        html_content = render_to_string('emails/notificacion_generica.html', {
+                            'titulo': titulo,
+                            'saludo': f'Estimado(a) {jefe.get_full_name()},',
+                            'mensaje': mensaje
+                        })
+                        msg = EmailMultiAlternatives(
+                            subject=f'{settings.EMAIL_SUBJECT_PREFIX}{titulo}',
+                            body=f'Estimado(a) {jefe.get_full_name()},\n\n{mensaje}',
                             from_email=settings.DEFAULT_FROM_EMAIL,
-                            recipient_list=[jefe.email],
-                            fail_silently=True,
+                            to=[jefe.email]
                         )
+                        msg.attach_alternative(html_content, "text/html")
+                        msg.send(fail_silently=True)
             except Exception:
                 pass
                 

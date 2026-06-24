@@ -64,12 +64,30 @@ def procesar_resolucion_solicitud(solicitud, aprobada):
                 f"Estos oficios ahora contienen nuevamente la firma del Jefe de Departamento oficial vigente.\n\n"
                 f"Atentamente,\nSistema de Titulación"
             )
-            send_mail(
-                subject=asunto,
-                message=mensaje,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[solicitud.solicitante.email],
-                fail_silently=True,
-            )
+            from django.core.mail import EmailMultiAlternatives
+            from django.template.loader import render_to_string
+
+            html_content = render_to_string('emails/notificacion_generica.html', {
+                'titulo': asunto,
+                'saludo': f"Hola {solicitud.solicitante.get_full_name()},",
+                'mensaje': (
+                    f"Tu solicitud de actualización de Jefe de Departamento fue {solicitud.estado.lower()} por el Administrador o expiró.\n"
+                    f"Debido a esto, el sistema ha regenerado de forma automática los siguientes oficios de jurado que generaste de emergencia con los datos temporales:\n\n"
+                    f"{resumen_expedientes}\n\n"
+                    f"Estos oficios ahora contienen nuevamente la firma del Jefe de Departamento oficial vigente."
+                )
+            })
+
+            try:
+                msg = EmailMultiAlternatives(
+                    subject=f'[ITA Titulación] {asunto}',
+                    body=mensaje,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[solicitud.solicitante.email],
+                )
+                msg.attach_alternative(html_content, "text/html")
+                msg.send(fail_silently=True)
+            except Exception:
+                pass
     
     solicitud.save()

@@ -141,6 +141,14 @@
                     {% endif %}
 
                     <div class="row g-3">
+                        <!-- Numero de oficio -->
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-file-earmark-text me-1 text-primary"></i>Número de Oficio (Jurado)
+                            </label>
+                            <input type="text" name="numero_oficio" class="form-control" value="{{ expediente.jurado.numero_oficio|default:'' }}" required placeholder="ej: S.C./OPV/0099/2026">
+                        </div>
+                        
                         <!-- Fecha y hora del acto -->
                         <div class="col-md-6">
                             <label for="id_fecha_acto" class="form-label fw-semibold">

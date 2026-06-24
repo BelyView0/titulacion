@@ -19,6 +19,7 @@ urlpatterns = [
     # Configuración Institucional
     path('configuracion/', views.ConfiguracionUpdateView.as_view(), name='configuracion'),
     path('configuracion/email/', views.ConfiguracionEmailUpdateView.as_view(), name='configuracion_email'),
+    path('configuracion/email/probar/', views.ProbarConfiguracionEmailView.as_view(), name='configuracion_email_probar'),
     path('configuracion/email/revelar/', views.RevelarPasswordSMTPView.as_view(), name='configuracion_email_revelar'),
 
     # Tiempo Real / API

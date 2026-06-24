@@ -95,16 +95,19 @@
                     {% endif %}
                 </div>
             </div>
-            {% if expediente.estado >= 'JURADO_ASIGNADO' %}
             <div class="d-grid gap-2">
+                {% if expediente.acto_protocolario %}
                 <a href="{% url 'administracion:jefe_oficio' expediente.pk %}" target="_blank" class="btn btn-outline-danger btn-sm">
                     <i class="bi bi-file-earmark-pdf me-1"></i>Descargar Oficio S.C.
                 </a>
+                <a href="{% url 'administracion:jefe_programar' expediente.pk %}" class="btn btn-outline-info btn-sm">
+                    <i class="bi bi-calendar-event me-1"></i>Modificar Acto
+                </a>
+                {% endif %}
                 <a href="{% url 'administracion:jefe_jurado' expediente.pk %}" class="btn btn-outline-warning btn-sm">
                     <i class="bi bi-pencil me-1"></i>Modificar Jurado
                 </a>
             </div>
-            {% endif %}
             {% elif expediente.estado == 'EMPASTADO_RECIBIDO' %}
             <p class="small text-muted">El empastado ha sido recibido. Procede a asignar el jurado para el acto protocolario.</p>
             <a href="{% url 'administracion:jefe_jurado' expediente.pk %}" class="btn btn-primary btn-sm w-100">
@@ -131,6 +134,17 @@
                 <span class="badge bg-warning text-dark ms-2">Pendientes</span>
                 {% endif %}
             </div>
+
+            <div class="alert alert-primary py-2 px-3 small mb-3">
+                <div class="d-flex align-items-center mb-1">
+                    <i class="bi bi-calendar-event me-2"></i>
+                    <strong class="me-1">Fecha y Hora:</strong> {{ acto.fecha_acto|date:"d \d\e F \d\e Y, g:i a" }}
+                </div>
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-geo-alt me-2"></i>
+                    <strong class="me-1">Lugar:</strong> {{ acto.lugar }}
+                </div>
+            </div>
             
             {% for conf in acto.confirmaciones.all %}
             <div class="d-flex align-items-center justify-content-between py-2 {% if not forloop.last %}border-bottom{% endif %}">
@@ -145,14 +159,14 @@
                         <div class="small text-muted" style="font-size:.75rem;">{{ conf.nombre_participante|truncatechars:35 }}</div>
                     </div>
                 </div>
-                <form method="post" action="{% url 'administracion:jefe_toggle_confirmacion' conf.pk %}" class="m-0">
+                <form method="post" action="{% url 'administracion:jefe_toggle_confirmacion' conf.pk %}" class="m-0 form-confirmacion">
                     {% csrf_token %}
                     {% if conf.confirmado %}
-                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Quitar confirmación">
+                    <button type="submit" class="btn btn-outline-danger btn-sm btn-confirmar" title="Quitar confirmación">
                         <i class="bi bi-x-lg"></i>
                     </button>
                     {% else %}
-                    <button type="submit" class="btn btn-success btn-sm" title="Confirmar asistencia">
+                    <button type="submit" class="btn btn-success btn-sm btn-confirmar" title="Confirmar asistencia">
                         <i class="bi bi-check-lg me-1"></i>Confirmar
                     </button>
                     {% endif %}
@@ -174,13 +188,17 @@
                         <i class="bi bi-arrow-repeat me-1"></i>Reprogramar Acto
                     </button>
                     {% else %}
+                    <div class="alert alert-info py-2 small mt-3 mb-2">
+                        <i class="bi bi-info-circle me-1"></i>
+                        <strong>Fecha alcanzada:</strong> La fecha y hora del acto han pasado. Por favor, confirma si el acto se llevó a cabo o si es necesario reprogramarlo.
+                    </div>
                     <div class="mt-3">
-                        <form method="post" action="{% url 'administracion:jefe_confirmar_acto_realizado' acto.pk %}">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-success btn-sm w-100 mb-2 fw-semibold">
-                                <i class="bi bi-calendar-check me-1"></i>El acto protocolario se llevó a cabo
-                            </button>
-                        </form>
+                        <button type="button" class="btn btn-success btn-sm w-100 mb-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#modalConfirmarActoRealizado">
+                            <i class="bi bi-calendar-check me-1"></i>El acto protocolario se llevó a cabo
+                        </button>
+                        <button type="button" class="btn btn-outline-warning btn-sm w-100" data-bs-toggle="modal" data-bs-target="#modalReprogramarJefe">
+                            <i class="bi bi-arrow-repeat me-1"></i>Reprogramar Acto
+                        </button>
                     </div>
                     {% endif %}
                 {% else %}
@@ -202,18 +220,58 @@
                         </h6>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
-                    <form method="post" action="{% url 'administracion:jefe_reprogramar' acto.pk %}">
+                    <form method="post" action="{% url 'administracion:jefe_reprogramar' acto.pk %}" id="form-reprogramar-jefe">
                         {% csrf_token %}
                         <div class="modal-body">
-                            <p class="small text-muted">Esta acción eliminará la fecha actual y regresará el expediente al estado de "Jurado Asignado" para que puedas elegir una nueva fecha.</p>
+                            <div class="alert alert-warning py-2 small mb-3">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                                <strong>Reprogramar Acto:</strong> Se actualizará la fecha y el lugar, y se enviarán correos a todos los participantes (Alumno y Jurado) para que vuelvan a confirmar su asistencia con los nuevos datos.
+                            </div>
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-semibold">Nueva Fecha y Hora</label>
+                                    <input type="datetime-local" name="fecha_acto" class="form-control form-control-sm" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-semibold">Nuevo Lugar</label>
+                                    <input type="text" name="lugar" class="form-control form-control-sm" value="{{ acto.lugar }}" required>
+                                </div>
+                            </div>
                             <div class="mb-3">
-                                <label class="form-label small fw-semibold">Motivo</label>
-                                <textarea name="motivo" class="form-control form-control-sm" rows="3">No se completaron las confirmaciones de asistencia a tiempo.</textarea>
+                                <label class="form-label small fw-semibold">Motivo de Reprogramación</label>
+                                <textarea name="motivo" class="form-control form-control-sm" rows="2" required>No se completaron las confirmaciones de asistencia a tiempo.</textarea>
                             </div>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="submit" class="btn btn-sm btn-warning">Confirmar Reprogramación</button>
+                            <button type="submit" class="btn btn-sm btn-warning" id="btn-reprogramar-submit">Confirmar Reprogramación</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% if acto_expirado and confirmaciones_completas %}
+        {# Modal Confirmar Acto Realizado #}
+        <div class="modal fade" id="modalConfirmarActoRealizado" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-success bg-opacity-10">
+                        <h6 class="modal-title fw-bold text-success">
+                            <i class="bi bi-check-circle me-2"></i>Confirmar Acto Realizado
+                        </h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="post" action="{% url 'administracion:jefe_confirmar_acto_realizado' acto.pk %}" id="form-confirmar-acto">
+                        {% csrf_token %}
+                        <div class="modal-body text-center pt-4 pb-3">
+                            <i class="bi bi-calendar-check text-success mb-3" style="font-size:3rem;"></i>
+                            <h6 class="fw-bold">¿Estás seguro de avanzar el expediente?</h6>
+                            <p class="small text-muted mt-2 mb-0">Esta acción confirmará de manera definitiva que el acto protocolario se llevó a cabo exitosamente y el expediente pasará a Servicios Escolares.</p>
+                        </div>
+                        <div class="modal-footer justify-content-center border-top-0 pt-0 pb-4">
+                            <button type="button" class="btn btn-sm btn-light px-3" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-sm btn-success px-4" id="btn-confirmar-acto-submit">Sí, confirmar acto</button>
                         </div>
                     </form>
                 </div>
@@ -306,6 +364,60 @@
         const progressBar = document.getElementById('progreso-bar-jefe');
         if (progressBar) {
             progressBar.style.width = '{{ expediente.porcentaje_progreso }}%';
+        }
+
+        // Manejar loading en formularios de confirmación
+        const confirmForms = document.querySelectorAll('.form-confirmacion');
+        confirmForms.forEach(form => {
+            form.addEventListener('submit', function(e) {
+                // Prevenir doble submit
+                if (this.dataset.submitting) {
+                    e.preventDefault();
+                    return;
+                }
+                this.dataset.submitting = 'true';
+                
+                // Deshabilitar el botón presionado y cambiar su texto
+                const btn = this.querySelector('.btn-confirmar');
+                if (btn) {
+                    const originalHtml = btn.innerHTML;
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span><span class="d-none d-sm-inline">Enviando notificaciones por correo...</span>';
+                    btn.disabled = true;
+                    btn.classList.add('disabled');
+                }
+
+                // Deshabilitar todos los demás botones de confirmación en la página
+                document.querySelectorAll('.btn-confirmar').forEach(otherBtn => {
+                    if (otherBtn !== btn) {
+                        otherBtn.disabled = true;
+                        otherBtn.classList.add('disabled');
+                    }
+                });
+            });
+        });
+
+        // Manejar loading en formulario de reprogramación
+        const formReprogramar = document.getElementById('form-reprogramar-jefe');
+        if (formReprogramar) {
+            formReprogramar.addEventListener('submit', function(e) {
+                const btn = document.getElementById('btn-reprogramar-submit');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Enviando notificaciones por correo...';
+                }
+            });
+        }
+
+        // Manejar loading en formulario de confirmar acto
+        const formConfirmarActo = document.getElementById('form-confirmar-acto');
+        if (formConfirmarActo) {
+            formConfirmarActo.addEventListener('submit', function(e) {
+                const btn = document.getElementById('btn-confirmar-acto-submit');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Procesando...';
+                }
+            });
         }
     });
 </script>

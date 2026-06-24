@@ -57,26 +57,48 @@ class ConfiguracionEmailUpdateView(AdminRequeridoMixin, FormMessageMixin, Update
 
     def form_valid(self, form):
         response = super().form_valid(form)
-        from django.core.mail import send_mail
+        messages.success(self.request, 'Configuración de servidor de correo guardada correctamente.')
+        return response
+
+class ProbarConfiguracionEmailView(AdminRequeridoMixin, View):
+    """Envía un correo de prueba usando la configuración SMTP actual guardada"""
+    def post(self, request, *args, **kwargs):
+        from django.core.mail import EmailMultiAlternatives
+        from django.template.loader import render_to_string
         from django.conf import settings
         
-        user_email = self.request.user.email
-        if user_email:
-            try:
-                send_mail(
-                    subject='[ITA Titulación] Verificación de Configuración de Correo',
-                    message='¡Hola! Si has recibido este correo, significa que la configuración SMTP ha sido guardada correctamente y el sistema ya puede enviar correos usando este servidor.',
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[user_email],
-                    fail_silently=False
-                )
-                messages.success(self.request, 'Configuración guardada y correo de prueba enviado exitosamente a tu dirección.')
-            except Exception as e:
-                messages.error(self.request, f'Configuración guardada, pero falló el correo de prueba. Revisa tus credenciales o conexión: {str(e)}')
-        else:
-            messages.success(self.request, 'Configuración de correo actualizada correctamente (no se envió correo de prueba porque no tienes un email registrado).')
+        user_email = request.user.email
+        if not user_email:
+            messages.error(request, 'No tienes un correo electrónico registrado en tu perfil para enviar la prueba.')
+            return redirect('administracion:configuracion_email')
             
-        return response
+        try:
+            from administracion.models import ConfiguracionInstitucional
+            config = ConfiguracionInstitucional.objects.first()
+            destinatarios = [user_email]
+            
+            # Si el correo remitente configurado es diferente al del usuario, lo agregamos también
+            if config and config.email_remitente and config.email_remitente != user_email:
+                destinatarios.append(config.email_remitente)
+
+            html_content = render_to_string('emails/notificacion_generica.html', {
+                'titulo': 'Verificación de Configuración de Correo',
+                'saludo': f'¡Hola {request.user.get_full_name()}!',
+                'mensaje': 'Si has recibido este correo, significa que la configuración SMTP funciona correctamente y el sistema ya puede enviar correos usando este servidor.'
+            })
+            msg = EmailMultiAlternatives(
+                subject='[ITA Titulación] Verificación de Configuración de Correo',
+                body='¡Hola! Si has recibido este correo, significa que la configuración SMTP funciona correctamente y el sistema ya puede enviar correos usando este servidor.',
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=destinatarios
+            )
+            msg.attach_alternative(html_content, "text/html")
+            msg.send(fail_silently=False)
+            messages.success(request, f'Correo de prueba enviado exitosamente a tu dirección registrada ({user_email}).')
+        except Exception as e:
+            messages.error(request, f'Falló el envío del correo de prueba. Revisa tus credenciales o conexión: {str(e)}')
+            
+        return redirect('administracion:configuracion_email')
 
 
 from django.http import JsonResponse
@@ -288,6 +310,18 @@ class DashboardAdminView(AdminRequeridoMixin, TemplateView):
                 'mensaje': 'No se han registrado jefes de departamento. Son necesarios para firmar oficios de asignacion de jurado.',
                 'accion_url': reverse_lazy('administracion:jefe_crear'),
                 'accion_texto': 'Asignar jefe',
+            })
+
+        # Verificar configuracion institucional (SMTP / Membretes)
+        config = ConfiguracionInstitucional.objects.first()
+        if not config or not config.email_remitente or not config.email_password:
+            alertas.append({
+                'tipo': 'danger',
+                'icono': 'bi-exclamation-triangle-fill',
+                'titulo': 'Configuracion Institucional Pendiente',
+                'mensaje': 'Alerta critica: El sistema no podra enviar correos electronicos ni notificaciones porque las credenciales SMTP no han sido configuradas. Configure el remitente y la contraseña de aplicacion inmediatamente.',
+                'accion_url': reverse_lazy('administracion:configuracion_institucional'),
+                'accion_texto': 'Configurar ahora',
             })
 
         ctx['alertas_sistema'] = alertas
@@ -923,12 +957,8 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
         vocal_id = request.POST.get('vocal')
         suplente_id = request.POST.get('suplente')
         
-        numero_oficio = request.POST.get('numero_oficio')
-        fecha_acto = request.POST.get('fecha_acto')
-        lugar_acto = request.POST.get('lugar_acto')
-
-        if not all([presidente_id, secretario_id, vocal_id, suplente_id, numero_oficio, fecha_acto, lugar_acto]):
-            messages.error(request, 'Debes llenar todos los campos (roles, oficio, fecha y lugar).')
+        if not all([presidente_id, secretario_id, vocal_id, suplente_id]):
+            messages.error(request, 'Debes seleccionar los cuatro miembros del jurado.')
             return redirect('administracion:jefe_jurado', pk=pk)
 
         if len({presidente_id, secretario_id, vocal_id, suplente_id}) < 4:
@@ -942,9 +972,6 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
                 'secretario_id': secretario_id,
                 'vocal_propietario_id': vocal_id,
                 'vocal_suplente_id': suplente_id,
-                'numero_oficio': numero_oficio,
-                'fecha_acto': fecha_acto,
-                'lugar_acto': lugar_acto,
                 'fecha_oficio': timezone.now().date(),
                 'asignado_por': request.user,
             }
@@ -954,51 +981,24 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
             jurado.secretario_id = secretario_id
             jurado.vocal_propietario_id = vocal_id
             jurado.vocal_suplente_id = suplente_id
-            jurado.numero_oficio = numero_oficio
-            jurado.fecha_acto = fecha_acto
-            jurado.lugar_acto = lugar_acto
             jurado.fecha_oficio = timezone.now().date()
             jurado.asignado_por = request.user
             jurado.save()
 
-        # Revisar si hay una solicitud de cambio de jefe pendiente (no mayor a 14 días)
-        from administracion.models import SolicitudCambioJefe
-        import datetime
-        limite_fecha = timezone.now() - datetime.timedelta(days=14)
-        
-        solicitud_pendiente = SolicitudCambioJefe.objects.filter(
-            departamento=request.user.departamento,
-            estado='PENDIENTE',
-            fecha_solicitud__gte=limite_fecha
-        ).first()
-
-        # Generar y guardar el PDF estático
-        from administracion.pdf_oficio import generar_oficio_jurado_pdf
-        from django.core.files.base import ContentFile
-        
-        pdf_bytes = generar_oficio_jurado_pdf(jurado, jefe_custom=solicitud_pendiente)
-        filename = f'Oficio_Jurado_{expediente.alumno.username}.pdf'
-        jurado.oficio_pdf.save(filename, ContentFile(pdf_bytes), save=False)
-        
-        if solicitud_pendiente:
-            jurado.solicitud_jefe_usada = solicitud_pendiente
-            
-        jurado.save()
-
-        messages.success(request, 'Asignación de jurado registrada exitosamente.')
+        messages.success(request, 'Asignación de jurado registrada exitosamente. Ahora puedes programar el acto.')
 
         # Actualizar estado del expediente
         registrar_cambio_estado(
             expediente=expediente,
             estado_nuevo=EstadoExpediente.JURADO_ASIGNADO,
             realizado_por=request.user,
-            descripcion=f'Jurado asignado. Oficio {numero_oficio}. Acto: {fecha_acto} en {lugar_acto}'
+            descripcion='Jurado asignado.'
         )
         notificar_alumno(
             expediente=expediente,
             tipo='AVANCE',
             titulo='Jurado asignado para tu examen profesional',
-            mensaje=f'Se ha asignado el jurado y fecha para tu acto protocolario. Fecha: {fecha_acto} en {lugar_acto}.',
+            mensaje='Se ha asignado el jurado para tu acto protocolario. En breve se te notificará la fecha y lugar.',
         )
 
         # Enviar correos
@@ -1019,8 +1019,7 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
 
 Se notifica que han sido designados como jurado para el acto de recepción profesional del alumno(a) {expediente.alumno.get_full_name()} ({expediente.alumno.carrera}).
 
-Lugar: {lugar_acto}
-Fecha y hora: {fecha_acto}
+En breve se programará la fecha y lugar del acto protocolario.
 
 Jurado:
 - Presidente: {jurado.presidente.get_nombre_con_titulo()}
@@ -1311,6 +1310,39 @@ class ActoProtocolarioView(JefeProyectoRequeridoMixin, CreateView):
         acto.programado_por = self.request.user
         acto.save()
 
+        # Actualizar AsignacionJurado
+        jurado = expediente.jurado
+        if jurado:
+            jurado.fecha_acto = acto.fecha_acto
+            jurado.lugar_acto = acto.lugar
+            numero_oficio = self.request.POST.get('numero_oficio')
+            if numero_oficio:
+                jurado.numero_oficio = numero_oficio
+            
+            # Revisar si hay una solicitud de cambio de jefe pendiente (no mayor a 14 días)
+            from administracion.models import SolicitudCambioJefe
+            import datetime
+            limite_fecha = timezone.now() - datetime.timedelta(days=14)
+            
+            solicitud_pendiente = SolicitudCambioJefe.objects.filter(
+                departamento=self.request.user.departamento if self.request.user.departamento else None,
+                estado='PENDIENTE',
+                fecha_solicitud__gte=limite_fecha
+            ).first()
+
+            # Generar y guardar el PDF estático
+            from administracion.pdf_oficio import generar_oficio_jurado_pdf
+            from django.core.files.base import ContentFile
+            
+            pdf_bytes = generar_oficio_jurado_pdf(jurado, jefe_custom=solicitud_pendiente)
+            filename = f'Oficio_Jurado_{expediente.alumno.username}.pdf'
+            jurado.oficio_pdf.save(filename, ContentFile(pdf_bytes), save=False)
+            
+            if solicitud_pendiente:
+                jurado.solicitud_jefe_usada = solicitud_pendiente
+                
+            jurado.save()
+
         registrar_cambio_estado(
             expediente=expediente,
             estado_nuevo=EstadoExpediente.ACTO_PROGRAMADO,
@@ -1362,39 +1394,17 @@ class ActoProtocolarioView(JefeProyectoRequeridoMixin, CreateView):
                 # SOLO notificar al alumno en esta fase
                 if rol == 'ALUMNO':
                     confirm_url = f'{base_url}/confirmar/{token}/'
-                    html_body = f'''<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;">
-<div style="max-width:600px;margin:0 auto;padding:20px;">
-  <div style="background:linear-gradient(135deg,#0057B8,#003d82);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
-    <div style="font-size:36px;color:#fff;">&#x1F393;</div>
-    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Acto Protocolario Programado</h2>
-    <p style="color:rgba(255,255,255,.8);margin:0;font-size:13px;">Instituto Tecnol&oacute;gico de Apizaco &mdash; TecNM</p>
-  </div>
-  <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
-    <p style="font-size:15px;color:#333;">Estimado(a) <strong>{nombre}</strong>,</p>
-    <p style="font-size:14px;color:#555;">Se le informa que se ha asignado <strong style="color:#0057B8;">fecha y lugar</strong> para su acto de recepci&oacute;n profesional.</p>
-
-    <div style="background:linear-gradient(135deg,#f0f7ff,#f3e8ff);border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
-      <div style="font-size:12px;color:#6c757d;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Fecha y lugar probable</div>
-      <div style="font-size:20px;font-weight:700;color:#7c3aed;margin:8px 0;">{fecha_fmt}</div>
-      <div style="font-size:14px;color:#555;">&#128205; {acto.lugar}</div>
-    </div>
-
-    <div style="background:#dbeafe;border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
-      <div style="font-size:14px;color:#1e40af;font-weight:700;margin-bottom:8px;">&#128232; Confirme su asistencia</div>
-      <p style="font-size:13px;color:#333;margin:0;">
-        Debe confirmar su asistencia con al menos <strong>24 horas de anticipaci&oacute;n</strong>. Ingrese a la Plataforma de Titulaci&oacute;n:
-      </p>
-      <a href="{confirm_url}" style="display:inline-block;margin-top:15px;padding:10px 20px;background:#0057B8;color:#fff;text-decoration:none;border-radius:5px;font-weight:bold;">Confirmar Asistencia</a>
-    </div>
-
-    <div style="background:#fef3c7;border-radius:8px;padding:12px 16px;font-size:12px;color:#92400e;">
-      <strong>&#9888;&#65039; Importante:</strong> Si no confirma a tiempo, el acto no se notificar&aacute; al jurado y ser&aacute; cancelado/reprogramado.
-    </div>
-  </div>
-</div>
-</body></html>'''
+                    from django.template.loader import render_to_string
+                    html_content = render_to_string('emails/notificacion_generica.html', {
+                        'titulo': 'Acto Protocolario Programado',
+                        'saludo': f'Estimado(a) {nombre},',
+                        'mensaje': 'Se le informa que se ha asignado fecha y lugar para su acto de recepción profesional.\n\nDebe confirmar su asistencia con al menos 24 horas de anticipación. Si no confirma a tiempo, el acto no se notificará al jurado y será cancelado/reprogramado.',
+                        'datos_adicionales': {
+                            'Fecha probable': fecha_fmt,
+                            'Lugar': acto.lugar
+                        },
+                        'url_accion': confirm_url
+                    })
 
                     text_body = (
                         f'Estimado(a) {nombre},\n\n'
@@ -1412,7 +1422,7 @@ class ActoProtocolarioView(JefeProyectoRequeridoMixin, CreateView):
                             from_email=settings.DEFAULT_FROM_EMAIL,
                             to=[email],
                         )
-                        msg.attach_alternative(html_body, "text/html")
+                        msg.attach_alternative(html_content, "text/html")
                         msg.send(fail_silently=True)
                     except Exception:
                         pass
@@ -1428,27 +1438,20 @@ class ActoProtocolarioView(JefeProyectoRequeridoMixin, CreateView):
 
 class ReprogramarActoView(JefeProyectoRequeridoMixin, View):
     """
-    POST — Reprograma el acto protocolario cuando la fecha ya pasó
-    y las confirmaciones de asistencia NO se completaron.
+    POST — Reprograma el acto protocolario (nueva fecha y lugar).
     """
 
     def post(self, request, pk):
+        import threading
         from expediente.models import ConfirmacionActo
         from django.core.mail import EmailMultiAlternatives
         from django.conf import settings
         from django.http import Http404
 
-        try:
-            acto = get_object_or_404(ActoProtocolario, pk=pk)
-            expediente = acto.expediente
-        except Http404:
-            # Si el acto no existe (quizás ya se borró), intentamos redirigir al dashboard
-            messages.info(request, 'El acto ya no existe o ya fue reprogramado.')
-            return redirect('administracion:jefe_dashboard')
-
-        user = request.user
+        acto = get_object_or_404(ActoProtocolario, pk=pk)
+        expediente = acto.expediente
         
-        # Security check
+        user = request.user
         if user.departamento:
             if expediente.alumno.carrera.departamento != user.departamento:
                 messages.error(request, 'No tienes permiso para modificar este expediente.')
@@ -1457,109 +1460,126 @@ class ReprogramarActoView(JefeProyectoRequeridoMixin, View):
             messages.error(request, 'No tienes permiso para modificar este expediente.')
             return redirect('administracion:jefe_dashboard')
 
-
-        if acto.fecha_acto > timezone.now():
-            messages.error(request, 'No puedes reprogramar un acto cuya fecha aún no ha pasado.')
-            return redirect('administracion:jefe_detalle', pk=expediente.pk)
-
-        if acto.confirmaciones_completas():
-            messages.error(request, 'No puedes reprogramar: todas las confirmaciones están completas. Registra el resultado.')
-            return redirect('administracion:jefe_detalle', pk=expediente.pk)
-
-        # Guardar datos para los correos antes de borrar
-        fecha_anterior = acto.fecha_acto.strftime('%d/%m/%Y a las %H:%M')
+        fecha_anterior_str = acto.fecha_acto.strftime('%d/%m/%Y a las %H:%M')
         lugar_anterior = acto.lugar
         alumno_nombre = expediente.alumno.get_full_name()
-        motivo = request.POST.get('motivo', 'No se completaron las confirmaciones de asistencia.')
+        motivo = request.POST.get('motivo', 'Motivos administrativos u otra eventualidad.')
 
-        # Recopilar destinatarios
-        destinatarios = []
-        for conf in acto.confirmaciones.all():
-            if conf.email:
-                destinatarios.append((conf.nombre_participante, conf.email, conf.get_rol_display()))
+        nueva_fecha_str = request.POST.get('fecha_acto')
+        nuevo_lugar = request.POST.get('lugar')
+        
+        if not nueva_fecha_str or not nuevo_lugar:
+            messages.error(request, 'Debes proporcionar la nueva fecha y lugar.')
+            return redirect('administracion:jefe_detalle', pk=expediente.pk)
 
-        # Eliminar el acto (esto elimina en cascada las confirmaciones)
-        acto.delete()
+        from django.utils.dateparse import parse_datetime
+        nueva_fecha = parse_datetime(nueva_fecha_str)
 
-        # Regresar estado del expediente
+        acto.fecha_acto = nueva_fecha
+        acto.lugar = nuevo_lugar
+        acto.resultado = 'PENDIENTE'
+        acto.save()
+
+        jurado = acto.jurado
+        if jurado:
+            jurado.fecha_acto = nueva_fecha
+            jurado.lugar_acto = nuevo_lugar
+            jurado.save()
+            from administracion.pdf_oficio import generar_oficio_jurado_pdf
+            from django.core.files.base import ContentFile
+            jefe_custom = None
+            if hasattr(jurado, 'solicitud_jefe_usada'):
+                jefe_custom = jurado.solicitud_jefe_usada
+            pdf_bytes = generar_oficio_jurado_pdf(jurado, jefe_custom=jefe_custom)
+            filename = f'Oficio_Jurado_{expediente.alumno.username}.pdf'
+            jurado.oficio_pdf.save(filename, ContentFile(pdf_bytes), save=True)
+
+        acto.confirmaciones.all().delete()
+
+        import secrets
+        participantes = [
+            ('PRESIDENTE', jurado.presidente.get_nombre_corto() if jurado else 'Presidente', jurado.presidente.email if jurado else None),
+            ('SECRETARIO', jurado.secretario.get_nombre_corto() if jurado else 'Secretario', jurado.secretario.email if jurado else None),
+        ]
+        if jurado and jurado.vocal_propietario:
+            participantes.append(('VOCAL_PROPIETARIO', jurado.vocal_propietario.get_nombre_corto(), jurado.vocal_propietario.email))
+        if jurado and jurado.vocal_suplente:
+            participantes.append(('VOCAL_SUPLENTE', jurado.vocal_suplente.get_nombre_corto(), jurado.vocal_suplente.email))
+        participantes.append(('ALUMNO', expediente.alumno.get_full_name(), expediente.alumno.email))
+
+        confirmaciones = []
+        for rol, nombre, email in participantes:
+            if not email:
+                continue
+            conf = ConfirmacionActo.objects.create(
+                acto=acto, rol=rol,
+                nombre_participante=nombre,
+                email=email,
+                token=secrets.token_urlsafe(48),
+                confirmado=False
+            )
+            confirmaciones.append((conf, nombre, email, conf.get_rol_display()))
+
         registrar_cambio_estado(
             expediente=expediente,
-            estado_nuevo=EstadoExpediente.JURADO_ASIGNADO,
+            estado_nuevo=EstadoExpediente.ACTO_PROGRAMADO,
             realizado_por=request.user,
-            descripcion=f'Acto protocolario reprogramado. Motivo: {motivo}. Fecha anterior: {fecha_anterior}.'
+            descripcion=f'Acto reprogramado. Motivo: {motivo}. Fecha anterior: {fecha_anterior_str}. Nueva fecha: {nueva_fecha.strftime("%d/%m/%Y a las %H:%M")}'
         )
 
         notificar_alumno(
             expediente=expediente,
-            tipo='INFO',
+            tipo='AVANCE',
             titulo='Tu acto protocolario ha sido reprogramado',
-            mensaje=f'El acto protocolario programado para el {fecha_anterior} en {lugar_anterior} ha sido reprogramado. Motivo: {motivo}. Recibirás una nueva notificación cuando se asigne la nueva fecha.',
+            mensaje=f'El acto protocolario programado originalmente para el {fecha_anterior_str} ha sido reprogramado para el {nueva_fecha.strftime("%d/%m/%Y a las %H:%M")} en {nuevo_lugar}. Motivo: {motivo}. Recibirás un correo con la invitación.',
         )
 
-        # Enviar correos
-        for nombre, email, rol_display in destinatarios:
-            html_body = f"""<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;">
-<div style="max-width:600px;margin:0 auto;padding:20px;">
-  <div style="background:linear-gradient(135deg,#dc3545,#b02a37);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
-    <div style="font-size:42px;color:#fff;">&#x1F504;</div>
-    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Acto Protocolario Reprogramado</h2>
-    <p style="color:rgba(255,255,255,.8);margin:0;font-size:13px;">Instituto Tecnol&oacute;gico de Apizaco &mdash; TecNM</p>
-  </div>
-  <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
-    <p style="font-size:15px;color:#333;">Estimado(a) <strong>{nombre}</strong>,</p>
-    <p style="font-size:14px;color:#555;">Le informamos que el acto protocolario en el que participar&iacute;a como
-    <strong style="color:#dc3545;">{rol_display}</strong> ha sido <strong>reprogramado</strong>.</p>
+        nueva_fecha_fmt = nueva_fecha.strftime('%d/%m/%Y a las %H:%M')
+        base_url = request.build_absolute_uri('/')[:-1]
 
-    <div style="background:#fef2f2;border-radius:8px;padding:16px;margin:20px 0;border-left:4px solid #dc3545;">
-      <table style="width:100%;border-collapse:collapse;">
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Alumno(a)</td>
-            <td style="padding:6px 12px;font-size:14px;font-weight:700;">{alumno_nombre}</td></tr>
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Fecha anterior</td>
-            <td style="padding:6px 12px;font-size:14px;text-decoration:line-through;color:#dc3545;">{fecha_anterior}</td></tr>
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Lugar anterior</td>
-            <td style="padding:6px 12px;font-size:14px;">{lugar_anterior}</td></tr>
-      </table>
-    </div>
+        def _enviar():
+            from django.template.loader import render_to_string
+            for conf, nombre, email, rol_display in confirmaciones:
+                html_content = render_to_string('emails/notificacion_generica.html', {
+                    'titulo': 'Acto Protocolario Reprogramado',
+                    'saludo': f'Estimado(a) {nombre},',
+                    'mensaje': f'Le informamos que el acto protocolario del alumno(a) {alumno_nombre} en el que participaría como {rol_display} ha sido reprogramado.\n\nPor favor comuníquese con el Jefe de Departamento correspondiente para confirmar que está enterado y puede asistir en esta nueva fecha.',
+                    'datos_adicionales': {
+                        'Nueva Fecha': nueva_fecha_fmt,
+                        'Nuevo Lugar': nuevo_lugar,
+                        'Fecha Anterior': f'{fecha_anterior_str} en {lugar_anterior}',
+                        'Motivo': motivo
+                    }
+                })
 
-    <div style="background:#fff3cd;border-radius:8px;padding:14px 16px;font-size:13px;color:#856404;margin:20px 0;">
-      <strong>&#9888;&#65039; Motivo:</strong> {motivo}
-    </div>
-
-    <p style="font-size:14px;color:#555;">
-      Se le notificar&aacute; oportunamente cuando se asigne una <strong>nueva fecha y lugar</strong> para el acto protocolario.
-    </p>
-  </div>
-  <p style="text-align:center;font-size:11px;color:#999;margin-top:16px;">
-    Sistema de Gesti&oacute;n de Titulaci&oacute;n &mdash; TecNM / Instituto Tecnol&oacute;gico de Apizaco
-  </p>
-</div>
-</body></html>"""
-
-            text_body = (
-                f'Estimado(a) {nombre},\n\n'
-                f'El acto protocolario del alumno(a) {alumno_nombre} ha sido reprogramado.\n\n'
-                f'Fecha anterior: {fecha_anterior}\n'
-                f'Lugar: {lugar_anterior}\n'
-                f'Motivo: {motivo}\n\n'
-                f'Se le notificará cuando se asigne la nueva fecha.\n\n'
-                f'Instituto Tecnológico de Apizaco — TecNM'
-            )
-
-            try:
-                msg = EmailMultiAlternatives(
-                    subject=f'[ITA Titulación] Acto Protocolario Reprogramado — {alumno_nombre}',
-                    body=text_body,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    to=[email],
+                text_body = (
+                    f'Estimado(a) {nombre},\n\n'
+                    f'El acto protocolario del alumno(a) {alumno_nombre} ha sido reprogramado.\n\n'
+                    f'Nueva Fecha: {nueva_fecha_fmt}\n'
+                    f'Nuevo Lugar: {nuevo_lugar}\n'
+                    f'Fecha Anterior: {fecha_anterior_str}\n'
+                    f'Motivo: {motivo}\n\n'
+                    f'Por favor comuníquese con el Jefe de Departamento para confirmar su asistencia a la nueva fecha.\n\n'
+                    f'Instituto Tecnológico de Apizaco — TecNM'
                 )
-                msg.attach_alternative(html_body, "text/html")
-                msg.send(fail_silently=True)
-            except Exception:
-                pass
 
-        messages.success(request, f'Acto protocolario reprogramado. Se notificó a {len(destinatarios)} participantes por correo.')
+                try:
+                    msg = EmailMultiAlternatives(
+                        subject=f'[ITA Titulación] Acto Reprogramado — {alumno_nombre}',
+                        body=text_body,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        to=[email]
+                    )
+                    msg.attach_alternative(html_content, "text/html")
+                    msg.send(fail_silently=True)
+                except Exception:
+                    pass
+
+        # Iniciar hilo de correo
+        import threading
+        threading.Thread(target=_enviar).start()
+
+        messages.success(request, 'El acto ha sido reprogramado exitosamente y se enviaron los correos con la nueva fecha.')
         return redirect('administracion:jefe_detalle', pk=expediente.pk)
 
 

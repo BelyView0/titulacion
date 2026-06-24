@@ -21,18 +21,25 @@ class JefeDepartamentoListView(AdminRequeridoMixin, ListView):
     template_name = 'administracion/jefe_departamento_list.html'
     context_object_name = 'jefes'
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from administracion.models import Departamento
+        context['departamentos_count'] = Departamento.objects.count()
+        return context
+
 class JefeDepartamentoCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
     model = JefeDepartamento
     template_name = 'administracion/jefe_departamento_form.html'
-    fields = ['departamento', 'titulo_academico', 'nombre', 'apellido_paterno', 'apellido_materno', 'genero']
+    fields = ['departamento', 'titulo_academico', 'nombre', 'apellido_paterno', 'apellido_materno', 'genero', 'activo']
     success_url = reverse_lazy('administracion:jefes')
 
     def form_valid(self, form):
-        # Asegurar un solo jefe vigente por departamento
+        activo = form.cleaned_data.get('activo', False)
         depto = form.cleaned_data['departamento']
-        if JefeDepartamento.objects.filter(departamento=depto).exists():
-            messages.error(self.request, 'Ya existe un jefe registrado para este departamento. Por favor edite el existente en lugar de crear uno nuevo.')
-            return self.form_invalid(form)
+        if activo:
+            # Si se marca como activo, desactivamos a los demás del mismo departamento
+            JefeDepartamento.objects.filter(departamento=depto, activo=True).update(activo=False)
+            
         messages.success(self.request, 'Jefe de Departamento creado exitosamente.')
         return super().form_valid(form)
 
@@ -49,6 +56,12 @@ class JefeDepartamentoUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateVi
         return kwargs
 
     def form_valid(self, form):
+        activo = form.cleaned_data.get('activo', False)
+        depto = form.cleaned_data['departamento']
+        if activo:
+            # Si se marca como activo, desactivamos a los demás del mismo departamento excluyendo al actual
+            JefeDepartamento.objects.filter(departamento=depto, activo=True).exclude(pk=self.object.pk).update(activo=False)
+            
         messages.success(self.request, 'Jefe de Departamento actualizado exitosamente.')
         return super().form_valid(form)
 

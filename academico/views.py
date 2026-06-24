@@ -441,77 +441,28 @@ class ActoProtocolarioView(AcademicoRequeridoMixin, CreateView):
                 confirm_url = f'{base_url}/confirmar/{token}/'
                 rol_display = dict(ConfirmacionActo.ROL_CHOICES).get(rol, rol)
 
-                # Texto diferente para alumno vs jurado
+                from django.template.loader import render_to_string
+                
                 if rol == 'ALUMNO':
-                    intro_html = (
-                        '<p style="font-size:14px;color:#555;">Se le informa que se ha asignado '
-                        '<strong style="color:#0057B8;">fecha y lugar</strong> para su '
-                        'acto de recepci&oacute;n profesional.</p>'
-                    )
-                    alumno_row = ''
+                    saludo = f'Estimado(a) {nombre},'
+                    mensaje = f'Se le informa que se ha asignado fecha y lugar para su acto de recepción profesional.\n\nPor favor confirme su asistencia ingresando a la Plataforma de Titulación del Instituto Tecnológico de Apizaco.'
                 else:
-                    intro_html = (
-                        f'<p style="font-size:14px;color:#555;">Se le invita a participar como '
-                        f'<strong style="color:#0057B8;">{rol_display}</strong> en el acto de '
-                        f'recepci&oacute;n profesional del alumno(a):</p>'
-                    )
-                    alumno_row = (
-                        f'<tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Alumno(a)</td>'
-                        f'<td style="padding:6px 12px;font-size:14px;font-weight:700;">{expediente.alumno.get_full_name()}</td></tr>'
-                    )
+                    saludo = f'Estimado(a) {nombre},'
+                    mensaje = f'Se le invita a participar como {rol_display} en el acto de recepción profesional del alumno(a) {expediente.alumno.get_full_name()}.\n\nPor favor comuníquese con el Jefe de Departamento correspondiente para confirmar su asistencia.'
 
-                html_body = f'''<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;">
-<div style="max-width:600px;margin:0 auto;padding:20px;">
-  <div style="background:linear-gradient(135deg,#0057B8,#003d82);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
-    <div style="font-size:36px;color:#fff;">&#x1F393;</div>
-    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Acto Protocolario</h2>
-    <p style="color:rgba(255,255,255,.8);margin:0;font-size:13px;">Instituto Tecnol&oacute;gico de Apizaco &mdash; TecNM</p>
-  </div>
-  <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
-    <p style="font-size:15px;color:#333;">Estimado(a) <strong>{nombre}</strong>,</p>
-    {intro_html}
-
-    <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin:20px 0;border-left:4px solid #0057B8;">
-      <table style="width:100%;border-collapse:collapse;">
-        {alumno_row}
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Carrera</td>
-            <td style="padding:6px 12px;font-size:14px;">{expediente.alumno.carrera or '&mdash;'}</td></tr>
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Modalidad</td>
-            <td style="padding:6px 12px;font-size:14px;">{expediente.modalidad or '&mdash;'}</td></tr>
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">T&iacute;tulo del trabajo</td>
-            <td style="padding:6px 12px;font-size:14px;">{expediente.titulo_trabajo or '&mdash;'}</td></tr>
-      </table>
-    </div>
-
-    <div style="background:linear-gradient(135deg,#f0f7ff,#f3e8ff);border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
-      <div style="font-size:12px;color:#6c757d;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Fecha y lugar probable</div>
-      <div style="font-size:20px;font-weight:700;color:#7c3aed;margin:8px 0;">{fecha_fmt}</div>
-      <div style="font-size:14px;color:#555;">&#128205; {acto.lugar}</div>
-    </div>
-
-    {'<div style="background:#dbeafe;border-radius:8px;padding:20px;margin:20px 0;text-align:center;">'
-      '<div style="font-size:14px;color:#1e40af;font-weight:700;margin-bottom:8px;">&#128232; Confirme su asistencia</div>'
-      '<p style="font-size:13px;color:#333;margin:0;">'
-      + ('Por favor confirme su asistencia ingresando a la '
-         '<strong>Plataforma de Titulaci&oacute;n</strong> del Instituto Tecnol&oacute;gico de Apizaco.'
-         if rol == 'ALUMNO' else
-         'Por favor comun&iacute;quese con el <strong>Jefe de Departamento</strong> '
-         'correspondiente para confirmar su asistencia.')
-      + '</p></div>'}
-
-    <div style="background:#fef3c7;border-radius:8px;padding:12px 16px;font-size:12px;color:#92400e;">
-      <strong>&#9888;&#65039; Importante:</strong> Si no se confirma la asistencia de todos los participantes,
-      el protocolo ser&aacute; reprogramado. Una vez confirmado por todos, recibir&aacute; un correo con los detalles completos.
-    </div>
-  </div>
-  <p style="text-align:center;font-size:11px;color:#999;margin-top:16px;">
-    Este mensaje fue generado autom&aacute;ticamente por el Sistema de Gesti&oacute;n de Titulaci&oacute;n.<br>
-    Instituto Tecnol&oacute;gico de Apizaco &mdash; TecNM.
-  </p>
-</div>
-</body></html>'''
+                html_content = render_to_string('emails/notificacion_generica.html', {
+                    'titulo': 'Acto Protocolario',
+                    'saludo': saludo,
+                    'mensaje': mensaje,
+                    'datos_adicionales': {
+                        'Alumno(a)': expediente.alumno.get_full_name(),
+                        'Carrera': expediente.alumno.carrera.nombre if expediente.alumno.carrera else '—',
+                        'Modalidad': expediente.modalidad.nombre if expediente.modalidad else '—',
+                        'Título del trabajo': expediente.titulo_trabajo or '—',
+                        'Fecha y lugar probable': f'{fecha_fmt} en {acto.lugar}'
+                    },
+                    'url_accion': confirm_url if rol == 'ALUMNO' else None
+                })
 
                 if rol == 'ALUMNO':
                     text_body = (
@@ -539,7 +490,7 @@ class ActoProtocolarioView(AcademicoRequeridoMixin, CreateView):
                         from_email=settings.DEFAULT_FROM_EMAIL,
                         to=[email],
                     )
-                    msg.attach_alternative(html_body, "text/html")
+                    msg.attach_alternative(html_content, "text/html")
                     msg.send(fail_silently=True)
                 except Exception:
                     pass
@@ -557,189 +508,6 @@ class ActoProtocolarioView(AcademicoRequeridoMixin, CreateView):
 
 
 
-class ActoProtocolarioView(AcademicoRequeridoMixin, CreateView):
-    model = ActoProtocolario
-    template_name = 'academico/acto/programar.html'
-    fields = ['fecha_acto', 'lugar', 'observaciones']
-
-    def get_initial(self):
-        initial = super().get_initial()
-        initial['fecha_acto'] = timezone.now().date()
-        return initial
-
-    def get_expediente(self):
-        return get_object_or_404(Expediente, pk=self.kwargs['pk'],
-                                  estado=EstadoExpediente.JURADO_ASIGNADO)
-
-    def form_valid(self, form):
-        expediente = self.get_expediente()
-        acto = form.save(commit=False)
-        acto.expediente = expediente
-        acto.jurado = expediente.jurado
-        acto.resultado = 'PENDIENTE'
-        acto.programado_por = self.request.user
-        acto.save()
-
-        registrar_cambio_estado(
-            expediente=expediente,
-            estado_nuevo=EstadoExpediente.ACTO_PROGRAMADO,
-            realizado_por=self.request.user,
-            descripcion=f'Acto protocolario programado para el {acto.fecha_acto} en {acto.lugar}'
-        )
-        notificar_alumno(
-            expediente=expediente,
-            tipo='AVANCE',
-            titulo='¡Tu examen profesional está programado!',
-            mensaje=f'Tu acto protocolario ha sido programado para el {acto.fecha_acto.strftime("%d/%m/%Y a las %H:%M")} en {acto.lugar}.',
-        )
-
-        # Crear confirmaciones y enviar correos individuales con botón de confirmación
-        jurado = expediente.jurado
-        if jurado:
-            import secrets
-            from django.core.mail import EmailMultiAlternatives
-            from django.conf import settings
-            from expediente.models import ConfirmacionActo
-
-            participantes = [
-                ('PRESIDENTE', jurado.presidente.get_nombre_corto(), jurado.presidente.email),
-                ('SECRETARIO', jurado.secretario.get_nombre_corto(), jurado.secretario.email),
-            ]
-            if jurado.vocal_propietario:
-                participantes.append(('VOCAL_PROPIETARIO', jurado.vocal_propietario.get_nombre_corto(), jurado.vocal_propietario.email))
-            if jurado.vocal_suplente:
-                participantes.append(('VOCAL_SUPLENTE', jurado.vocal_suplente.get_nombre_corto(), jurado.vocal_suplente.email))
-            participantes.append(('ALUMNO', expediente.alumno.get_full_name(), expediente.alumno.email))
-
-            fecha_fmt = acto.fecha_acto.strftime('%d de %B de %Y a las %H:%M')
-            base_url = self.request.build_absolute_uri('/')[:-1]
-
-            for rol, nombre, email in participantes:
-                if not email:
-                    continue
-                token = secrets.token_urlsafe(48)
-                ConfirmacionActo.objects.update_or_create(
-                    acto=acto, rol=rol,
-                    defaults={
-                        'nombre_participante': nombre,
-                        'email': email,
-                        'token': token,
-                        'confirmado': False,
-                    }
-                )
-                confirm_url = f'{base_url}/confirmar/{token}/'
-                rol_display = dict(ConfirmacionActo.ROL_CHOICES).get(rol, rol)
-
-                # Texto diferente para alumno vs jurado
-                if rol == 'ALUMNO':
-                    intro_html = (
-                        '<p style="font-size:14px;color:#555;">Se le informa que se ha asignado '
-                        '<strong style="color:#0057B8;">fecha y lugar</strong> para su '
-                        'acto de recepci&oacute;n profesional.</p>'
-                    )
-                    alumno_row = ''
-                else:
-                    intro_html = (
-                        f'<p style="font-size:14px;color:#555;">Se le invita a participar como '
-                        f'<strong style="color:#0057B8;">{rol_display}</strong> en el acto de '
-                        f'recepci&oacute;n profesional del alumno(a):</p>'
-                    )
-                    alumno_row = (
-                        f'<tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Alumno(a)</td>'
-                        f'<td style="padding:6px 12px;font-size:14px;font-weight:700;">{expediente.alumno.get_full_name()}</td></tr>'
-                    )
-
-                html_body = f'''<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;">
-<div style="max-width:600px;margin:0 auto;padding:20px;">
-  <div style="background:linear-gradient(135deg,#0057B8,#003d82);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
-    <div style="font-size:36px;color:#fff;">&#x1F393;</div>
-    <h2 style="color:#fff;margin:10px 0 5px;font-size:20px;">Acto Protocolario</h2>
-    <p style="color:rgba(255,255,255,.8);margin:0;font-size:13px;">Instituto Tecnol&oacute;gico de Apizaco &mdash; TecNM</p>
-  </div>
-  <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
-    <p style="font-size:15px;color:#333;">Estimado(a) <strong>{nombre}</strong>,</p>
-    {intro_html}
-
-    <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin:20px 0;border-left:4px solid #0057B8;">
-      <table style="width:100%;border-collapse:collapse;">
-        {alumno_row}
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Carrera</td>
-            <td style="padding:6px 12px;font-size:14px;">{expediente.alumno.carrera or '&mdash;'}</td></tr>
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">Modalidad</td>
-            <td style="padding:6px 12px;font-size:14px;">{expediente.modalidad or '&mdash;'}</td></tr>
-        <tr><td style="padding:6px 12px;font-weight:700;color:#6c757d;font-size:13px;">T&iacute;tulo del trabajo</td>
-            <td style="padding:6px 12px;font-size:14px;">{expediente.titulo_trabajo or '&mdash;'}</td></tr>
-      </table>
-    </div>
-
-    <div style="background:linear-gradient(135deg,#f0f7ff,#f3e8ff);border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
-      <div style="font-size:12px;color:#6c757d;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Fecha y lugar probable</div>
-      <div style="font-size:20px;font-weight:700;color:#7c3aed;margin:8px 0;">{fecha_fmt}</div>
-      <div style="font-size:14px;color:#555;">&#128205; {acto.lugar}</div>
-    </div>
-
-    {'<div style="background:#dbeafe;border-radius:8px;padding:20px;margin:20px 0;text-align:center;">'
-      '<div style="font-size:14px;color:#1e40af;font-weight:700;margin-bottom:8px;">&#128232; Confirme su asistencia</div>'
-      '<p style="font-size:13px;color:#333;margin:0;">'
-      + ('Por favor confirme su asistencia ingresando a la '
-         '<strong>Plataforma de Titulaci&oacute;n</strong> del Instituto Tecnol&oacute;gico de Apizaco.'
-         if rol == 'ALUMNO' else
-         'Por favor comun&iacute;quese con el <strong>Jefe de Departamento</strong> '
-         'correspondiente para confirmar su asistencia.')
-      + '</p></div>'}
-
-    <div style="background:#fef3c7;border-radius:8px;padding:12px 16px;font-size:12px;color:#92400e;">
-      <strong>&#9888;&#65039; Importante:</strong> Si no se confirma la asistencia de todos los participantes,
-      el protocolo ser&aacute; reprogramado. Una vez confirmado por todos, recibir&aacute; un correo con los detalles completos.
-    </div>
-  </div>
-  <p style="text-align:center;font-size:11px;color:#999;margin-top:16px;">
-    Este mensaje fue generado autom&aacute;ticamente por el Sistema de Gesti&oacute;n de Titulaci&oacute;n.<br>
-    Instituto Tecnol&oacute;gico de Apizaco &mdash; TecNM.
-  </p>
-</div>
-</body></html>'''
-
-                if rol == 'ALUMNO':
-                    text_body = (
-                        f'Estimado(a) {nombre},\n\n'
-                        f'Se le ha asignado fecha para su acto de recepción profesional.\n'
-                        f'Fecha probable: {fecha_fmt}\nLugar: {acto.lugar}\n\n'
-                        f'Confirme su asistencia en: {confirm_url}\n\n'
-                        f'Instituto Tecnológico de Apizaco — TecNM'
-                    )
-                else:
-                    text_body = (
-                        f'Estimado(a) {nombre},\n\n'
-                        f'Se le invita como {rol_display} al acto protocolario.\n'
-                        f'Alumno: {expediente.alumno.get_full_name()}\n'
-                        f'Título: {expediente.titulo_trabajo or "N/A"}\n'
-                        f'Fecha probable: {fecha_fmt}\nLugar: {acto.lugar}\n\n'
-                        f'Confirme su asistencia en: {confirm_url}\n\n'
-                        f'Instituto Tecnológico de Apizaco — TecNM'
-                    )
-
-                try:
-                    msg = EmailMultiAlternatives(
-                        subject=f'[ITA Titulación] Confirme Asistencia — Acto Protocolario',
-                        body=text_body,
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        to=[email],
-                    )
-                    msg.attach_alternative(html_body, "text/html")
-                    msg.send(fail_silently=True)
-                except Exception:
-                    pass
-
-        messages.success(self.request, 'Acto protocolario programado. Se enviaron correos de confirmación al jurado y al alumno.')
-        return redirect('academico:expediente_detalle', pk=expediente.pk)
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        ctx['expediente'] = self.get_expediente()
-        return ctx
 
 
 

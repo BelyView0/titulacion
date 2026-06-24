@@ -25,10 +25,7 @@
         border-color: #16a34a;
         background: #f0fdf4;
     }
-    .resultado-option.selected-mencion {
-        border-color: #d97706;
-        background: #fffbeb;
-    }
+
     .resultado-option.selected-suspendido {
         border-color: #dc3545;
         background: #fef2f2;
@@ -179,13 +176,7 @@
                                 <div class="result-desc">El alumno aprobó el examen</div>
                             </div>
                         </div>
-                        <div class="col-md-3 col-6">
-                            <div class="resultado-option" data-valor="APROBADO_MENCION" onclick="seleccionarResultado(this, 'mencion')">
-                                <div class="result-icon" style="color:#d97706;"><i class="bi bi-trophy-fill"></i></div>
-                                <div class="result-label" style="color:#d97706;">Mención Honorífica</div>
-                                <div class="result-desc">Aprobado con distinción</div>
-                            </div>
-                        </div>
+
                         <div class="col-md-3 col-6">
                             <div class="resultado-option" data-valor="SUSPENDIDO" onclick="seleccionarResultado(this, 'suspendido')">
                                 <div class="result-icon text-danger"><i class="bi bi-x-circle-fill"></i></div>
@@ -265,7 +256,7 @@
 function seleccionarResultado(el, tipo) {
     // Remove all selected states
     document.querySelectorAll('.resultado-option').forEach(opt => {
-        opt.classList.remove('selected', 'selected-aprobado', 'selected-mencion', 'selected-suspendido', 'selected-no_presentado');
+        opt.classList.remove('selected', 'selected-aprobado', 'selected-suspendido', 'selected-no_presentado');
     });
     // Add selected state
     el.classList.add('selected', 'selected-' + tipo);
@@ -281,7 +272,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (opt) {
             const typeMap = {
                 'APROBADO': 'aprobado',
-                'APROBADO_MENCION': 'mencion',
                 'SUSPENDIDO': 'suspendido',
                 'NO_PRESENTADO': 'no_presentado'
             };

@@ -69,7 +69,7 @@ def eventos_calendario(request):
         color_map = {
             'PENDIENTE': '#f59e0b',       # amarillo
             'APROBADO': '#16a34a',        # verde
-            'APROBADO_MENCION': '#7c3aed', # morado
+
             'SUSPENDIDO': '#dc3545',       # rojo
             'NO_PRESENTADO': '#6c757d',    # gris
         }

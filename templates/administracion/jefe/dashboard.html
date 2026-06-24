@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}Panel — Jefe de Proyectos / Academia{% endblock %}
-{% block page_title %}Panel de Administración — {{ departamento.nombre|default:carrera.nombre|default:"Mi Departamento" }}{% endblock %}
+{% block page_title %}Panel de Administración — {% if departamento %}{{ departamento.nombre }}{% elif carrera %}{{ carrera.nombre }}{% else %}Mi Departamento{% endif %}{% endblock %}
 
 {% block content %}
 <div class="row g-3 mb-4">
@@ -45,7 +45,7 @@
     <div class="col-lg-8">
         <div class="content-card">
             <div class="card-header-custom">
-                <i class="bi bi-table"></i> Expedientes — {{ departamento.nombre|default:carrera.nombre|default:"Mi Departamento" }}
+                <i class="bi bi-table"></i> Expedientes — {% if departamento %}{{ departamento.nombre }}{% elif carrera %}{{ carrera.nombre }}{% else %}Mi Departamento{% endif %}
                 <a href="{% url 'administracion:jefe_expedientes' %}" class="ms-auto btn btn-sm btn-outline-primary">Ver todos →</a>
             </div>
             <!-- Buscador -->
