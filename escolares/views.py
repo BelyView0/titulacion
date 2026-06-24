@@ -1084,22 +1084,27 @@ class EstadisticasEscolaresView(EscolaresRequeridoMixin, TemplateView):
         qs_year = qs_base.filter(fecha_apertura__year=year)
         
         # 1. Conteo de expedientes
-        abiertos_total = qs_base.count()
-        abiertos_year = qs_year.count()
+        registrados_total = qs_base.count()
+        registrados_year = qs_year.count()
+        
+        en_proceso_total = qs_base.exclude(estado__in=[EstadoExpediente.CONCLUIDO, EstadoExpediente.CANCELADO]).count()
+        en_proceso_year = qs_year.exclude(estado__in=[EstadoExpediente.CONCLUIDO, EstadoExpediente.CANCELADO]).count()
         
         concluidos_total = qs_base.filter(estado=EstadoExpediente.CONCLUIDO).count()
         concluidos_year = qs_year.filter(estado=EstadoExpediente.CONCLUIDO).count()
         
-        inconclusos_total = abiertos_total - concluidos_total - qs_base.filter(estado=EstadoExpediente.CANCELADO).count()
-        inconclusos_year = abiertos_year - concluidos_year - qs_year.filter(estado=EstadoExpediente.CANCELADO).count()
+        titulados_total = concluidos_total
+        titulados_year = concluidos_year
 
         ctx['stats'] = {
-            'abiertos_total': abiertos_total,
-            'abiertos_year': abiertos_year,
+            'registrados_total': registrados_total,
+            'registrados_year': registrados_year,
+            'en_proceso_total': en_proceso_total,
+            'en_proceso_year': en_proceso_year,
             'concluidos_total': concluidos_total,
             'concluidos_year': concluidos_year,
-            'inconclusos_total': inconclusos_total,
-            'inconclusos_year': inconclusos_year,
+            'titulados_total': titulados_total,
+            'titulados_year': titulados_year,
         }
         
         # 2. Histórico anual (últimos 5 años)
@@ -1144,19 +1149,82 @@ class EstadisticasEscolaresView(EscolaresRequeridoMixin, TemplateView):
             'values': json.dumps(carreras_totales),
         }
         
+        # 5. Indicadores de seguimiento (Procesos en curso agrupados por fase)
+        fase_docs = qs_base.filter(estado__in=[
+            EstadoExpediente.EN_REVISION_ACADEMICO,
+            EstadoExpediente.RECHAZADO_ACADEMICO,
+            EstadoExpediente.EN_CORRECCION,
+            EstadoExpediente.DOCUMENTOS_PENDIENTES,
+            EstadoExpediente.EN_REVISION_DOCUMENTOS
+        ]).count()
+        
+        fase_pagos = qs_base.filter(estado__in=[
+            EstadoExpediente.PAGO_PENDIENTE,
+            EstadoExpediente.PAGO_EN_REVISION
+        ]).count()
+        
+        fase_integracion = qs_base.filter(estado__in=[
+            EstadoExpediente.LISTO_INTEGRACION,
+            EstadoExpediente.RECIBI_PAPEL_ORIGINAL,
+            EstadoExpediente.ESPERANDO_CONSTANCIA,
+            EstadoExpediente.CONSTANCIA_EN_REVISION,
+            EstadoExpediente.INTEGRADO,
+            EstadoExpediente.EMPASTADO_PENDIENTE,
+            EstadoExpediente.EMPASTADO_RECIBIDO
+        ]).count()
+        
+        fase_jurado = qs_base.filter(estado__in=[
+            EstadoExpediente.JURADO_ASIGNADO,
+            EstadoExpediente.ACTO_PROGRAMADO,
+            EstadoExpediente.ACTA_EXENCION
+        ]).count()
+        
+        fase_dgp = qs_base.filter(estado__in=[
+            EstadoExpediente.TRAMITE_DGP,
+            EstadoExpediente.CEDULA_EN_REVISION,
+            EstadoExpediente.CEDULA_RECHAZADA,
+            EstadoExpediente.CITA_ENTREGA
+        ]).count()
+        
+        total_activo = fase_docs + fase_pagos + fase_integracion + fase_jurado + fase_dgp
+        
+        ctx['indicadores_seguimiento'] = {
+            'docs_count': fase_docs,
+            'docs_pct': round((fase_docs / total_activo * 100), 1) if total_activo > 0 else 0,
+            'pagos_count': fase_pagos,
+            'pagos_pct': round((fase_pagos / total_activo * 100), 1) if total_activo > 0 else 0,
+            'integracion_count': fase_integracion,
+            'integracion_pct': round((fase_integracion / total_activo * 100), 1) if total_activo > 0 else 0,
+            'jurado_count': fase_jurado,
+            'jurado_pct': round((fase_jurado / total_activo * 100), 1) if total_activo > 0 else 0,
+            'dgp_count': fase_dgp,
+            'dgp_pct': round((fase_dgp / total_activo * 100), 1) if total_activo > 0 else 0,
+            'total_activo': total_activo,
+            'eficiencia_terminal': round((concluidos_total / registrados_total * 100), 1) if registrados_total > 0 else 0,
+        }
+
         # Distribución por Género (Alumnos en expedientes)
         femenino_count = qs_base.filter(alumno__genero='F').count()
         masculino_count = qs_base.filter(alumno__genero='M').count()
-        total_gender = femenino_count + masculino_count
+        otro_count = qs_base.filter(alumno__genero='O').count()
+        sin_especificar_count = qs_base.exclude(alumno__genero__in=['F', 'M', 'O']).count()
+        
+        total_gender = femenino_count + masculino_count + otro_count + sin_especificar_count
         
         femenino_pct = round((femenino_count / total_gender * 100), 1) if total_gender > 0 else 0
         masculino_pct = round((masculino_count / total_gender * 100), 1) if total_gender > 0 else 0
+        otro_pct = round((otro_count / total_gender * 100), 1) if total_gender > 0 else 0
+        sin_especificar_pct = round((sin_especificar_count / total_gender * 100), 1) if total_gender > 0 else 0
         
         ctx['genero_stats'] = {
             'femenino_count': femenino_count,
             'masculino_count': masculino_count,
+            'otro_count': otro_count,
+            'sin_especificar_count': sin_especificar_count,
             'femenino_pct': femenino_pct,
             'masculino_pct': masculino_pct,
+            'otro_pct': otro_pct,
+            'sin_especificar_pct': sin_especificar_pct,
             'total': total_gender,
         }
         
@@ -1234,68 +1302,96 @@ class ExportarEstadisticasDatosExcelView(EscolaresRequeridoMixin, View):
             ws.cell(row=1, column=3, value="Histórico Total").font = header_font
             ws.cell(row=1, column=3).fill = header_fill
             
-            abiertos_total = qs_base.count()
-            abiertos_year = qs_year.count()
+            registrados_total = qs_base.count()
+            registrados_year = qs_year.count()
+            en_proceso_total = qs_base.exclude(estado__in=[EstadoExpediente.CONCLUIDO, EstadoExpediente.CANCELADO]).count()
+            en_proceso_year = qs_year.exclude(estado__in=[EstadoExpediente.CONCLUIDO, EstadoExpediente.CANCELADO]).count()
             concluidos_total = qs_base.filter(estado=EstadoExpediente.CONCLUIDO).count()
             concluidos_year = qs_year.filter(estado=EstadoExpediente.CONCLUIDO).count()
-            inconclusos_total = abiertos_total - concluidos_total - qs_base.filter(estado=EstadoExpediente.CANCELADO).count()
-            inconclusos_year = abiertos_year - concluidos_year - qs_year.filter(estado=EstadoExpediente.CANCELADO).count()
+            titulados_total = concluidos_total
+            titulados_year = concluidos_year
             
             metrics = [
-                ("Expedientes Abiertos", abiertos_year, abiertos_total),
-                ("Procesos Concluidos", concluidos_year, concluidos_total),
-                ("Procesos Inconclusos", inconclusos_year, inconclusos_total)
+                ("Expedientes Registrados", registrados_year, registrados_total),
+                ("Expedientes en Proceso", en_proceso_year, en_proceso_total),
+                ("Expedientes Concluidos", concluidos_year, concluidos_total),
+                ("Estudiantes Titulados", titulados_year, titulados_total)
             ]
             
-            for row_num, (name, val_y, val_t) in enumerate(metrics, 2):
-                ws.cell(row=row_num, column=1, value=name).border = thin_border
-                ws.cell(row=row_num, column=2, value=val_y).border = thin_border
-                ws.cell(row=row_num, column=3, value=val_t).border = thin_border
+            current_row = 2
+            for name, val_y, val_t in metrics:
+                ws.cell(row=current_row, column=1, value=name).border = thin_border
+                ws.cell(row=current_row, column=2, value=val_y).border = thin_border
+                ws.cell(row=current_row, column=3, value=val_t).border = thin_border
+                current_row += 1
                 
-            # Gender distribution
+            # Gender distribution (leave a blank row)
+            current_row += 1
+            ws.cell(row=current_row, column=1, value="Distribución por Género").font = Font(bold=True)
+            current_row += 1
+            ws.cell(row=current_row, column=1, value="Género").font = header_font
+            ws.cell(row=current_row, column=1).fill = header_fill
+            ws.cell(row=current_row, column=2, value="Cantidad").font = header_font
+            ws.cell(row=current_row, column=2).fill = header_fill
+            ws.cell(row=current_row, column=3, value="Porcentaje").font = header_font
+            ws.cell(row=current_row, column=3).fill = header_fill
+            
             femenino_count = qs_base.filter(alumno__genero='F').count()
             masculino_count = qs_base.filter(alumno__genero='M').count()
-            total_gender = femenino_count + masculino_count
+            otro_count = qs_base.filter(alumno__genero='O').count()
+            sin_especificar_count = qs_base.exclude(alumno__genero__in=['F', 'M', 'O']).count()
+            
+            total_gender = femenino_count + masculino_count + otro_count + sin_especificar_count
             femenino_pct = round((femenino_count / total_gender * 100), 1) if total_gender > 0 else 0
             masculino_pct = round((masculino_count / total_gender * 100), 1) if total_gender > 0 else 0
+            otro_pct = round((otro_count / total_gender * 100), 1) if total_gender > 0 else 0
+            sin_especificar_pct = round((sin_especificar_count / total_gender * 100), 1) if total_gender > 0 else 0
             
-            ws.cell(row=6, column=1, value="Distribución por Género").font = Font(bold=True)
-            ws.cell(row=7, column=1, value="Género").font = header_font
-            ws.cell(row=7, column=1).fill = header_fill
-            ws.cell(row=7, column=2, value="Cantidad").font = header_font
-            ws.cell(row=7, column=2).fill = header_fill
-            ws.cell(row=7, column=3, value="Porcentaje").font = header_font
-            ws.cell(row=7, column=3).fill = header_fill
+            current_row += 1
+            ws.cell(row=current_row, column=1, value="Femenino").border = thin_border
+            ws.cell(row=current_row, column=2, value=femenino_count).border = thin_border
+            ws.cell(row=current_row, column=3, value=f"{femenino_pct}%").border = thin_border
             
-            ws.cell(row=8, column=1, value="Femenino").border = thin_border
-            ws.cell(row=8, column=2, value=femenino_count).border = thin_border
-            ws.cell(row=8, column=3, value=f"{femenino_pct}%").border = thin_border
+            current_row += 1
+            ws.cell(row=current_row, column=1, value="Masculino").border = thin_border
+            ws.cell(row=current_row, column=2, value=masculino_count).border = thin_border
+            ws.cell(row=current_row, column=3, value=f"{masculino_pct}%").border = thin_border
             
-            ws.cell(row=9, column=1, value="Masculino").border = thin_border
-            ws.cell(row=9, column=2, value=masculino_count).border = thin_border
-            ws.cell(row=9, column=3, value=f"{masculino_pct}%").border = thin_border
+            if otro_count > 0:
+                current_row += 1
+                ws.cell(row=current_row, column=1, value="Otro").border = thin_border
+                ws.cell(row=current_row, column=2, value=otro_count).border = thin_border
+                ws.cell(row=current_row, column=3, value=f"{otro_pct}%").border = thin_border
+                
+            if sin_especificar_count > 0:
+                current_row += 1
+                ws.cell(row=current_row, column=1, value="Sin registrar / No especificado").border = thin_border
+                ws.cell(row=current_row, column=2, value=sin_especificar_count).border = thin_border
+                ws.cell(row=current_row, column=3, value=f"{sin_especificar_pct}%").border = thin_border
+                
+            current_row += 1
+            ws.cell(row=current_row, column=1, value="Total").border = thin_border
+            ws.cell(row=current_row, column=2, value=total_gender).border = thin_border
+            ws.cell(row=current_row, column=3, value="100%").border = thin_border
             
-            ws.cell(row=10, column=1, value="Total").border = thin_border
-            ws.cell(row=10, column=2, value=total_gender).border = thin_border
-            ws.cell(row=10, column=3, value="100%").border = thin_border
-            
-            # History
-            ws.cell(row=12, column=1, value="Histórico Anual (Últimos 5 años)").font = Font(bold=True)
-            ws.cell(row=13, column=1, value="Año").font = header_font
-            ws.cell(row=13, column=1).fill = header_fill
-            ws.cell(row=13, column=2, value="Abiertos").font = header_font
-            ws.cell(row=13, column=2).fill = header_fill
-            ws.cell(row=13, column=3, value="Concluidos").font = header_font
-            ws.cell(row=13, column=3).fill = header_fill
+            # History (leave a blank row)
+            current_row += 2
+            ws.cell(row=current_row, column=1, value="Histórico Anual (Últimos 5 años)").font = Font(bold=True)
+            current_row += 1
+            ws.cell(row=current_row, column=1, value="Año").font = header_font
+            ws.cell(row=current_row, column=1).fill = header_fill
+            ws.cell(row=current_row, column=2, value="Registrados").font = header_font
+            ws.cell(row=current_row, column=2).fill = header_fill
+            ws.cell(row=current_row, column=3, value="Concluidos").font = header_font
+            ws.cell(row=current_row, column=3).fill = header_fill
             
             current_year = timezone.now().year
-            row_idx = 14
             for y in range(current_year - 4, current_year + 1):
+                current_row += 1
                 qs_y = qs_base.filter(fecha_apertura__year=y)
-                ws.cell(row=row_idx, column=1, value=y).border = thin_border
-                ws.cell(row=row_idx, column=2, value=qs_y.count()).border = thin_border
-                ws.cell(row=row_idx, column=3, value=qs_y.filter(estado=EstadoExpediente.CONCLUIDO).count()).border = thin_border
-                row_idx += 1
+                ws.cell(row=current_row, column=1, value=y).border = thin_border
+                ws.cell(row=current_row, column=2, value=qs_y.count()).border = thin_border
+                ws.cell(row=current_row, column=3, value=qs_y.filter(estado=EstadoExpediente.CONCLUIDO).count()).border = thin_border
                 
             for col in ws.columns:
                 max_len = max(len(str(cell.value or '')) for cell in col)
