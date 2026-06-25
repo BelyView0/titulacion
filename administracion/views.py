@@ -865,8 +865,10 @@ class ExpedienteListaJefeView(JefeProyectoRequeridoMixin, ListView):
         ctx['modalidad_id'] = self.request.GET.get('modalidad', '')
         user = self.request.user
         if user.departamento:
+            ctx['area_responsabilidad'] = f"Departamento de {user.departamento.nombre}"
             ctx['carreras_filter'] = Carrera.objects.filter(departamento=user.departamento, activa=True)
         else:
+            ctx['area_responsabilidad'] = user.carrera.nombre if user.carrera else "Mi Carrera"
             ctx['carreras_filter'] = Carrera.objects.filter(id=user.carrera_id, activa=True) if user.carrera_id else Carrera.objects.none()
         ctx['modalidades_filter'] = Modalidad.objects.all()
 
