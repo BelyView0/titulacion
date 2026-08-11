@@ -206,25 +206,38 @@
         <div class="content-card p-3">
             <div class="card-header-custom mb-2"><i class="bi bi-credit-card"></i> Carga de Pago de Titulación</div>
             
-            {% if expediente.pago_validado == 'RECHAZADO' %}
-            <div class="alert alert-danger py-2 small mb-3">
-                <i class="bi bi-exclamation-octagon me-1"></i>
-                <strong>Pago Rechazado:</strong> {{ expediente.pago_observaciones|default:"Tu comprobante de pago no fue válido. Por favor, revísalo y vuelve a subirlo." }}
+            {% if not expediente.preficha_enviada %}
+            <div class="alert alert-info py-2 small mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                <strong>Esperando Preficha de Pago:</strong> Servicios Escolares debe generarte la referencia de pago (preficha de depósito) con tu nombre y número de control. Una vez que te la envíen, podrás descargarla desde aquí y subir tu comprobante de pago.
             </div>
             {% else %}
-            <p class="small text-muted">Tu expediente digital y físico ha sido integrado exitosamente. Para continuar con tu trámite de titulación, por favor carga tu comprobante de pago en formato PDF.</p>
-            {% endif %}
-
-            <form method="post" action="{% url 'alumnos:subir_pago' %}" enctype="multipart/form-data" class="mt-2">
-                {% csrf_token %}
-                <div class="mb-3">
-                    <label for="comprobante_pago" class="form-label small fw-semibold">Seleccionar comprobante (PDF)</label>
-                    <input class="form-control form-control-sm" type="file" id="comprobante_pago" name="comprobante_pago" accept=".pdf" required>
+                {% if expediente.pago_validado == 'RECHAZADO' %}
+                <div class="alert alert-danger py-2 small mb-3">
+                    <i class="bi bi-exclamation-octagon me-1"></i>
+                    <strong>Pago Rechazado:</strong> {{ expediente.pago_observaciones|default:"Tu comprobante de pago no fue válido. Por favor, revísalo y vuelve a subirlo." }}
                 </div>
-                <button type="submit" class="btn btn-primary w-100 btn-sm">
-                    <i class="bi bi-upload me-1"></i>Subir Comprobante de Pago
-                </button>
-            </form>
+                {% else %}
+                <p class="small text-muted">Tu expediente digital y físico ha sido integrado exitosamente. Por favor, descarga la preficha de depósito generada para ti, realiza tu pago en el banco y sube el comprobante en formato PDF.</p>
+                {% endif %}
+
+                <div class="mb-3">
+                    <a href="{{ expediente.preficha_pago.url }}" target="_blank" class="btn btn-outline-success w-100 btn-sm fw-semibold">
+                        <i class="bi bi-file-earmark-pdf me-1"></i>Descargar Preficha de Depósito (PDF)
+                    </a>
+                </div>
+
+                <form method="post" action="{% url 'alumnos:subir_pago' %}" enctype="multipart/form-data" class="mt-2">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="comprobante_pago" class="form-label small fw-semibold">Seleccionar comprobante (PDF)</label>
+                        <input class="form-control form-control-sm" type="file" id="comprobante_pago" name="comprobante_pago" accept=".pdf" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 btn-sm">
+                        <i class="bi bi-upload me-1"></i>Subir Comprobante de Pago
+                    </button>
+                </form>
+            {% endif %}
         </div>
 
         {% elif expediente.estado == 'PAGO_EN_REVISION' %}
@@ -234,6 +247,11 @@
                 <i class="bi bi-hourglass-split me-1"></i>
                 <strong>Pago en Revisión:</strong> Tu comprobante de pago ha sido enviado y está en revisión por Servicios Escolares.
             </div>
+            {% if expediente.preficha_pago %}
+            <a href="{{ expediente.preficha_pago.url }}" target="_blank" class="btn btn-outline-success btn-sm w-100 mb-2">
+                <i class="bi bi-file-earmark-pdf me-1"></i>Ver Preficha de Depósito (PDF)
+            </a>
+            {% endif %}
             {% if expediente.comprobante_pago %}
             <a href="{{ expediente.comprobante_pago.url }}" target="_blank" class="btn btn-outline-secondary btn-sm w-100">
                 <i class="bi bi-file-earmark-pdf me-1"></i>Ver Comprobante Cargado
@@ -248,6 +266,11 @@
                 <i class="bi bi-check-circle me-1"></i>
                 <strong>Pago Aprobado:</strong> Tu comprobante de pago ha sido verificado y aprobado.
             </div>
+            {% if expediente.preficha_pago %}
+            <a href="{{ expediente.preficha_pago.url }}" target="_blank" class="btn btn-outline-success btn-sm w-100 mb-2">
+                <i class="bi bi-file-earmark-pdf me-1"></i>Ver Preficha de Depósito (PDF)
+            </a>
+            {% endif %}
             <a href="{{ expediente.comprobante_pago.url }}" target="_blank" class="btn btn-outline-secondary btn-sm w-100">
                 <i class="bi bi-file-earmark-pdf me-1"></i>Ver Comprobante de Pago (PDF)
             </a>

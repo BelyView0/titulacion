@@ -23,6 +23,9 @@ from escolares.views import (
     ExportarEstadisticasDatosExcelView,
     RegistroActoEscolaresView,
     EditarDatosExpedienteView,
+    EnviarPrefichaPagoView,
+    GenerarPrefichaPagoView,
+    SubirPrefichaEscolaresView,
 )
 
 app_name = 'escolares'
@@ -55,5 +58,8 @@ urlpatterns = [
     path('expedientes/<int:pk>/integrar/', IntegrarExpedienteView.as_view(), name='integrar'),
     path('expedientes/<int:pk>/registrar-acto/', RegistroActoEscolaresView.as_view(), name='registro_acto'),
     path('expedientes/<int:pk>/editar-datos-expediente/', EditarDatosExpedienteView.as_view(), name='editar_datos_expediente'),
+    path('expedientes/<int:pk>/enviar-preficha/', EnviarPrefichaPagoView.as_view(), name='enviar_preficha_pago'),
+    path('expedientes/<int:pk>/generar-preficha/', GenerarPrefichaPagoView.as_view(), name='generar_preficha_pago'),
+    path('expedientes/<int:pk>/subir-preficha/', SubirPrefichaEscolaresView.as_view(), name='subir_preficha_pago'),
 ]
 
