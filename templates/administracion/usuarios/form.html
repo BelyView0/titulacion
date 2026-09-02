@@ -461,7 +461,7 @@
         {% endif %} {# fin ALUMNO #}
 
         {# ─── PERSONAL: Actividad del Usuario (solo lectura) ─────────── #}
-        {% if usuario_rol == 'ESCOLARES' or usuario_rol == 'ACADEMICO' or usuario_rol == 'JEFE_PROYECTO' %}
+        {% if object.es_oficina_titulacion or object.es_jefe_academia %}
 
         {% if validaciones_realizadas %}
         <div class="content-card p-4 mt-4">
@@ -677,7 +677,7 @@
         if (rol === 'ALUMNO') {
             campoCarrera.style.display = '';
             setRequired(inputCarrera, labelCarrera, true);
-        } else if (rol === 'JEFE_PROYECTO') {
+        } else if (rol === 'JEFE_ACADEMIA' || rol === 'JEFE_PROYECTO') {
             campoDepartamento.style.display = '';
             setRequired(inputDepartamento, labelDepartamento, true);
         }

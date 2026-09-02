@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}Oficina de Titulación{% endblock %}
+{% block page_title %}Oficina de Titulación — SIGET{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <a href="{% url 'oficina_titulacion:expedientes' %}" class="text-decoration-none text-dark d-block h-100">
+            <div class="stat-card h-100 hvr-grow">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon" style="background:#fef9c3; color:#ca8a04;"><i class="bi bi-folder2-open"></i></div>
+                    <div>
+                        <div class="stat-value" style="color:#ca8a04;">{{ total_activos }}</div>
+                        <div class="stat-label">Expedientes activos</div>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="{% url 'oficina_titulacion:expedientes' %}?estado=EN_REVISION" class="text-decoration-none text-dark d-block h-100">
+            <div class="stat-card h-100 hvr-grow">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon" style="background:#fff3cd; color:#dc6b02;"><i class="bi bi-hourglass-split"></i></div>
+                    <div>
+                        <div class="stat-value" style="color:#dc6b02;">{{ en_revision }}</div>
+                        <div class="stat-label">En revisión</div>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="{% url 'oficina_titulacion:citas_pendientes' %}" class="text-decoration-none text-dark d-block h-100">
+            <div class="stat-card h-100 hvr-grow">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon" style="background:#cff4fc; color:#0ea5e9;"><i class="bi bi-calendar-event"></i></div>
+                    <div>
+                        <div class="stat-value" style="color:#0ea5e9;">{{ citas_pendientes }}</div>
+                        <div class="stat-label">Citas pendientes</div>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="{% url 'oficina_titulacion:expedientes' %}?estado=CONCLUIDO" class="text-decoration-none text-dark d-block h-100">
+            <div class="stat-card h-100 hvr-grow">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon" style="background:#d1fae5; color:#059669;"><i class="bi bi-check-circle"></i></div>
+                    <div>
+                        <div class="stat-value" style="color:#059669;">{{ total_concluidos }}</div>
+                        <div class="stat-label">Concluidos</div>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <a href="{% url 'oficina_titulacion:tabla_global' %}" class="btn btn-outline-primary w-100"><i class="bi bi-table me-1"></i> Tabla global de alumnos</a>
+    </div>
+    <div class="col-md-4">
+        <a href="{% url 'oficina_titulacion:citacion_masiva' %}" class="btn btn-outline-secondary w-100"><i class="bi bi-people me-1"></i> Citación masiva certificados</a>
+    </div>
+    <div class="col-md-4">
+        <a href="{% url 'oficina_titulacion:grupos_protocolo' %}" class="btn btn-outline-secondary w-100"><i class="bi bi-mortarboard me-1"></i> Grupos de protocolo</a>
+    </div>
+</div>
+
+<div class="content-card">
+    <div class="card-header-custom"><i class="bi bi-bar-chart"></i> Conteo por estado SIGET</div>
+    <div class="table-responsive p-3">
+        <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Estado</th>
+                    <th class="text-end">Total</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in conteos_estado %}
+                <tr>
+                    <td>{{ item.label }}</td>
+                    <td class="text-end fw-semibold">{{ item.total }}</td>
+                    <td class="text-end">
+                        {% if item.total %}
+                        <a href="{% url 'oficina_titulacion:expedientes' %}?estado={{ item.codigo }}" class="btn btn-sm btn-outline-primary">Ver</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" class="text-muted text-center">Sin datos</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

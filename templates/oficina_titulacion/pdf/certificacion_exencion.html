@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Certificación de exención</title></head>
+<body>
+<h2 style="text-align:center;">{{ config.nombre_institucion }}</h2>
+<h3 style="text-align:center;">CERTIFICACIÓN DE CONSTANCIA DE EXENCIÓN DE EXAMEN PROFESIONAL</h3>
+<p>El suscrito Director del {{ config.nombre_institucion }}, hace constar que el(la) C.
+<strong>{{ alumno.get_full_name }}</strong>, número de control <strong>{{ alumno.numero_control }}</strong>,
+cursó y aprobó la carrera de <strong>{{ alumno.carrera }}</strong>, mediante la opción
+<strong>{{ expediente.modalidad }}</strong>.</p>
+{% if jurado %}
+<table border="1" cellpadding="6" style="width:100%; margin-top:20px;">
+<tr><th>Cargo</th><th>Nombre</th></tr>
+<tr><td>Presidente</td><td>{{ jurado.presidente.get_nombre_con_titulo }}</td></tr>
+<tr><td>Secretario</td><td>{{ jurado.secretario.get_nombre_con_titulo }}</td></tr>
+{% if jurado.vocal_propietario %}<tr><td>Vocal</td><td>{{ jurado.vocal_propietario.get_nombre_con_titulo }}</td></tr>{% endif %}
+</table>
+{% endif %}
+<p style="text-align:right;">Apizaco, Tlax., a {% now "j \d\e F \d\e Y" %}</p>
+<p><strong>{{ config.jefe_escolares_nombre }}</strong><br>{{ config.jefe_escolares_cargo }}</p>
+</body>
+</html>

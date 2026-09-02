@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Oficio de autorización de publicación</title></head>
+<body>
+<h2 style="text-align:center;">{{ config.nombre_institucion }}</h2>
+<h3 style="text-align:center;">OFICIO DE AUTORIZACIÓN DE PUBLICACIÓN</h3>
+<p>El presente oficio autoriza la publicación del trabajo titulado:</p>
+<p><strong>{{ expediente.titulo_trabajo }}</strong></p>
+<p>del(la) C. <strong>{{ alumno.get_full_name }}</strong>, número de control
+<strong>{{ alumno.numero_control }}</strong>, carrera <strong>{{ alumno.carrera }}</strong>,
+modalidad <strong>{{ expediente.modalidad }}</strong>.</p>
+<p style="text-align:right;">Apizaco, Tlax., a {% now "j \d\e F \d\e Y" %}</p>
+<p><strong>{{ config.director_nombre }}</strong><br>{{ config.director_cargo }}</p>
+</body>
+</html>

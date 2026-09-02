@@ -1,5 +1,7 @@
 from django import forms
 from expediente.models import PlanEstudios, Modalidad, TipoDocumento
+from expediente.constants import FORMATO_DOCUMENTO_CHOICES, DEFAULT_FORMATOS, DEFAULT_TAMANO_MAX_MB
+
 
 class PlanEstudiosForm(forms.ModelForm):
     class Meta:
@@ -10,6 +12,7 @@ class PlanEstudiosForm(forms.ModelForm):
             'descripcion': forms.TextInput(attrs={'class': 'form-control'}),
             'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'})
         }
+
 
 class ModalidadForm(forms.ModelForm):
     class Meta:
@@ -23,47 +26,50 @@ class ModalidadForm(forms.ModelForm):
             'activa': forms.CheckboxInput(attrs={'class': 'form-check-input'})
         }
 
+
 class TipoDocumentoForm(forms.ModelForm):
+    formatos = forms.MultipleChoiceField(
+        choices=FORMATO_DOCUMENTO_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+        label='Formatos admitidos',
+        initial=DEFAULT_FORMATOS,
+    )
+
     class Meta:
         model = TipoDocumento
         fields = [
             'modalidad', 'nombre', 'descripcion_ayuda', 'es_obligatorio',
-            'valida_division', 'valida_escolares', 'acepta_solo_pdf', 'es_fotografia'
+            'formatos', 'tamano_max_mb',
         ]
         widgets = {
             'modalidad': forms.Select(attrs={'class': 'form-select'}),
             'nombre': forms.TextInput(attrs={'class': 'form-control'}),
             'descripcion_ayuda': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'es_obligatorio': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'valida_division': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'valida_escolares': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'acepta_solo_pdf': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'es_fotografia': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'tamano_max_mb': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.formatos_admitidos:
+            self.fields['formatos'].initial = self.instance.formatos_admitidos
+        self.fields['tamano_max_mb'].initial = self.fields['tamano_max_mb'].initial or DEFAULT_TAMANO_MAX_MB
+
     def clean(self):
-        cleaned_data = super().clean()
-        valida_division = cleaned_data.get('valida_division')
-        valida_escolares = cleaned_data.get('valida_escolares')
-        acepta_solo_pdf = cleaned_data.get('acepta_solo_pdf')
-        es_fotografia = cleaned_data.get('es_fotografia')
-
-        # 1. Al menos una validación necesaria
-        if not valida_division and not valida_escolares:
-            raise forms.ValidationError("El documento debe ser validado por al menos un departamento (División o Escolares).")
-
-        # 2. Mutuamente excluyentes y obligatorios: PDF o Fotografía
-        if not acepta_solo_pdf and not es_fotografia:
-            raise forms.ValidationError("El documento debe configurarse como 'Solo acepta PDF' o 'Es fotografía'.")
-        if acepta_solo_pdf and es_fotografia:
-            raise forms.ValidationError("Un documento no puede ser 'Solo acepta PDF' y 'Es fotografía' al mismo tiempo.")
-        return cleaned_data
+        cleaned = super().clean()
+        formatos = cleaned.get('formatos')
+        if not formatos:
+            raise forms.ValidationError('Seleccione al menos un formato admitido.')
+        return cleaned
 
     def save(self, commit=True):
         instance = super().save(commit=False)
-        if not instance.pk:  # Si es nuevo
+        instance.formatos_admitidos = self.cleaned_data.get('formatos', DEFAULT_FORMATOS)
+        if not instance.pk:
             from django.db.models import Max
-            max_orden = TipoDocumento.objects.filter(modalidad=instance.modalidad).aggregate(Max('orden'))['orden__max']
+            max_orden = TipoDocumento.objects.filter(modalidad=instance.modalidad).aggregate(
+                Max('orden')
+            )['orden__max']
             instance.orden = (max_orden or 0) + 1
         if commit:
             instance.save()

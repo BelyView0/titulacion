@@ -110,76 +110,39 @@ Por favor no responda a este correo.
     return notificaciones_creadas
 
 
-def notificar_usuarios_escolares(expediente, titulo, mensaje, url=''):
-    """
-    Notifica a todos los usuarios con rol ESCOLARES (Servicios Escolares).
-    """
+def notificar_oficina_titulacion(expediente, titulo, mensaje, url='', tipo='INFO'):
+    """Notifica a usuarios de Oficina de Titulación (incluye roles legados)."""
     from administracion.models import Usuario, Rol
     from alumnos.models import Notificacion
 
-    escolares = Usuario.objects.filter(rol=Rol.ESCOLARES, is_active=True)
-    
-    notificaciones_creadas = []
-    correos_destinos = []
-    
-    for esc in escolares:
-        # Notificación interna
-        notif = Notificacion.objects.create(
-            destinatario=esc,
-            tipo='URGENTE',
-            titulo=titulo,
-            mensaje=mensaje,
-            url_relacionada=url,
+    roles = [Rol.OFICINA_TITULACION, Rol.ESCOLARES, Rol.ACADEMICO]
+    usuarios = Usuario.objects.filter(rol__in=roles, is_active=True)
+    creadas = []
+    for u in usuarios:
+        creadas.append(Notificacion.objects.create(
+            destinatario=u, tipo=tipo, titulo=titulo, mensaje=mensaje, url_relacionada=url,
+        ))
+    return creadas
+
+
+def notificar_usuarios_division(expediente, titulo, mensaje, url=''):
+    return notificar_oficina_titulacion(expediente, titulo, mensaje, url)
+
+
+def notificar_usuarios_escolares(expediente, titulo, mensaje, url=''):
+    return notificar_oficina_titulacion(expediente, titulo, mensaje, url, tipo='URGENTE')
+
+
+def notificar_usuarios_por_rol(roles, titulo, mensaje, url='', tipo='INFO'):
+    from administracion.models import Usuario
+    from alumnos.models import Notificacion
+    usuarios = Usuario.objects.filter(rol__in=roles, is_active=True)
+    return [
+        Notificacion.objects.create(
+            destinatario=u, tipo=tipo, titulo=titulo, mensaje=mensaje, url_relacionada=url,
         )
-        notificaciones_creadas.append(notif)
-        
-        if esc.email:
-            correos_destinos.append(esc.email)
-            
-    if correos_destinos:
-        cuerpo = f"""
-Estimado(a) Usuario de Servicios Escolares,
-
-{mensaje}
-
----
-Expediente: {expediente}
-Alumno: {expediente.alumno.get_full_name()}
-N° Control: {expediente.alumno.username}
-Fecha: {timezone.now().strftime('%d/%m/%Y %H:%M')}
-
-Este mensaje fue generado automáticamente por el Sistema de Gestión de Titulación
-del Instituto Tecnológico de Apizaco.
-
-Por favor no responda a este correo.
-        """.strip()
-
-        html_content = render_to_string('emails/notificacion_generica.html', {
-            'titulo': titulo,
-            'saludo': 'Estimado(a) Usuario de Servicios Escolares,',
-            'mensaje': mensaje,
-            'datos_adicionales': {
-                'Expediente': str(expediente),
-                'Alumno': expediente.alumno.get_full_name(),
-                'N° Control': expediente.alumno.username,
-                'Fecha': timezone.now().strftime('%d/%m/%Y %H:%M')
-            }
-        })
-
-        try:
-            msg = EmailMultiAlternatives(
-                subject=f'[ITA Titulación] {titulo}',
-                body=cuerpo,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to=correos_destinos,
-            )
-            msg.attach_alternative(html_content, "text/html")
-            msg.send(fail_silently=True)
-        except Exception:
-            pass
-            
-    return notificaciones_creadas
-
+        for u in usuarios
+    ]
 
 
 def _enviar_correo_alumno(alumno, expediente, titulo, mensaje):

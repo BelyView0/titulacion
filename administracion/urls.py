@@ -21,6 +21,9 @@ urlpatterns = [
     path('configuracion/email/', views.ConfiguracionEmailUpdateView.as_view(), name='configuracion_email'),
     path('configuracion/email/probar/', views.ProbarConfiguracionEmailView.as_view(), name='configuracion_email_probar'),
     path('configuracion/email/revelar/', views.RevelarPasswordSMTPView.as_view(), name='configuracion_email_revelar'),
+    path('configuracion/inicial/', __import__('administracion.views_setup', fromlist=['ConfiguracionInicialView']).ConfiguracionInicialView.as_view(), name='configuracion_inicial'),
+    path('configuracion/base-datos/', __import__('administracion.views_setup', fromlist=['ConfiguracionDatabaseView']).ConfiguracionDatabaseView.as_view(), name='configuracion_database'),
+    path('configuracion/completar/', __import__('administracion.views_setup', fromlist=['MarcarSistemaConfiguradoView']).MarcarSistemaConfiguradoView.as_view(), name='configuracion_completar'),
 
     # Tiempo Real / API
     path('api/realtime/check/', views.CheckRealTimeUpdatesView.as_view(), name='api_realtime_check'),

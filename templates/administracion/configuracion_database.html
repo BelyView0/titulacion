@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Configuración de base de datos{% endblock %}
+{% block content %}
+<div class="container py-4 col-lg-8">
+    <h2>Configuración de base de datos</h2>
+    <p class="text-muted">Los cambios requieren reiniciar el servicio del sistema.</p>
+    <form method="post" class="card card-body">
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="mb-3">
+            <label class="form-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary">Guardar y probar conexión</button>
+        <a href="{% url 'administracion:dashboard' %}" class="btn btn-outline-secondary">Volver al panel</a>
+    </form>
+</div>
+{% endblock %}

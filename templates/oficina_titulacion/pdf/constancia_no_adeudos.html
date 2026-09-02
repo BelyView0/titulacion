@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Constancia de no adeudos</title></head>
+<body>
+<h2 style="text-align:center;">{{ config.nombre_institucion }}</h2>
+<h3 style="text-align:center;">CONSTANCIA DE NO ADEUDOS</h3>
+<p>Se hace constar que el(la) C. <strong>{{ alumno.get_full_name }}</strong>,
+con número de control <strong>{{ alumno.numero_control }}</strong>,
+de la carrera <strong>{{ alumno.carrera }}</strong>, no adeuda documentación
+en Finanzas, Centro de Cómputo ni Centro de Información.</p>
+<p style="text-align:right;">Apizaco, Tlax., a {% now "j \d\e F \d\e Y" %}</p>
+</body>
+</html>

@@ -16,10 +16,40 @@ class Genero(models.TextChoices):
 
 class Rol(models.TextChoices):
     ADMINISTRADOR = 'ADMIN', 'Administrador del Sistema'
-    JEFE_PROYECTO = 'JEFE_PROYECTO', 'Jefe de Proyectos / Academia'
-    ESCOLARES = 'ESCOLARES', 'Servicios Escolares'
-    ACADEMICO = 'ACADEMICO', 'División de Estudios Profesionales'
+    OFICINA_TITULACION = 'OFICINA_TITULACION', 'Oficina de Titulación'
+    FINANZAS = 'FINANZAS', 'Finanzas'
+    CENTRO_COMPUTO = 'CENTRO_COMPUTO', 'Centro de Cómputo'
+    CENTRO_INFORMACION = 'CENTRO_INFORMACION', 'Centro de Información'
+    JEFE_ACADEMIA = 'JEFE_ACADEMIA', 'Jefe de Academia'
     ALUMNO = 'ALUMNO', 'Alumno'
+    # Roles legados (migración SIGET — no usar en registros nuevos)
+    JEFE_PROYECTO = 'JEFE_PROYECTO', 'Jefe de Proyectos (legado)'
+    ESCOLARES = 'ESCOLARES', 'Servicios Escolares (legado)'
+    ACADEMICO = 'ACADEMICO', 'División Académica (legado)'
+
+
+ROLES_LEGACY_A_SIGET = {
+    Rol.ESCOLARES: Rol.OFICINA_TITULACION,
+    Rol.ACADEMICO: Rol.OFICINA_TITULACION,
+    Rol.JEFE_PROYECTO: Rol.JEFE_ACADEMIA,
+}
+
+
+def choices_siget():
+    legados = {Rol.JEFE_PROYECTO, Rol.ESCOLARES, Rol.ACADEMICO}
+    return [choice for choice in Rol.choices if choice[0] not in legados]
+
+
+def normalizar_rol(rol):
+    return ROLES_LEGACY_A_SIGET.get(rol, rol)
+
+
+def roles_oficina_titulacion():
+    return (Rol.OFICINA_TITULACION, Rol.ESCOLARES, Rol.ACADEMICO)
+
+
+def roles_jefe_academia():
+    return (Rol.JEFE_ACADEMIA, Rol.JEFE_PROYECTO)
 
 
 class Carrera(models.Model):
@@ -183,6 +213,14 @@ class Usuario(AbstractUser):
         default=False,
         verbose_name='Correo alternativo verificado'
     )
+    fecha_alta = models.DateField(
+        null=True, blank=True,
+        verbose_name='Fecha de alta'
+    )
+    fecha_baja = models.DateField(
+        null=True, blank=True,
+        verbose_name='Fecha de baja'
+    )
 
     @property
     def username_visual(self):
@@ -226,21 +264,72 @@ class Usuario(AbstractUser):
     def es_admin(self):
         return self.rol == Rol.ADMINISTRADOR
 
+    def requiere_verificacion_correo(self):
+        """True si el usuario debe completar verificación antes de usar el sistema."""
+        if self.es_admin:
+            if not ConfiguracionInstitucional.smtp_configurado():
+                return False
+            if not self.correo_institucional:
+                return True
+            return not self.correo_institucional_verificado
+        if self.email and not self.email_verificado:
+            return True
+        if self.correo_institucional and not self.correo_institucional_verificado:
+            return True
+        if not self.email and not self.correo_institucional:
+            return True
+        return False
+
+    @property
+    def es_oficina_titulacion(self):
+        return self.rol in (Rol.OFICINA_TITULACION, Rol.ESCOLARES, Rol.ACADEMICO)
+
     @property
     def es_escolares(self):
-        return self.rol == Rol.ESCOLARES
+        return self.es_oficina_titulacion
 
     @property
     def es_academico(self):
-        return self.rol == Rol.ACADEMICO
+        return self.es_oficina_titulacion
+
+    @property
+    def es_finanzas(self):
+        return self.rol == Rol.FINANZAS
+
+    @property
+    def es_centro_computo(self):
+        return self.rol == Rol.CENTRO_COMPUTO
+
+    @property
+    def es_centro_informacion(self):
+        return self.rol == Rol.CENTRO_INFORMACION
 
     @property
     def es_alumno(self):
         return self.rol == Rol.ALUMNO
 
     @property
+    def es_jefe_academia(self):
+        return self.rol in (Rol.JEFE_ACADEMIA, Rol.JEFE_PROYECTO)
+
+    @property
     def es_jefe_proyecto(self):
-        return self.rol == Rol.JEFE_PROYECTO
+        return self.es_jefe_academia
+
+    def tiene_periodo_activo(self):
+        from django.utils import timezone
+        hoy = timezone.localdate()
+        if not self.is_active:
+            return False
+        if self.fecha_baja and self.fecha_baja <= hoy:
+            return False
+        periodos = self.periodos_actividad.filter(activo=True)
+        if not periodos.exists():
+            return True
+        return periodos.filter(
+            models.Q(fecha_fin__isnull=True) | models.Q(fecha_fin__gte=hoy),
+            fecha_inicio__lte=hoy,
+        ).exists()
 
     @property
     def tiene_expediente(self):
@@ -274,9 +363,14 @@ class Usuario(AbstractUser):
         from django.urls import reverse
         dashboards = {
             Rol.ADMINISTRADOR: 'administracion:dashboard',
+            Rol.OFICINA_TITULACION: 'oficina_titulacion:dashboard',
+            Rol.ESCOLARES: 'oficina_titulacion:dashboard',
+            Rol.ACADEMICO: 'oficina_titulacion:dashboard',
+            Rol.FINANZAS: 'finanzas:dashboard',
+            Rol.CENTRO_COMPUTO: 'centro_computo:dashboard',
+            Rol.CENTRO_INFORMACION: 'centro_informacion:dashboard',
+            Rol.JEFE_ACADEMIA: 'administracion:jefe_dashboard',
             Rol.JEFE_PROYECTO: 'administracion:jefe_dashboard',
-            Rol.ESCOLARES: 'escolares:dashboard',
-            Rol.ACADEMICO: 'academico:dashboard',
             Rol.ALUMNO: 'alumnos:dashboard',
         }
         return reverse(dashboards.get(self.rol, 'alumnos:dashboard'))
@@ -332,11 +426,23 @@ class ConfiguracionInstitucional(models.Model):
         default="ITApizaco",
         verbose_name="Siglas de la Institución"
     )
-    logo_sistema = models.ImageField(
-        upload_to='configuracion/',
+    logo_sep = models.ImageField(
+        upload_to='configuracion/logos/',
         blank=True, null=True,
-        verbose_name="Logotipo del Sistema",
-        help_text="Logotipo para la barra de navegación (se recomienda PNG transparente)."
+        verbose_name='Logo SEP',
+        help_text='Logo de la Secretaría de Educación Pública (encabezado institucional).',
+    )
+    logo_tecnm = models.ImageField(
+        upload_to='configuracion/logos/',
+        blank=True, null=True,
+        verbose_name='Logo TecNM',
+        help_text='Logo del Tecnológico Nacional de México (encabezado institucional).',
+    )
+    logo_sistema = models.ImageField(
+        upload_to='configuracion/logos/',
+        blank=True, null=True,
+        verbose_name='Logo del plantel',
+        help_text='Logotipo del instituto/plantel (encabezado y barra de navegación). Se recomienda PNG transparente.',
     )
     mostrar_cintillo = models.BooleanField(
         default=True,
@@ -400,6 +506,34 @@ class ConfiguracionInstitucional(models.Model):
         verbose_name='Contraseña de Aplicación',
         help_text='Contraseña de aplicación generada desde el proveedor de correo'
     )
+    sistema_configurado = models.BooleanField(
+        default=False,
+        verbose_name='Sistema configurado',
+        help_text='Indica que la configuración inicial obligatoria fue completada.'
+    )
+    clave_ctt = models.CharField(
+        max_length=20, blank=True,
+        verbose_name='Clave CTT institucional',
+        help_text='Ej: 29DIT0037U'
+    )
+    director_nombre = models.CharField(max_length=200, blank=True, verbose_name='Nombre del Director(a)')
+    director_cargo = models.CharField(
+        max_length=200, blank=True, default='Director(a)',
+        verbose_name='Cargo del Director(a)'
+    )
+    director_genero = models.CharField(
+        max_length=1, choices=Genero.choices, blank=True,
+        verbose_name='Género del Director(a)'
+    )
+    jefe_escolares_nombre = models.CharField(
+        max_length=200, blank=True,
+        verbose_name='Jefe del Depto. de Servicios Escolares'
+    )
+    jefe_escolares_cargo = models.CharField(
+        max_length=200, blank=True,
+        default='Jefe del Departamento de Servicios Escolares',
+        verbose_name='Cargo Jefe Escolares'
+    )
 
     class Meta:
         verbose_name = "Configuración Institucional"
@@ -412,6 +546,14 @@ class ConfiguracionInstitucional(models.Model):
         if not self.pk and ConfiguracionInstitucional.objects.exists():
             return ConfiguracionInstitucional.objects.first()
         return super(ConfiguracionInstitucional, self).save(*args, **kwargs)
+
+    def smtp_listo(self):
+        return bool(self.email_host and self.email_remitente and self.email_password)
+
+    @classmethod
+    def smtp_configurado(cls):
+        config = cls.objects.first()
+        return bool(config and config.smtp_listo())
 
 
 class JefeDepartamento(models.Model):
@@ -523,6 +665,32 @@ class SolicitudCambioJefe(models.Model):
 
     def get_genero_display(self):
         return dict(Genero.choices).get(self.genero_nuevo, self.genero_nuevo)
+
+class PeriodoActividadUsuario(models.Model):
+    """Historial de periodos activos/inactivos de un usuario."""
+    usuario = models.ForeignKey(
+        Usuario, on_delete=models.CASCADE,
+        related_name='periodos_actividad',
+        verbose_name='Usuario'
+    )
+    fecha_inicio = models.DateField(verbose_name='Fecha de inicio')
+    fecha_fin = models.DateField(null=True, blank=True, verbose_name='Fecha de fin')
+    motivo = models.CharField(
+        max_length=200, blank=True,
+        verbose_name='Motivo',
+        help_text='Ej: vacaciones, incapacidad, baja temporal'
+    )
+    activo = models.BooleanField(default=True, verbose_name='Periodo vigente')
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Periodo de actividad'
+        verbose_name_plural = 'Periodos de actividad'
+        ordering = ['-fecha_inicio']
+
+    def __str__(self):
+        return f'{self.usuario} ({self.fecha_inicio} - {self.fecha_fin or "actual"})'
+
 
 class PasswordResetOTP(models.Model):
     """

@@ -11,6 +11,7 @@ from django.contrib import messages
 from django.shortcuts import redirect, get_object_or_404
 from django.http import JsonResponse
 from django.utils import timezone
+from datetime import datetime
 
 from expediente.mixins import AlumnoRequeridoMixin, ExpedientePropioMixin
 from expediente.models import (
@@ -61,35 +62,29 @@ class ExpedienteCreateView(AlumnoRequeridoMixin, CreateView):
     def form_valid(self, form):
         expediente = form.save(commit=False)
         expediente.alumno = self.request.user
-        expediente.estado = EstadoExpediente.BORRADOR
+        expediente.estado = EstadoExpediente.CERTIFICADO_PENDIENTE_CITA
+        if expediente.modalidad and not expediente.plan_estudios_id:
+            expediente.plan_estudios = expediente.modalidad.plan_estudios
         expediente.save()
 
-        # Crear documentos pendientes basados en la modalidad seleccionada
-        tipos = TipoDocumento.objects.filter(
-            modalidad=expediente.modalidad
-        ).order_by('orden')
+        tipos = TipoDocumento.objects.filter(modalidad=expediente.modalidad).order_by('orden')
         for tipo in tipos:
-            Documento.objects.create(
+            Documento.objects.get_or_create(
                 expediente=expediente,
                 tipo_documento=tipo,
-                estado=EstadoDocumento.PENDIENTE,
+                defaults={'estado': EstadoDocumento.PENDIENTE},
             )
 
-        # Registrar en historial
         registrar_cambio_estado(
             expediente=expediente,
-            estado_nuevo=EstadoExpediente.BORRADOR,
+            estado_nuevo=EstadoExpediente.CERTIFICADO_PENDIENTE_CITA,
             realizado_por=self.request.user,
-            descripcion='Expediente creado por el alumno.'
+            descripcion='Datos del expediente registrados. Pendiente cita para firma de certificado.',
         )
-
-        # Marcar la foto física si subió digital
-        if expediente.fotografia_digital:
-            expediente.fotografia_fisica_entregada = False  # pendiente físico
-            expediente.save(update_fields=['fotografia_fisica_entregada'])
-
-        messages.success(self.request,
-            '¡Expediente creado! Ahora puedes cargar tus documentos requeridos.')
+        messages.success(
+            self.request,
+            'Datos registrados. Espere la cita de Oficina de Titulación para firmar su certificado.'
+        )
         return redirect('alumnos:expediente')
 
 
@@ -103,7 +98,12 @@ class ExpedienteUpdateView(ExpedientePropioMixin, UpdateView):
     def get_queryset(self):
         # Solo permitir editar en estados iniciales
         return super().get_queryset().filter(
-            estado__in=[EstadoExpediente.BORRADOR, EstadoExpediente.EN_CORRECCION, EstadoExpediente.RECHAZADO_ACADEMICO]
+            estado__in=[
+                EstadoExpediente.DATOS_EXPEDIENTE,
+                EstadoExpediente.EN_CORRECCION,
+                EstadoExpediente.CERTIFICADO_PENDIENTE_CITA,
+                EstadoExpediente.CERTIFICADO_CITA_PROGRAMADA,
+            ]
         )
 
     def form_valid(self, form):
@@ -122,49 +122,33 @@ class ExpedienteDetalleView(ExpedientePropioMixin, TemplateView):
         ctx['expediente'] = expediente
         ctx['documentos'] = expediente.documentos.select_related(
             'tipo_documento'
-        ).prefetch_related('validaciones').order_by('tipo_documento__orden')
+        ).order_by('tipo_documento__orden')
+        from expediente.models import CitaDocumentoFisico
+        ctx['cita_certificado'] = expediente.citas_fisicas.filter(
+            tipo=CitaDocumentoFisico.TipoCita.CERTIFICADO
+        ).order_by('-fecha_creacion').first()
+        ctx['cita_oficio'] = expediente.citas_fisicas.filter(
+            tipo=CitaDocumentoFisico.TipoCita.OFICIO_PUBLICACION
+        ).order_by('-fecha_creacion').first()
+        ctx['puede_cargar_documentos'] = expediente.estado in (
+            EstadoExpediente.CERTIFICADO_FIRMADO,
+            EstadoExpediente.CARGA_DOCUMENTOS,
+            EstadoExpediente.EN_CORRECCION,
+        )
         ctx['historial'] = expediente.historial.select_related('realizado_por').all()[:10]
         return ctx
 
 
 class SolicitarRevisionView(ExpedientePropioMixin, View):
-    """El alumno envía su expediente a revisión de División de Estudios."""
+    """Legado — redirige al flujo SIGET (sin revisión académica previa)."""
 
     def post(self, request, *args, **kwargs):
-        expediente = self.get_expediente()
-        if not expediente:
-            messages.error(request, 'No tienes expediente activo.')
-            return redirect('alumnos:dashboard')
-
-        # Verificación de datos completos
-        if not all([expediente.modalidad, expediente.titulo_trabajo, expediente.nombre_empresa]):
-            messages.error(request, 'Debes completar todos los datos iniciales (modalidad, título y empresa) antes de solicitar revisión.')
-            return redirect('alumnos:expediente')
-
-        if expediente.estado != EstadoExpediente.BORRADOR:
-            messages.error(request, 'Tu expediente no está en estado Borrador.')
-            return redirect('alumnos:expediente')
-
-        from expediente.notifications import notificar_alumno
-        registrar_cambio_estado(
-            expediente=expediente,
-            estado_nuevo=EstadoExpediente.EN_REVISION_ACADEMICO,
-            realizado_por=request.user,
-            descripcion='Alumno envió expediente a revisión de División de Estudios.'
-        )
-        notificar_alumno(
-            expediente=expediente,
-            tipo='AVANCE',
-            titulo='Expediente enviado a revisión',
-            mensaje='Tu expediente ha sido enviado a División de Estudios para revisión inicial.',
-            url=reverse('alumnos:expediente')
-        )
-        messages.success(request, 'Expediente enviado a revisión de División de Estudios.')
+        messages.info(request, 'Tu expediente ya fue registrado. Espera la cita de Oficina de Titulación.')
         return redirect('alumnos:expediente')
 
 
 class EnviarDocumentosRevisionView(ExpedientePropioMixin, View):
-    """El alumno envía sus documentos cargados a revisión de Escolares y Académico."""
+    """El alumno envía documentos a revisión de Oficina de Titulación."""
 
     def post(self, request, *args, **kwargs):
         expediente = self.get_expediente()
@@ -172,39 +156,40 @@ class EnviarDocumentosRevisionView(ExpedientePropioMixin, View):
             messages.error(request, 'No tienes expediente activo.')
             return redirect('alumnos:dashboard')
 
-        if expediente.estado not in [EstadoExpediente.DOCUMENTOS_PENDIENTES]:
-            messages.error(request, 'Tu expediente no está en un estado que permita el envío de documentos.')
-            return redirect('alumnos:expediente')
-
-        # Verificar que todos los documentos obligatorios fueron cargados
-        docs_obligatorios = expediente.documentos.filter(
-            tipo_documento__es_obligatorio=True
+        estados_ok = (
+            EstadoExpediente.CERTIFICADO_FIRMADO,
+            EstadoExpediente.CARGA_DOCUMENTOS,
+            EstadoExpediente.EN_CORRECCION,
         )
-        docs_sin_cargar = docs_obligatorios.filter(estado=EstadoDocumento.PENDIENTE)
-
-        if docs_sin_cargar.exists():
-            nombres = ', '.join([d.tipo_documento.nombre for d in docs_sin_cargar[:3]])
-            messages.error(
-                request,
-                f'Faltan documentos obligatorios por cargar: {nombres}...'
-            )
+        if expediente.estado not in estados_ok:
+            messages.error(request, 'Tu expediente no permite enviar documentos en este momento.')
             return redirect('alumnos:expediente')
 
-        from expediente.notifications import notificar_alumno
+        docs_obligatorios = expediente.documentos.filter(tipo_documento__es_obligatorio=True)
+        docs_sin_cargar = docs_obligatorios.filter(estado=EstadoDocumento.PENDIENTE)
+        if docs_sin_cargar.exists():
+            nombres = ', '.join(d.tipo_documento.nombre for d in docs_sin_cargar[:3])
+            messages.error(request, f'Faltan documentos obligatorios: {nombres}...')
+            return redirect('alumnos:expediente')
+
+        from expediente.notifications import notificar_alumno, notificar_oficina_titulacion
         registrar_cambio_estado(
             expediente=expediente,
-            estado_nuevo=EstadoExpediente.EN_REVISION_DOCUMENTOS,
+            estado_nuevo=EstadoExpediente.EN_REVISION,
             realizado_por=request.user,
-            descripcion='Alumno re-envió documentos a revisión tras correcciones (CDMX o Escolares).'
+            descripcion='Alumno envió expediente completo a revisión.',
+        )
+        notificar_oficina_titulacion(
+            expediente, 'Expediente en revisión',
+            f'{expediente.alumno.get_full_name()} envió su expediente a revisión.',
         )
         notificar_alumno(
-            expediente=expediente,
-            tipo='AVANCE',
+            expediente=expediente, tipo='AVANCE',
             titulo='Documentos enviados a revisión',
-            mensaje='Tus documentos han sido enviados a Servicios Escolares y División de Estudios para validación.',
-            url=reverse('alumnos:expediente')
+            mensaje='Tu expediente fue enviado a Oficina de Titulación para revisión.',
+            url=reverse('alumnos:expediente'),
         )
-        messages.success(request, '¡Documentos enviados a revisión! Escolares y División validarán tus documentos.')
+        messages.success(request, '¡Expediente enviado a revisión!')
         return redirect('alumnos:expediente')
 
 
@@ -223,7 +208,19 @@ class DocumentoCargarView(ExpedientePropioMixin, UpdateView):
 
     def dispatch(self, request, *args, **kwargs):
         obj = self.get_object()
-        # Solo permite cargar si está en estado que lo permita
+        expediente = obj.expediente
+        estados_exp = (
+            EstadoExpediente.CERTIFICADO_FIRMADO,
+            EstadoExpediente.CARGA_DOCUMENTOS,
+            EstadoExpediente.EN_CORRECCION,
+            EstadoExpediente.OFICIO_FIRMADO,
+        )
+        if expediente.estado not in estados_exp:
+            messages.warning(
+                request,
+                'La carga de documentos estará disponible después de firmar su certificado en Oficina de Titulación.'
+            )
+            return redirect('alumnos:expediente')
         estados_permitidos = [
             EstadoDocumento.PENDIENTE,
             EstadoDocumento.RECHAZADO,
@@ -236,13 +233,24 @@ class DocumentoCargarView(ExpedientePropioMixin, UpdateView):
 
     def form_valid(self, form):
         documento = form.save(commit=False)
+        archivo = self.request.FILES.get('archivo')
+        if archivo:
+            from titulacion.validators import validar_archivo_tipo_documento
+            try:
+                validar_archivo_tipo_documento(archivo, documento.tipo_documento)
+            except Exception as e:
+                messages.error(self.request, str(e))
+                return self.form_invalid(form)
         documento.estado = EstadoDocumento.CARGADO
         documento.version += 1
         documento.fecha_carga = timezone.now()
         documento.save()
 
-        # Resetear validaciones anteriores
-        documento.validaciones.all().delete()
+        from expediente.models import ValidacionDocumento, EstadoValidacion
+        ValidacionDocumento.objects.filter(documento=documento).delete()
+        ValidacionDocumento.objects.create(
+            documento=documento, estado=EstadoValidacion.PENDIENTE
+        )
 
         from expediente.notifications import registrar_cambio_documento
         registrar_cambio_documento(
@@ -250,6 +258,13 @@ class DocumentoCargarView(ExpedientePropioMixin, UpdateView):
             accion=f'Alumno cargó versión {documento.version} del documento.',
             realizado_por=self.request.user,
         )
+        if documento.expediente.estado == EstadoExpediente.CERTIFICADO_FIRMADO:
+            registrar_cambio_estado(
+                documento.expediente,
+                EstadoExpediente.CARGA_DOCUMENTOS,
+                self.request.user,
+                'Alumno inició carga de documentos.',
+            )
         messages.success(self.request, f'Documento "{documento.tipo_documento.nombre}" cargado exitosamente.')
         return redirect('alumnos:expediente')
 
@@ -281,29 +296,34 @@ class SubirComprobantePagoView(ExpedientePropioMixin, View):
         expediente.comprobante_pago = comprobante
         expediente.pago_validado = 'CARGADO'
         expediente.fecha_subida_pago = timezone.now()
-        expediente.estado = EstadoExpediente.PAGO_EN_REVISION
         expediente.save(update_fields=[
-            'comprobante_pago', 'pago_validado', 'fecha_subida_pago', 'estado', 'fecha_ultima_actualizacion'
+            'comprobante_pago', 'pago_validado', 'fecha_subida_pago', 'fecha_ultima_actualizacion'
         ])
 
-        # Registrar en el historial
         registrar_cambio_estado(
             expediente=expediente,
-            estado_nuevo=EstadoExpediente.PAGO_EN_REVISION,
+            estado_nuevo=expediente.estado,
             realizado_por=request.user,
             descripcion='Alumno cargó su comprobante de pago.'
         )
 
-        from expediente.notifications import notificar_alumno
+        from expediente.notifications import notificar_alumno, notificar_usuarios_por_rol
+        from administracion.models import Rol
+        notificar_usuarios_por_rol(
+            [Rol.FINANZAS],
+            'Comprobante de pago por validar',
+            f'{expediente.alumno.get_full_name()} cargó su comprobante de pago.',
+            tipo='URGENTE',
+        )
         notificar_alumno(
             expediente=expediente,
             tipo='AVANCE',
             titulo='Comprobante de pago cargado',
             url=reverse('alumnos:expediente'),
-            mensaje='Has subido tu comprobante de pago. Servicios Escolares lo validará a la brevedad.'
+            mensaje='Has subido tu comprobante de pago. Finanzas lo validará a la brevedad.'
         )
 
-        messages.success(request, '¡Comprobante de pago subido correctamente! En espera de validación de Servicios Escolares.')
+        messages.success(request, '¡Comprobante de pago subido correctamente! En espera de validación por Finanzas.')
         return redirect('alumnos:expediente')
 
 
@@ -332,25 +352,18 @@ class TimelineView(ExpedientePropioMixin, TemplateView):
 
             # Etapas lineales del proceso para el mapa visual
             etapas_lineales = [
-                (EstadoExpediente.BORRADOR, 'Borrador'),
-                (EstadoExpediente.EN_REVISION_ACADEMICO, 'Revisión División'),
-                (EstadoExpediente.DOCUMENTOS_PENDIENTES, 'Carga de Documentos'),
-                (EstadoExpediente.EN_REVISION_DOCUMENTOS, 'Revisión Documentos'),
-                (EstadoExpediente.LISTO_INTEGRACION, 'Listo Integración'),
-                (EstadoExpediente.RECIBI_PAPEL_ORIGINAL, 'Papeles Integrados'),
-                (EstadoExpediente.PAGO_PENDIENTE, 'Pago Pendiente'),
-                (EstadoExpediente.PAGO_EN_REVISION, 'Pago en Revisión'),
-                (EstadoExpediente.ESPERANDO_CONSTANCIA, 'Esperando Constancia'),
-                (EstadoExpediente.CONSTANCIA_EN_REVISION, 'Constancia en Revisión'),
-                (EstadoExpediente.INTEGRADO, 'Integrado'),
-                (EstadoExpediente.EMPASTADO_PENDIENTE, 'Empastado Pendiente'),
-                (EstadoExpediente.EMPASTADO_RECIBIDO, 'Empastado Recibido'),
-                (EstadoExpediente.JURADO_ASIGNADO, 'Jurado Asignado'),
-                (EstadoExpediente.ACTO_PROGRAMADO, 'Acto Programado'),
-                (EstadoExpediente.ACTA_EXENCION, 'Acta de Exención'),
-                (EstadoExpediente.TRAMITE_DGP, 'Captura en plataforma (e-títulos) de TNM'),
-                (EstadoExpediente.CEDULA_EN_REVISION, 'Cédula en Revisión'),
-                (EstadoExpediente.CITA_ENTREGA, 'Cita de Entrega'),
+                (EstadoExpediente.DATOS_EXPEDIENTE, 'Datos del expediente'),
+                (EstadoExpediente.CERTIFICADO_PENDIENTE_CITA, 'Cita certificado'),
+                (EstadoExpediente.CERTIFICADO_FIRMADO, 'Certificado firmado'),
+                (EstadoExpediente.CARGA_DOCUMENTOS, 'Carga de documentos'),
+                (EstadoExpediente.EN_REVISION, 'Revisión Oficina'),
+                (EstadoExpediente.EXPEDIENTE_APROBADO, 'Expediente aprobado'),
+                (EstadoExpediente.OFICIO_FIRMADO, 'Oficio firmado'),
+                (EstadoExpediente.PAGO_VALIDADO, 'Pago validado'),
+                (EstadoExpediente.DOCUMENTOS_OFICIALES_LISTOS, 'Documentos oficiales'),
+                (EstadoExpediente.JURADO_ASIGNADO, 'Jurado asignado'),
+                (EstadoExpediente.PROTOCOLO_PROGRAMADO, 'Acto programado'),
+                (EstadoExpediente.ACTO_REALIZADO, 'Acto realizado'),
                 (EstadoExpediente.CONCLUIDO, 'Concluido'),
             ]
             ctx['estados_proceso'] = etapas_lineales
@@ -411,106 +424,49 @@ class ConfirmarAsistenciaAlumnoView(AlumnoRequeridoMixin, View):
         return redirect('alumnos:dashboard')
 
 
-class SubirCedulaAlumnoView(ExpedientePropioMixin, View):
-    """El alumno sube su Cédula Profesional en formato PDF."""
+class ConfirmarCitaView(ExpedientePropioMixin, View):
+    """Alumno confirma asistencia a cita de certificado u oficio."""
 
-    def post(self, request):
-        expediente = self.get_expediente()
-        if not expediente:
-            messages.error(request, 'No tienes expediente activo.')
-            return redirect('alumnos:dashboard')
-
-        if expediente.estado not in [EstadoExpediente.TRAMITE_DGP, EstadoExpediente.CEDULA_RECHAZADA]:
-            messages.error(request, 'No puedes subir tu cédula en este momento.')
-            return redirect('alumnos:expediente')
-
-        archivo_cedula = request.FILES.get('cedula_pdf')
-        if not archivo_cedula:
-            messages.error(request, 'Debes seleccionar un archivo PDF con tu cédula.')
-            return redirect('alumnos:expediente')
-
-        if not archivo_cedula.name.lower().endswith('.pdf'):
-            messages.error(request, 'El archivo de la cédula debe ser en formato PDF.')
-            return redirect('alumnos:expediente')
-
-        expediente.cedula_profesional_pdf = archivo_cedula
-        expediente.fecha_subida_cedula = timezone.now()
-        expediente.estado = EstadoExpediente.CEDULA_EN_REVISION
-        expediente.save(update_fields=['cedula_profesional_pdf', 'fecha_subida_cedula', 'estado', 'fecha_ultima_actualizacion'])
-
-        from expediente.notifications import registrar_cambio_estado
-        registrar_cambio_estado(
-            expediente=expediente,
-            estado_nuevo=EstadoExpediente.CEDULA_EN_REVISION,
-            realizado_por=request.user,
-            descripcion='El alumno subió su Cédula Profesional Electrónica para revisión.'
+    def post(self, request, pk):
+        from expediente.models import CitaDocumentoFisico
+        cita = get_object_or_404(
+            CitaDocumentoFisico, pk=pk, expediente__alumno=request.user
         )
-
-        messages.success(request, 'Tu Cédula Profesional ha sido cargada y enviada a revisión.')
+        cita.estado = CitaDocumentoFisico.EstadoCita.CONFIRMADA_ALUMNO
+        cita.save(update_fields=['estado'])
+        messages.success(request, 'Cita confirmada. Le esperamos en la fecha indicada.')
         return redirect('alumnos:expediente')
 
 
-class ConfirmarDatosDGPAlumnoView(ExpedientePropioMixin, View):
-    """El alumno confirma que sus datos de título DGP son correctos."""
+class SolicitarReprogramacionCitaView(ExpedientePropioMixin, View):
+    """Alumno solicita cambio de fecha/hora de cita."""
 
-    def post(self, request):
-        expediente = self.get_expediente()
-        if not expediente:
-            messages.error(request, 'No tienes expediente activo.')
-            return redirect('alumnos:dashboard')
-
-        if not expediente.notificacion_dgp_enviada:
-            messages.error(request, 'Aún no se ha enviado la notificación DGP.')
-            return redirect('alumnos:expediente')
-
-        if expediente.datos_dgp_confirmados:
-            messages.info(request, 'Ya confirmaste que tus datos son correctos anteriormente.')
-            return redirect('alumnos:expediente')
-
-        expediente.datos_dgp_confirmados = True
-        expediente.save(update_fields=['datos_dgp_confirmados', 'fecha_ultima_actualizacion'])
-
-        from expediente.notifications import registrar_cambio_estado
-        registrar_cambio_estado(
-            expediente=expediente,
-            estado_nuevo=expediente.estado,
-            realizado_por=request.user,
-            descripcion='El alumno confirmó que sus datos concentrados de DGP son correctos.'
+    def post(self, request, pk):
+        from expediente.models import CitaDocumentoFisico
+        cita = get_object_or_404(
+            CitaDocumentoFisico, pk=pk, expediente__alumno=request.user
         )
-
-        messages.success(request, 'Has confirmado que tus datos son correctos. Servicios Escolares ha sido notificado para continuar.')
-        return redirect('alumnos:expediente')
-
-
-class ReportarDatosIncorrectosDGPView(ExpedientePropioMixin, View):
-    """El alumno reporta que sus datos de DGP son incorrectos."""
-
-    def post(self, request):
-        expediente = self.get_expediente()
-        if not expediente:
-            messages.error(request, 'No tienes expediente activo.')
-            return redirect('alumnos:dashboard')
-
-        if not expediente.notificacion_dgp_enviada:
-            messages.error(request, 'Aún no se ha enviado la notificación DGP.')
-            return redirect('alumnos:expediente')
-
-        if expediente.datos_dgp_confirmados:
-            messages.info(request, 'Ya confirmaste que tus datos son correctos anteriormente.')
-            return redirect('alumnos:expediente')
-
-        # Create the URGENTE notification for all ESCOLARES users
-        from expediente.notifications import notificar_usuarios_escolares
-        from django.urls import reverse
-
-        notificar_usuarios_escolares(
-            expediente=expediente,
-            titulo='Datos DGP Reportados como Incorrectos',
-            mensaje=f'El alumno {expediente.alumno.get_full_name()} (N° Control {expediente.alumno.username}) ha reportado que sus datos concentrados de DGP son incorrectos.',
-            url=reverse('escolares:expediente_detalle', kwargs={'pk': expediente.pk})
+        nueva_fecha = request.POST.get('propuesta_fecha')
+        notas = request.POST.get('propuesta_notas', '')
+        if nueva_fecha:
+            try:
+                dt = datetime.strptime(nueva_fecha, '%Y-%m-%dT%H:%M')
+                cita.propuesta_alumno_fecha = timezone.make_aware(
+                    dt, timezone.get_current_timezone()
+                )
+            except ValueError:
+                messages.error(request, 'Formato de fecha inválido.')
+                return redirect('alumnos:expediente')
+        cita.propuesta_alumno_notas = notas
+        cita.estado = CitaDocumentoFisico.EstadoCita.REPROGRAMACION_SOLICITADA
+        cita.save()
+        from expediente.notifications import notificar_oficina_titulacion
+        notificar_oficina_titulacion(
+            cita.expediente,
+            'Solicitud de reprogramación de cita',
+            f'{request.user.get_full_name()} solicitó reprogramar su cita.',
+            tipo='URGENTE',
         )
-
-        messages.success(request, 'Has reportado que tus datos son incorrectos. Servicios Escolares ha sido notificado con carácter de URGENTE para realizar las correcciones necesarias.')
+        messages.success(request, 'Solicitud de reprogramación enviada.')
         return redirect('alumnos:expediente')
-
 
