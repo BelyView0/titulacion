@@ -33,8 +33,6 @@ INSTALLED_APPS = [
     'finanzas',
     'centro_computo',
     'centro_informacion',
-    'escolares',
-    'academico',
 ]
 
 MIDDLEWARE = [

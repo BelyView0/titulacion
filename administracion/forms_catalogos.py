@@ -65,6 +65,9 @@ class TipoDocumentoForm(forms.ModelForm):
     def save(self, commit=True):
         instance = super().save(commit=False)
         instance.formatos_admitidos = self.cleaned_data.get('formatos', DEFAULT_FORMATOS)
+        # SIGET: toda validación documental es responsabilidad de Oficina de Titulación
+        instance.valida_division = True
+        instance.valida_escolares = True
         if not instance.pk:
             from django.db.models import Max
             max_orden = TipoDocumento.objects.filter(modalidad=instance.modalidad).aggregate(

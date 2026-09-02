@@ -23,7 +23,7 @@
                 
                 <div class="row g-3">
                     {% for field in form %}
-                    {% if field.name in "acepta_solo_pdf,es_fotografia,valida_division,valida_escolares" %}
+                    {% if field.name in "acepta_solo_pdf,es_fotografia" %}
                     <div class="col-md-6">
                     {% else %}
                     <div class="col-md-12">
@@ -34,9 +34,6 @@
                     
                     <!-- Contenedores para advertencias -->
                     <div class="col-12 mt-0">
-                        <div id="warning-validacion" class="alert alert-warning py-2 small d-none mb-2">
-                            <i class="bi bi-exclamation-triangle me-1"></i> No puedes desmarcar ambas: El documento debe ser validado por al menos un departamento.
-                        </div>
                         <div id="warning-formato" class="alert alert-warning py-2 small d-none mb-2">
                             <i class="bi bi-exclamation-triangle me-1"></i> No puedes desmarcar ambas: Debes indicar si es PDF o Fotografía.
                         </div>
@@ -58,9 +55,6 @@
 document.addEventListener("DOMContentLoaded", function() {
     const pdfCheck = document.getElementById("id_acepta_solo_pdf");
     const fotoCheck = document.getElementById("id_es_fotografia");
-    
-    const divCheck = document.getElementById("id_valida_division");
-    const escCheck = document.getElementById("id_valida_escolares");
 
     if (pdfCheck && fotoCheck) {
         pdfCheck.addEventListener("change", function() {
@@ -80,19 +74,6 @@ document.addEventListener("DOMContentLoaded", function() {
                 mostrarAdvertencia('warning-formato');
             }
         });
-    }
-    
-    if (divCheck && escCheck) {
-        function toggleValidacion() {
-            // Si intenta desmarcar el único que queda, no lo permitimos
-            if (!divCheck.checked && !escCheck.checked) {
-                this.checked = true; // Reverta el cambio
-                mostrarAdvertencia('warning-validacion');
-            }
-        }
-        
-        divCheck.addEventListener("change", toggleValidacion);
-        escCheck.addEventListener("change", toggleValidacion);
     }
 
     function mostrarAdvertencia(idElemento) {

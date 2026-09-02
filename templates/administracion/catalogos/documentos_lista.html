@@ -48,14 +48,11 @@
                         {{ d.nombre }}
                     </td>
                     <td>
-                        <div class="d-flex flex-column gap-1">
-                            {% if d.valida_division %}
-                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.65rem;">División</span>
-                            {% endif %}
-                            {% if d.valida_escolares %}
-                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle" style="font-size: 0.65rem;">Escolares</span>
-                            {% endif %}
-                        </div>
+                        {% if d.requiere_validacion_oficina %}
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.7rem;">Oficina de Titulación</span>
+                        {% else %}
+                        <span class="text-muted small">—</span>
+                        {% endif %}
                     </td>
                     <td>
                         {% if d.es_obligatorio %}

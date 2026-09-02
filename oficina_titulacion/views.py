@@ -586,7 +586,7 @@ class GenerarNoInconvenienciaView(OficinaTitulacionRequeridoMixin, View):
                 'constancia_no_inconveniencia', 'fecha_constancia', 'fecha_ultima_actualizacion',
             ])
         else:
-            from escolares.pdf_constancia import generar_constancia_pdf
+            from oficina_titulacion.pdf_constancia import generar_constancia_pdf
 
             try:
                 pdf_bytes = generar_constancia_pdf(expediente)

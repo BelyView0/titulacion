@@ -350,19 +350,19 @@ class UsuarioCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
         usuario.debe_cambiar_password = True  # Forzar cambio de contraseña en su primer login por seguridad
         usuario.save()
 
-        # Desactivar Jefe de Proyecto anterior automáticamente si aplica
-        from administracion.models import Rol, Usuario as UserModel
-        if usuario.rol == Rol.JEFE_PROYECTO and usuario.departamento and usuario.is_active:
+        # Desactivar Jefe de Academia anterior automáticamente si aplica
+        from administracion.models import Rol, Usuario as UserModel, roles_jefe_academia
+        if usuario.rol in roles_jefe_academia() and usuario.departamento and usuario.is_active:
             viejos = UserModel.objects.filter(
-                rol=Rol.JEFE_PROYECTO, 
-                departamento=usuario.departamento, 
+                rol__in=roles_jefe_academia(),
+                departamento=usuario.departamento,
                 is_active=True
             ).exclude(pk=usuario.pk)
             for v in viejos:
                 v.is_active = False
                 v.save(update_fields=['is_active'])
             if viejos.exists():
-                messages.info(self.request, f'El Jefe de Proyecto anterior para {usuario.departamento.nombre} ha sido desactivado automáticamente para mantener solo uno activo.')
+                messages.info(self.request, f'El Jefe de Academia anterior para {usuario.departamento.nombre} ha sido desactivado automáticamente para mantener solo uno activo.')
 
         # Enviar correo de bienvenida y verificación (al correo institucional obligatoriamente)
         from django.core.mail import EmailMultiAlternatives
@@ -487,8 +487,8 @@ class UsuarioUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
                 destinatario=usuario
             ).order_by('-fecha')[:5]
 
-        # ── ESCOLARES / ACADEMICO / JEFE_PROYECTO: actividad relacionada ──
-        elif usuario.rol in [Rol.ESCOLARES, Rol.ACADEMICO, Rol.JEFE_PROYECTO]:
+        # ── Oficina de Titulación / Jefe de Academia: actividad relacionada ──
+        elif usuario.es_oficina_titulacion or usuario.es_jefe_academia:
             from expediente.models import (
                 ValidacionDocumento, HistorialExpediente, RecepcionEmpastado
             )
@@ -500,12 +500,12 @@ class UsuarioUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
                 realizado_por=usuario
             ).select_related('expediente').order_by('-fecha')[:10]
 
-            if usuario.rol == Rol.JEFE_PROYECTO:
+            if usuario.es_jefe_academia:
                 ctx['jurados_asignados'] = AsignacionJurado.objects.filter(
                     asignado_por=usuario
                 ).select_related('expediente', 'presidente', 'secretario').order_by('-fecha_oficio')[:10]
 
-            if usuario.rol == Rol.ACADEMICO:
+            if usuario.es_jefe_academia:
                 ctx['actos_programados'] = ActoProtocolario.objects.filter(
                     programado_por=usuario
                 ).select_related('expediente').order_by('-fecha_acto')[:10]
@@ -580,19 +580,19 @@ class UsuarioUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
     def form_valid(self, form):
         usuario = form.save()
         
-        # Desactivar Jefe de Proyecto anterior automáticamente si aplica
-        from administracion.models import Rol, Usuario as UserModel
-        if usuario.rol == Rol.JEFE_PROYECTO and usuario.departamento and usuario.is_active:
+        # Desactivar Jefe de Academia anterior automáticamente si aplica
+        from administracion.models import Rol, Usuario as UserModel, roles_jefe_academia
+        if usuario.rol in roles_jefe_academia() and usuario.departamento and usuario.is_active:
             viejos = UserModel.objects.filter(
-                rol=Rol.JEFE_PROYECTO, 
-                departamento=usuario.departamento, 
+                rol__in=roles_jefe_academia(),
+                departamento=usuario.departamento,
                 is_active=True
             ).exclude(pk=usuario.pk)
             for v in viejos:
                 v.is_active = False
                 v.save(update_fields=['is_active'])
             if viejos.exists():
-                messages.info(self.request, f'El Jefe de Proyecto anterior para {usuario.departamento.nombre} ha sido desactivado automáticamente para mantener solo uno activo.')
+                messages.info(self.request, f'El Jefe de Academia anterior para {usuario.departamento.nombre} ha sido desactivado automáticamente para mantener solo uno activo.')
 
         messages.success(self.request, 'Datos del usuario actualizados exitosamente.')
         return redirect('administracion:usuario_editar', pk=self.object.pk)
@@ -613,18 +613,26 @@ class UsuarioDeleteView(AdminRequeridoMixin, DeleteView):
             
         # Se permite eliminar usuarios sin importar si tienen Expediente.
             
-        # Regla: Al menos un usuario de roles críticos / Jefe de Proyecto
-        roles_criticos = [Rol.ADMINISTRADOR, Rol.ACADEMICO, Rol.ESCOLARES]
+        # Regla: Al menos un usuario de roles críticos / Jefe de Academia
+        from administracion.models import roles_oficina_titulacion, roles_jefe_academia
+        roles_criticos = [Rol.ADMINISTRADOR, *roles_oficina_titulacion()]
         if usuario.rol in roles_criticos and usuario.is_active:
-            activos_count = Usuario.objects.filter(rol=usuario.rol, is_active=True).count()
+            if usuario.rol in roles_oficina_titulacion():
+                activos_count = Usuario.objects.filter(
+                    rol__in=roles_oficina_titulacion(), is_active=True
+                ).count()
+            else:
+                activos_count = Usuario.objects.filter(rol=usuario.rol, is_active=True).count()
             if activos_count <= 1:
                 messages.error(request, f'No se puede eliminar al único usuario activo con el rol de {usuario.get_rol_display()}. Debe agregar alguien más con este rol antes de eliminar o desactivar al actual.')
                 return redirect('administracion:usuarios')
                 
-        if usuario.rol == Rol.JEFE_PROYECTO and usuario.departamento and usuario.is_active:
-            activos_count = Usuario.objects.filter(rol=Rol.JEFE_PROYECTO, departamento=usuario.departamento, is_active=True).count()
+        if usuario.rol in roles_jefe_academia() and usuario.departamento and usuario.is_active:
+            activos_count = Usuario.objects.filter(
+                rol__in=roles_jefe_academia(), departamento=usuario.departamento, is_active=True
+            ).count()
             if activos_count <= 1:
-                messages.error(request, f'No se puede eliminar al único Jefe de Proyectos activo del departamento {usuario.departamento.nombre}. Asigne un nuevo Jefe de Proyecto primero (este se desactivará automáticamente al hacerlo).')
+                messages.error(request, f'No se puede eliminar al único Jefe de Academia activo del departamento {usuario.departamento.nombre}. Asigne un nuevo Jefe de Academia primero (este se desactivará automáticamente al hacerlo).')
                 return redirect('administracion:usuarios')
 
         return super().dispatch(request, *args, **kwargs)

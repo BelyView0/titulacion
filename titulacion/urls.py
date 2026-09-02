@@ -59,8 +59,6 @@ urlpatterns = [
     # Módulos por rol
     path('admin-sistema/', include('administracion.urls')),
     path('alumno/', include('alumnos.urls')),
-    path('escolares/', include('escolares.urls')),
-    path('academico/', include('academico.urls')),
     path('finanzas/', include('finanzas.urls')),
     path('centro-computo/', include('centro_computo.urls')),
     path('centro-informacion/', include('centro_informacion.urls')),

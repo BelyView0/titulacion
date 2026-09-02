@@ -120,6 +120,11 @@ class TipoDocumento(models.Model):
         formatos = self.formatos_admitidos or []
         return bool(formatos) and all(f in ('jpg', 'png', 'webp') for f in formatos)
 
+    @property
+    def requiere_validacion_oficina(self):
+        """SIGET: unifica valida_division y valida_escolares en Oficina de Titulación."""
+        return self.valida_division or self.valida_escolares
+
 
 # ─────────────────────────────────────────────────────────────
 # ESTADOS DEL PROCESO
