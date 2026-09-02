@@ -568,10 +568,15 @@
                         <i class="bi bi-file-earmark-excel"></i> Importar/Exportar
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if request.resolver_match.url_name == 'configuracion' %}active{% endif %}" href="{% url 'administracion:configuracion' %}">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle {% if 'configuracion' in request.path %}active{% endif %}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-gear-wide-connected"></i> Configuración
                     </a>
+                    <ul class="dropdown-menu shadow-sm border-0">
+                        <li><a class="dropdown-item" href="{% url 'administracion:configuracion' %}"><i class="bi bi-building me-2 text-muted"></i>Datos institucionales</a></li>
+                        <li><a class="dropdown-item" href="{% url 'administracion:configuracion_database' %}"><i class="bi bi-database-gear me-2 text-muted"></i>Base de datos</a></li>
+                        <li><a class="dropdown-item" href="{% url 'administracion:configuracion_email' %}"><i class="bi bi-envelope-gear me-2 text-muted"></i>Servidor de correo (SMTP)</a></li>
+                    </ul>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="/admin/">
