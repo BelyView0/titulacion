@@ -71,6 +71,9 @@ class DashboardFinanzasView(FinanzasRequeridoMixin, TemplateView):
         ctx['expedientes_pago_recientes'] = expedientes_bandeja_pago_finanzas().select_related(
             'alumno', 'alumno__carrera',
         ).order_by('-fecha_ultima_actualizacion')[:10]
+        ctx['pendientes'] = expedientes_adeudo_pendientes(AREA_FINANZAS)[:20]
+        ctx['liberados'] = expedientes_liberados(AREA_FINANZAS)
+        ctx['con_adeudos'] = expedientes_con_adeudos(AREA_FINANZAS)
         return ctx
 
 
@@ -110,6 +113,19 @@ class ExpedientePagoDetalleView(FinanzasRequeridoMixin, DetailView):
     model = Expediente
     template_name = 'finanzas/expediente_pago_detalle.html'
     context_object_name = 'expediente'
+
+    def get(self, request, *args, **kwargs):
+        expediente = get_object_or_404(
+            Expediente.objects.select_related('alumno'),
+            pk=kwargs['pk'],
+        )
+        if expediente.estado == EstadoExpediente.ADEUDOS_EN_REVISION:
+            messages.info(
+                request,
+                'El pago ya fue validado. El expediente ahora está en confirmación de adeudos.',
+            )
+            return redirect('finanzas:adeudos_pendientes')
+        return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
         return expedientes_bandeja_pago_finanzas().select_related(
@@ -204,7 +220,7 @@ class GenerarReferenciaPagoView(FinanzasRequeridoMixin, View):
 
 
 class DescargarPrefichaPagoView(FinanzasRequeridoMixin, View):
-    """Descarga la preficha PDF activa de un expediente."""
+    """Descarga la preficha PDF activa — la regenera en tiempo real."""
 
     def get(self, request, pk):
         expediente = get_object_or_404(
@@ -212,14 +228,15 @@ class DescargarPrefichaPagoView(FinanzasRequeridoMixin, View):
             pk=pk,
         )
         referencia = expediente.referencias_pago.filter(activa=True).first()
-        if not referencia or not referencia.pdf_referencia:
+        if not referencia:
             raise Http404('No hay preficha de pago disponible.')
-        return FileResponse(
-            referencia.pdf_referencia.open('rb'),
-            as_attachment=True,
-            filename=f'preficha_{referencia.referencia_bancaria}.pdf',
-            content_type='application/pdf',
-        )
+        from finanzas.preficha_pago import generar_preficha_pago_pdf
+        from django.http import HttpResponse
+        pdf_bytes = generar_preficha_pago_pdf(referencia)
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        nombre = f'preficha_{referencia.referencia_bancaria}.pdf'
+        response['Content-Disposition'] = f'attachment; filename="{nombre}"'
+        return response
 
 
 class ValidarPagoView(FinanzasRequeridoMixin, View):
@@ -232,6 +249,8 @@ class ValidarPagoView(FinanzasRequeridoMixin, View):
 
         if expediente.estado != EstadoExpediente.PAGO_PENDIENTE:
             messages.error(request, 'El expediente no está pendiente de validación de pago.')
+            if expediente.estado == EstadoExpediente.ADEUDOS_EN_REVISION:
+                return redirect('finanzas:adeudos_pendientes')
             return redirect('finanzas:expediente_pago_detalle', pk=pk)
 
         if not expediente.comprobante_pago:
@@ -273,6 +292,7 @@ class ValidarPagoView(FinanzasRequeridoMixin, View):
                 tipo='URGENTE',
             )
             messages.success(request, 'Pago aprobado. El expediente avanzó a confirmación de adeudos.')
+            return redirect('finanzas:adeudos_pendientes')
 
         elif accion == 'RECHAZAR':
             if not observaciones:
@@ -314,7 +334,8 @@ class AdeudosPendientesView(FinanzasRequeridoMixin, ListView):
             qs = qs.filter(
                 Q(alumno__first_name__unaccent__icontains=busqueda) |
                 Q(alumno__last_name__unaccent__icontains=busqueda) |
-                Q(alumno__username__unaccent__icontains=busqueda)
+                Q(alumno__username__unaccent__icontains=busqueda) |
+                Q(alumno__numero_control__unaccent__icontains=busqueda)
             )
         return qs
 
@@ -351,20 +372,12 @@ class ConfirmarAdeudoView(FinanzasRequeridoMixin, View):
         )
 
         estado_txt = 'liberado sin adeudos' if sin_adeudos else 'marcado con adeudos pendientes'
-        notificar_alumno(
-            expediente,
-            'INFO' if sin_adeudos else 'URGENTE',
-            f'Confirmación de adeudos — Finanzas',
-            f'Finanzas te ha {estado_txt}.'
-            + (f' Observaciones: {observaciones}' if observaciones else ''),
-            url=reverse('alumnos:expediente'),
-        )
         messages.success(request, f'Confirmación registrada: alumno {estado_txt}.')
         return redirect('finanzas:adeudos_pendientes')
 
 
 class NotificacionesBandejaView(FinanzasRequeridoMixin, TemplateView):
-    """Bandeja de notificaciones y seguimiento de alumnos pendientes/liberados."""
+    """Bandeja de notificaciones internas del área."""
 
     template_name = 'finanzas/notificaciones.html'
 
@@ -376,7 +389,4 @@ class NotificacionesBandejaView(FinanzasRequeridoMixin, TemplateView):
         ctx['notificaciones'] = Notificacion.objects.filter(
             destinatario=self.request.user,
         ).order_by('-fecha')[:50]
-        ctx['pendientes'] = expedientes_adeudo_pendientes(AREA_FINANZAS)[:20]
-        ctx['liberados'] = expedientes_liberados(AREA_FINANZAS)
-        ctx['con_adeudos'] = expedientes_con_adeudos(AREA_FINANZAS)
         return ctx

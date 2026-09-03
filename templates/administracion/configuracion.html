@@ -61,6 +61,13 @@
                             <label class="form-label fw-bold"><i class="bi bi-fonts me-1 text-primary"></i> {{ form.siglas.label }}</label>
                             {{ form.siglas }}
                         </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold"><i class="bi bi-telephone me-1 text-primary"></i> {{ form.telefono_institucional.label }}</label>
+                            {{ form.telefono_institucional }}
+                            <div class="form-text text-muted">{{ form.telefono_institucional.help_text }}
+                                <a href="{% url 'administracion:configuracion_contactos' %}">Editar contactos de áreas</a>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="mb-4">

@@ -154,8 +154,10 @@ class EnviarVerificacionEmailView(LoginRequiredMixin, View):
             # We already have an otp_codigo.html template, let's use it or generic
             html_content = render_to_string('emails/otp_codigo.html', {
                 'codigo': codigo,
-                'full_name': user.get_full_name(),
-                'minutos_validez': 15
+                'user_name': user.get_full_name() or user.username,
+                'full_name': user.get_full_name() or user.username,
+                'mensaje_corto': f'Has solicitado verificar tu correo {tipo}',
+                'minutos_validez': 15,
             })
             msg = EmailMultiAlternatives(
                 subject,

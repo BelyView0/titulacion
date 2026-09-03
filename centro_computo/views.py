@@ -4,7 +4,6 @@ Vistas del módulo Centro de Cómputo — confirmación de adeudos.
 from django.contrib import messages
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse
 from django.views.generic import ListView, TemplateView, View
 
 from alumnos.models import Notificacion
@@ -15,7 +14,6 @@ from expediente.adeudo_queries import (
 )
 from expediente.mixins import CentroComputoRequeridoMixin
 from expediente.models import ConfirmacionAdeudo, EstadoExpediente, Expediente
-from expediente.notifications import notificar_alumno
 from oficina_titulacion.services import registrar_confirmacion_adeudo
 
 
@@ -35,7 +33,9 @@ class DashboardCentroComputoView(CentroComputoRequeridoMixin, TemplateView):
         ctx['notificaciones_no_leidas'] = Notificacion.objects.filter(
             destinatario=self.request.user, leida=False,
         ).count()
-        ctx['expedientes_recientes'] = expedientes_adeudo_pendientes(AREA)[:10]
+        ctx['pendientes'] = expedientes_adeudo_pendientes(AREA)[:20]
+        ctx['liberados'] = expedientes_liberados(AREA)
+        ctx['con_adeudos'] = expedientes_con_adeudos(AREA)
         return ctx
 
 
@@ -52,7 +52,8 @@ class AdeudosPendientesView(CentroComputoRequeridoMixin, ListView):
             qs = qs.filter(
                 Q(alumno__first_name__unaccent__icontains=busqueda) |
                 Q(alumno__last_name__unaccent__icontains=busqueda) |
-                Q(alumno__username__unaccent__icontains=busqueda)
+                Q(alumno__username__unaccent__icontains=busqueda) |
+                Q(alumno__numero_control__unaccent__icontains=busqueda)
             )
         return qs
 
@@ -60,6 +61,7 @@ class AdeudosPendientesView(CentroComputoRequeridoMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         ctx['busqueda'] = self.request.GET.get('q', '')
         ctx['area_label'] = 'Centro de Cómputo'
+        ctx['area'] = AREA
         return ctx
 
 
@@ -87,14 +89,6 @@ class ConfirmarAdeudoView(CentroComputoRequeridoMixin, View):
         )
 
         estado_txt = 'liberado sin adeudos' if sin_adeudos else 'marcado con adeudos pendientes'
-        notificar_alumno(
-            expediente,
-            'INFO' if sin_adeudos else 'URGENTE',
-            'Confirmación de adeudos — Centro de Cómputo',
-            f'Centro de Cómputo te ha {estado_txt}.'
-            + (f' Observaciones: {observaciones}' if observaciones else ''),
-            url=reverse('alumnos:expediente'),
-        )
         messages.success(request, f'Confirmación registrada: alumno {estado_txt}.')
         return redirect('centro_computo:adeudos_pendientes')
 
@@ -110,7 +104,4 @@ class NotificacionesBandejaView(CentroComputoRequeridoMixin, TemplateView):
         ctx['notificaciones'] = Notificacion.objects.filter(
             destinatario=self.request.user,
         ).order_by('-fecha')[:50]
-        ctx['pendientes'] = expedientes_adeudo_pendientes(AREA)[:20]
-        ctx['liberados'] = expedientes_liberados(AREA)
-        ctx['con_adeudos'] = expedientes_con_adeudos(AREA)
         return ctx

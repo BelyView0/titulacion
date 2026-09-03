@@ -1,13 +1,46 @@
 <!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>Constancia de no adeudos</title></head>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: letter; margin: 2cm; }
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 11pt; color: #000; line-height: 1.5; }
+  .titulo { text-align: center; font-size: 14pt; font-weight: bold; margin: 30px 0 24px; text-transform: uppercase; }
+  .cuerpo { text-align: justify; margin-bottom: 30px; }
+  .fecha { text-align: right; margin-bottom: 24px; }
+  .firma { text-align: center; margin-top: 60px; }
+</style>
+</head>
 <body>
-<h2 style="text-align:center;">{{ config.nombre_institucion }}</h2>
-<h3 style="text-align:center;">CONSTANCIA DE NO ADEUDOS</h3>
-<p>Se hace constar que el(la) C. <strong>{{ alumno.get_full_name }}</strong>,
-con número de control <strong>{{ alumno.numero_control }}</strong>,
-de la carrera <strong>{{ alumno.carrera }}</strong>, no adeuda documentación
-en Finanzas, Centro de Cómputo ni Centro de Información.</p>
-<p style="text-align:right;">Apizaco, Tlax., a {% now "j \d\e F \d\e Y" %}</p>
+{% if config and config.imagen_encabezado %}
+<div style="text-align:center;margin-bottom:16px;">
+  <img src="{{ config.imagen_encabezado.path }}" style="max-width:100%;" alt="Encabezado">
+</div>
+{% endif %}
+
+<div class="fecha">Apizaco, Tlaxcala, a {% now "j \d\e F \d\e Y" %}</div>
+
+<div class="titulo">Constancia de no adeudos</div>
+
+<div class="cuerpo">
+  <p>Por medio de la presente se hace constar que el (la) C. <strong>{{ alumno.get_full_name|upper }}</strong>,
+  con número de control <strong>{{ alumno.numero_control|default:alumno.username }}</strong>,
+  egresado(a) de la carrera de <strong>{{ alumno.carrera.nombre|default:"—" }}</strong>,
+  <strong>no adeuda</strong> documentación ni trámites pendientes ante:</p>
+  <ul>
+    <li>Departamento de Recursos Financieros</li>
+    <li>Centro de Cómputo</li>
+    <li>Centro de Información</li>
+  </ul>
+  <p>Se extiende la presente para los fines académicos y administrativos correspondientes
+  al proceso de titulación en el Instituto Tecnológico de Apizaco.</p>
+</div>
+
+<div class="firma">
+  <p>Atentamente</p>
+  <br><br>
+  <p>_________________________________</p>
+  <p><strong>Oficina de Titulación</strong><br>Instituto Tecnológico de Apizaco</p>
+</div>
 </body>
 </html>

@@ -20,9 +20,21 @@
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
             <div>
                 <strong>{{ exp.alumno.get_full_name }}</strong>
-                <div class="small text-muted">{{ exp.alumno.username }} — {{ exp.alumno.carrera.nombre|default:"—" }}</div>
+                <div class="small text-muted">Número de control: {{ exp.alumno.numero_control|default:exp.alumno.username }} — {{ exp.alumno.carrera.nombre|default:"—" }}</div>
             </div>
+            {% with marcado=False %}
+            {% for c in exp.confirmaciones_adeudo.all %}
+                {% if c.area == area %}
+                    {% if c.sin_adeudos %}
+                    <span class="badge bg-success">Sin adeudos</span>
+                    {% else %}
+                    <span class="badge bg-danger">Con adeudos — pendiente de liberar</span>
+                    {% endif %}
+                {% endif %}
+            {% empty %}
             <span class="badge bg-warning text-dark">Pendiente de confirmar</span>
+            {% endfor %}
+            {% endwith %}
         </div>
         <form method="post" action="{% url 'centro_computo:confirmar_adeudo' exp.pk %}" class="row g-2">
             {% csrf_token %}

@@ -14,6 +14,14 @@
                 Una vez creado el expediente, el sistema generará automáticamente la lista de documentos que debes presentar.
             </div>
 
+            {% if contacto_escolares %}
+            <div class="alert alert-secondary">
+                <i class="bi bi-question-circle me-2"></i>
+                Si no conoces tu plan de estudios, consulta en Servicios Escolares:
+                {% include 'includes/_contacto_area.html' with contacto=contacto_escolares %}
+            </div>
+            {% endif %}
+
             <form method="post" enctype="multipart/form-data" id="form-crear-expediente">
                 {% csrf_token %}
                 {% for field in form %}

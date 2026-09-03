@@ -5,112 +5,160 @@
 <style>
   @page {
     size: letter;
-    margin: 0.6cm 1cm;
+    margin: 1.2cm 1.5cm;
   }
   body {
-    font-family: Helvetica, Arial, sans-serif;
+    font-family: Arial, Helvetica, sans-serif;
     font-size: 9pt;
     color: #000;
     margin: 0;
     padding: 0;
   }
-  .preficha {
-    border: 1px solid #333;
-    padding: 8px 12px 10px;
-    margin-bottom: 6px;
-  }
+
+  /* Etiqueta PREFICHA ITA / ESTUDIANTE */
   .etiqueta-copia {
+    text-align: center;
     font-size: 8pt;
     font-weight: bold;
-    text-align: right;
+    text-decoration: underline;
     margin-bottom: 4px;
   }
-  .logos {
+
+  /* Borde exterior de la preficha */
+  .preficha {
+    border: 2px solid #000;
+  }
+
+  /* Encabezado con logos */
+  .header-row {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 6px;
+    border-bottom: 2px solid #000;
   }
-  .logos td {
+  .header-row td {
+    vertical-align: middle;
+    padding: 6px 10px;
+  }
+  .logo-izq {
+    width: 25%;
+    text-align: left;
+    border-right: 1px solid #000;
+  }
+  .titulo-centro {
+    width: 42%;
+    text-align: center;
+    border-right: 1px solid #000;
+  }
+  .titulo-texto {
+    font-size: 14pt;
+    font-weight: bold;
+    line-height: 1.25;
+  }
+  .logo-der {
     width: 33%;
     text-align: center;
-    vertical-align: middle;
-    padding: 2px;
   }
-  .logos img {
-    max-height: 42px;
-    max-width: 95%;
-  }
-  .titulo {
-    text-align: center;
-    font-size: 13pt;
-    font-weight: bold;
-    margin: 4px 0 10px;
-    letter-spacing: 0.5px;
-  }
+  /* sub-ita eliminado — texto ya incluido en imagen del logo */
+
+  /* Tabla de datos con bordes */
   .datos {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 8px;
-  }
-  .datos td {
-    padding: 2px 4px;
-    vertical-align: top;
-    font-size: 8.5pt;
-  }
-  .datos .label {
-    font-weight: bold;
-    width: 28%;
-    white-space: nowrap;
-  }
-  .datos .valor {
     border-bottom: 1px solid #000;
   }
-  .banco {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 6px 0;
+  .datos tr {
+    border-bottom: 1px solid #000;
   }
-  .banco td {
-    padding: 2px 4px;
+  .datos td {
+    padding: 3px 6px;
     font-size: 8.5pt;
+    vertical-align: middle;
+    border-right: 1px solid #000;
   }
-  .banco .label {
+  .lbl {
     font-weight: bold;
-    width: 35%;
+    width: 15%;
+    background: #f0f0f0;
   }
-  .aviso {
+  .val {
+    width: 51%;
+  }
+  .lbl2 {
+    font-weight: bold;
+    width: 10%;
+    background: #f0f0f0;
+    border-left: 1px solid #000;
+  }
+  .val2 {
+    width: 16%;
+    border-right: none;
+  }
+
+  /* Referencia de pago */
+  .ref-row {
+    text-align: center;
+    font-size: 12pt;
+    font-weight: bold;
+    padding: 5px 6px;
+    border-bottom: 1px solid #000;
+  }
+
+  /* Datos bancarios */
+  .banco-row {
+    text-align: center;
+    font-size: 8.5pt;
+    padding: 2px 6px;
+    border-bottom: 1px solid #000;
+  }
+
+  /* Aviso legal fondo gris con subrayado */
+  .aviso-legal {
+    background: #d0d0d0;
+    padding: 4px 8px;
     font-size: 7pt;
+    font-weight: bold;
+    text-align: center;
+    text-decoration: underline;
+    border-bottom: 1px solid #000;
+    line-height: 1.35;
+  }
+
+  /* Nota inferior itálica */
+  .nota-inferior {
+    padding: 3px 8px 5px;
+    font-size: 6.5pt;
+    font-style: italic;
     text-align: justify;
-    margin-top: 6px;
     line-height: 1.25;
   }
-  .aviso strong {
-    display: block;
-    text-align: center;
-    margin-bottom: 4px;
-    font-size: 7.5pt;
-  }
+
+  /* Línea de corte */
   .corte {
     text-align: center;
     font-size: 7pt;
-    margin: 4px 0;
-    border-top: 1px dashed #666;
-    padding-top: 4px;
+    margin: 8px 0 4px;
     color: #444;
+  }
+  hr.dashed {
+    border: none;
+    border-top: 1px dashed #555;
+    margin: 2px 0;
   }
 </style>
 </head>
 <body>
 
-{% with copia_label="PREFICHA ITA" %}
+<div class="etiqueta-copia">PREFICHA ITA</div>
 {% include "finanzas/pdf/_preficha_seccion.html" %}
-{% endwith %}
 
-<div class="corte">— — — CORTAR AQUÍ — — —</div>
+<div class="corte">
+  <hr class="dashed">
+  — — — — — — — — — — CORTAR AQUÍ — — — — — — — — — —
+  <hr class="dashed">
+</div>
 
-{% with copia_label="PREFICHA ESTUDIANTE" %}
+<div class="etiqueta-copia">PREFICHA ESTUDIANTE</div>
 {% include "finanzas/pdf/_preficha_seccion.html" %}
-{% endwith %}
 
 </body>
 </html>

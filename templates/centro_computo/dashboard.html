@@ -43,18 +43,5 @@
     </div>
 </div>
 
-<div class="content-card">
-    <div class="card-header-custom">Alumnos pendientes de confirmación</div>
-    {% for exp in expedientes_recientes %}
-    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
-        <div>
-            <strong>{{ exp.alumno.get_full_name }}</strong>
-            <div class="small text-muted">{{ exp.alumno.username }}</div>
-        </div>
-        <a href="{% url 'centro_computo:adeudos_pendientes' %}" class="btn btn-sm btn-outline-primary">Confirmar</a>
-    </div>
-    {% empty %}
-    <p class="p-3 text-muted mb-0">No hay alumnos pendientes.</p>
-    {% endfor %}
-</div>
+{% include 'includes/_resumen_adeudos_dashboard.html' with url_adeudos='centro_computo:adeudos_pendientes' %}
 {% endblock %}

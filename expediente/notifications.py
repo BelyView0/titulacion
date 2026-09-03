@@ -113,6 +113,8 @@ def _enviar_correo_alumno(alumno, expediente, titulo, mensaje):
     if not correos_destino:
         return  # sin correos configurados, no enviar
 
+    numero_control = alumno.numero_control or alumno.username or '—'
+
     cuerpo = f"""
 Estimado(a) {alumno.get_full_name()},
 
@@ -120,7 +122,7 @@ Estimado(a) {alumno.get_full_name()},
 
 ---
 Expediente: {expediente}
-Matrícula: {getattr(getattr(alumno, 'perfil_alumno', None), 'numero_control', 'N/A')}
+Número de control: {numero_control}
 Fecha: {timezone.now().strftime('%d/%m/%Y %H:%M')}
 
 Este mensaje fue generado automáticamente por el Sistema de Gestión de Titulación
@@ -135,7 +137,7 @@ Por favor no responda a este correo.
         'mensaje': mensaje,
         'datos_adicionales': {
             'Expediente': str(expediente),
-            'Matrícula': getattr(getattr(alumno, 'perfil_alumno', None), 'numero_control', 'N/A'),
+            'Número de control': numero_control,
             'Fecha': timezone.now().strftime('%d/%m/%Y %H:%M')
         }
     })

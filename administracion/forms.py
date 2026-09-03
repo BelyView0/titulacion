@@ -5,7 +5,7 @@ from datetime import datetime
 
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import Usuario, Carrera, Departamento, Profesor, Rol, ConfiguracionInstitucional, JefeDepartamento, choices_siget, normalizar_rol
+from .models import Usuario, Carrera, Departamento, Profesor, Rol, ConfiguracionInstitucional, JefeDepartamento, ContactoArea, choices_siget, normalizar_rol
 
 
 class UsuarioCreateForm(forms.ModelForm):
@@ -201,7 +201,7 @@ class ConfiguracionInstitucionalForm(forms.ModelForm):
             'nombre_institucion', 'siglas', 'logo_sep', 'logo_tecnm', 'logo_sistema',
             'mostrar_cintillo', 'imagen_cintillo',
             'color_header', 'color_menu', 'color_botones', 'color_cintillo',
-            'imagen_encabezado', 'imagen_pie_pagina'
+            'imagen_encabezado', 'imagen_pie_pagina', 'telefono_institucional',
         ]
         widgets = {
             'dominio_institucional': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ej: apizaco.tecnm.mx'}),
@@ -219,6 +219,23 @@ class ConfiguracionInstitucionalForm(forms.ModelForm):
             'color_cintillo': forms.TextInput(attrs={'type': 'color', 'class': 'form-control form-control-color', 'style': 'max-width: 100px;'}),
             'imagen_encabezado': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'imagen_pie_pagina': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+            'telefono_institucional': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '2414172010'}),
+        }
+
+
+class ContactoAreaForm(forms.ModelForm):
+    class Meta:
+        model = ContactoArea
+        fields = [
+            'nombre_responsable', 'correo_departamento', 'correo_personal',
+            'extension', 'activo',
+        ]
+        widgets = {
+            'nombre_responsable': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'correo_departamento': forms.EmailInput(attrs={'class': 'form-control form-control-sm'}),
+            'correo_personal': forms.EmailInput(attrs={'class': 'form-control form-control-sm'}),
+            'extension': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': '119'}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 

@@ -13,7 +13,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
-from django.shortcuts import redirect, get_object_or_404
+from django.shortcuts import redirect, get_object_or_404, render
 from django.http import HttpResponse
 from django.utils import timezone
 
@@ -42,6 +42,43 @@ class ConfiguracionUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView)
     def form_valid(self, form):
         messages.success(self.request, 'Membretes institucionales actualizados correctamente.')
         return super().form_valid(form)
+
+
+class ConfiguracionContactosView(AdminRequeridoMixin, View):
+    """Edita contactos institucionales de áreas (no son usuarios del sistema)."""
+    template_name = 'administracion/configuracion_contactos.html'
+
+    def get(self, request):
+        from administracion.forms import ContactoAreaForm
+        from administracion.models import ContactoArea
+        from django.forms import modelformset_factory
+
+        ContactoAreaFormSet = modelformset_factory(
+            ContactoArea, form=ContactoAreaForm, extra=0, can_delete=False,
+        )
+        formset = ContactoAreaFormSet(queryset=ContactoArea.objects.all())
+        return render(request, self.template_name, {
+            'formset': formset,
+            'telefono_base': ConfiguracionInstitucional.objects.first(),
+        })
+
+    def post(self, request):
+        from administracion.forms import ContactoAreaForm
+        from administracion.models import ContactoArea
+        from django.forms import modelformset_factory
+
+        ContactoAreaFormSet = modelformset_factory(
+            ContactoArea, form=ContactoAreaForm, extra=0, can_delete=False,
+        )
+        formset = ContactoAreaFormSet(request.POST, queryset=ContactoArea.objects.all())
+        if formset.is_valid():
+            formset.save()
+            messages.success(request, 'Contactos de áreas actualizados.')
+            return redirect('administracion:configuracion_contactos')
+        return render(request, self.template_name, {
+            'formset': formset,
+            'telefono_base': ConfiguracionInstitucional.objects.first(),
+        })
 
 
 class ConfiguracionEmailUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):

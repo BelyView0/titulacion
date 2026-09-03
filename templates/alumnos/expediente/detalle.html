@@ -234,6 +234,47 @@
             {% endif %}
         </div>
 
+        {% elif expediente.estado == 'ADEUDOS_EN_REVISION' %}
+        <div class="content-card p-3">
+            <div class="card-header-custom mb-2"><i class="bi bi-clipboard-check"></i> Confirmación de adeudos</div>
+            <p class="small text-muted mb-3">
+                Finanzas, Centro de Cómputo y Centro de Información deben confirmar que no tienes adeudos.
+                Si alguna área reporta adeudos, te notificaremos para que te comuniques y los resuelvas.
+            </p>
+            <ul class="list-unstyled small mb-3">
+                {% for item in estados_adeudo %}
+                <li class="d-flex justify-content-between align-items-start border-bottom py-2 gap-2">
+                    <div>
+                        <span>{{ item.area }}</span>
+                        {% if item.estado == 'con' and item.observaciones %}
+                        <div class="text-danger mt-1">{{ item.observaciones }}</div>
+                        {% endif %}
+                        {% if item.estado == 'con' and item.contacto %}
+                        <div class="alert alert-warning py-2 px-2 mt-2 mb-0">
+                            <div class="small mb-1">Comunícate con el área para resolver tu adeudo:</div>
+                            {% include 'includes/_contacto_area.html' with contacto=item.contacto %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% if item.estado == 'sin' %}
+                    <span class="badge bg-success">Sin adeudos</span>
+                    {% elif item.estado == 'con' %}
+                    <span class="badge bg-danger">Con adeudos</span>
+                    {% else %}
+                    <span class="badge bg-secondary">Pendiente</span>
+                    {% endif %}
+                </li>
+                {% empty %}
+                <li class="text-muted">Sin registros aún.</li>
+                {% endfor %}
+            </ul>
+            {% if expediente.constancia_no_adeudos %}
+            <a href="{{ expediente.constancia_no_adeudos.url }}" target="_blank" class="btn btn-outline-primary btn-sm w-100">
+                <i class="bi bi-download me-1"></i>Descargar constancia de no adeudos
+            </a>
+            {% endif %}
+        </div>
+
         {% elif expediente.comprobante_pago and expediente.pago_validado == 'APROBADO' %}
         <div class="content-card p-3 mb-3">
             <div class="card-header-custom mb-2"><i class="bi bi-credit-card"></i> Pago de Titulación</div>

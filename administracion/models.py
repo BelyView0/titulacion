@@ -534,6 +534,13 @@ class ConfiguracionInstitucional(models.Model):
         default='Jefe del Departamento de Servicios Escolares',
         verbose_name='Cargo Jefe Escolares'
     )
+    telefono_institucional = models.CharField(
+        max_length=20,
+        default='2414172010',
+        blank=True,
+        verbose_name='Teléfono institucional (base)',
+        help_text='Número base del plantel. Las extensiones de cada área se configuran en Contactos de áreas.',
+    )
 
     class Meta:
         verbose_name = "Configuración Institucional"
@@ -554,6 +561,69 @@ class ConfiguracionInstitucional(models.Model):
     def smtp_configurado(cls):
         config = cls.objects.first()
         return bool(config and config.smtp_listo())
+
+
+class ContactoArea(models.Model):
+    """
+    Contacto institucional de un área (no es usuario del sistema).
+    Se muestra a alumnos para consultas; no recibe notificaciones SMTP automáticas.
+    """
+    class Area(models.TextChoices):
+        FINANZAS = 'FINANZAS', 'Recursos Financieros'
+        CENTRO_COMPUTO = 'CENTRO_COMPUTO', 'Centro de Cómputo'
+        CENTRO_INFORMACION = 'CENTRO_INFORMACION', 'Centro de Información'
+        SERVICIOS_ESCOLARES = 'SERVICIOS_ESCOLARES', 'Servicios Escolares'
+
+    area = models.CharField(
+        max_length=30, choices=Area.choices, unique=True,
+        verbose_name='Área',
+    )
+    nombre_responsable = models.CharField(max_length=200, verbose_name='Nombre del responsable')
+    correo_departamento = models.EmailField(
+        verbose_name='Correo del departamento',
+        help_text='Correo institucional del área (solo para mostrar contacto).',
+    )
+    correo_personal = models.EmailField(
+        blank=True,
+        verbose_name='Correo personal del responsable',
+        help_text='Opcional. No se usa para envíos automáticos del sistema.',
+    )
+    extension = models.CharField(max_length=10, blank=True, verbose_name='Extensión')
+    activo = models.BooleanField(default=True, verbose_name='Activo')
+
+    class Meta:
+        verbose_name = 'Contacto de área'
+        verbose_name_plural = 'Contactos de áreas'
+        ordering = ['area']
+
+    def __str__(self):
+        return f'{self.get_area_display()} — {self.nombre_responsable}'
+
+    def telefono_completo(self):
+        config = ConfiguracionInstitucional.objects.first()
+        base = (config.telefono_institucional if config else '') or '2414172010'
+        if self.extension:
+            return f'{base} ext. {self.extension}'
+        return base
+
+    @classmethod
+    def por_area(cls, area):
+        return cls.objects.filter(area=area, activo=True).first()
+
+    @classmethod
+    def areas_adeudo(cls):
+        return cls.objects.filter(
+            area__in=[
+                cls.Area.FINANZAS,
+                cls.Area.CENTRO_COMPUTO,
+                cls.Area.CENTRO_INFORMACION,
+            ],
+            activo=True,
+        )
+
+    @classmethod
+    def servicios_escolares(cls):
+        return cls.por_area(cls.Area.SERVICIOS_ESCOLARES)
 
 
 class JefeDepartamento(models.Model):

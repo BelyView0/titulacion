@@ -3,49 +3,7 @@
 {% block page_title %}Bandeja — Finanzas{% endblock %}
 
 {% block content %}
-<div class="row g-3">
-    <div class="col-lg-4">
-        <div class="content-card">
-            <div class="card-header-custom"><i class="bi bi-hourglass"></i> Pendientes</div>
-            {% for exp in pendientes %}
-            <div class="p-3 border-bottom small">
-                <strong>{{ exp.alumno.get_full_name }}</strong><br>
-                <span class="text-muted">{{ exp.alumno.username }}</span>
-            </div>
-            {% empty %}
-            <p class="p-3 text-muted small mb-0">Sin pendientes.</p>
-            {% endfor %}
-        </div>
-    </div>
-    <div class="col-lg-4">
-        <div class="content-card">
-            <div class="card-header-custom"><i class="bi bi-check-circle"></i> Liberados</div>
-            {% for exp in liberados %}
-            <div class="p-3 border-bottom small">
-                <strong>{{ exp.alumno.get_full_name }}</strong><br>
-                <span class="text-muted">{{ exp.alumno.username }}</span>
-            </div>
-            {% empty %}
-            <p class="p-3 text-muted small mb-0">Sin registros.</p>
-            {% endfor %}
-        </div>
-    </div>
-    <div class="col-lg-4">
-        <div class="content-card">
-            <div class="card-header-custom"><i class="bi bi-exclamation-circle"></i> Con adeudos</div>
-            {% for exp in con_adeudos %}
-            <div class="p-3 border-bottom small">
-                <strong>{{ exp.alumno.get_full_name }}</strong><br>
-                <span class="text-muted">{{ exp.alumno.username }}</span>
-            </div>
-            {% empty %}
-            <p class="p-3 text-muted small mb-0">Sin registros.</p>
-            {% endfor %}
-        </div>
-    </div>
-</div>
-
-<div class="content-card mt-3">
+<div class="content-card">
     <div class="card-header-custom"><i class="bi bi-bell"></i> Notificaciones del sistema</div>
     {% for notif in notificaciones %}
     <div class="p-3 border-bottom">

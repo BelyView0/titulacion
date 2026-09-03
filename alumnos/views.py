@@ -59,6 +59,12 @@ class ExpedienteCreateView(AlumnoRequeridoMixin, CreateView):
             return redirect('alumnos:expediente')
         return super().dispatch(request, *args, **kwargs)
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from administracion.models import ContactoArea
+        ctx['contacto_escolares'] = ContactoArea.servicios_escolares()
+        return ctx
+
     def form_valid(self, form):
         expediente = form.save(commit=False)
         expediente.alumno = self.request.user
@@ -110,6 +116,12 @@ class ExpedienteUpdateView(ExpedientePropioMixin, UpdateView):
     template_name = 'alumnos/expediente/crear.html'  # Reutilizamos el mismo template
     success_url = reverse_lazy('alumnos:expediente')
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from administracion.models import ContactoArea
+        ctx['contacto_escolares'] = ContactoArea.servicios_escolares()
+        return ctx
+
     def get_queryset(self):
         # Solo permitir editar en estados iniciales
         return super().get_queryset().filter(
@@ -147,6 +159,26 @@ class ExpedienteDetalleView(ExpedientePropioMixin, TemplateView):
             tipo=CitaDocumentoFisico.TipoCita.OFICIO_PUBLICACION
         ).order_by('-fecha_creacion').first()
         ctx['referencia_activa'] = expediente.referencias_pago.filter(activa=True).first()
+        from expediente.models import ConfirmacionAdeudo
+        from administracion.models import ContactoArea
+        confs = {
+            c.area: c for c in expediente.confirmaciones_adeudo.all()
+        }
+        contactos = {c.area: c for c in ContactoArea.areas_adeudo()}
+        ctx['estados_adeudo'] = [
+            {
+                'area': label,
+                'codigo': code,
+                'estado': (
+                    'sin' if confs.get(code) and confs[code].sin_adeudos
+                    else 'con' if confs.get(code)
+                    else 'pendiente'
+                ),
+                'observaciones': confs[code].observaciones if confs.get(code) else '',
+                'contacto': contactos.get(code),
+            }
+            for code, label in ConfirmacionAdeudo.Area.choices
+        ]
         ctx['puede_cargar_documentos'] = expediente.estado in (
             EstadoExpediente.CARGA_DOCUMENTOS,
             EstadoExpediente.EN_CORRECCION,
@@ -360,16 +392,17 @@ class DescargarPrefichaPagoView(ExpedientePropioMixin, View):
             return redirect('alumnos:expediente')
 
         referencia = expediente.referencias_pago.filter(activa=True).first()
-        if not referencia or not referencia.pdf_referencia:
+        if not referencia:
             messages.error(request, 'Aún no hay preficha de pago generada por Finanzas.')
             return redirect('alumnos:expediente')
 
-        return FileResponse(
-            referencia.pdf_referencia.open('rb'),
-            as_attachment=True,
-            filename=f'preficha_{referencia.referencia_bancaria}.pdf',
-            content_type='application/pdf',
-        )
+        from finanzas.preficha_pago import generar_preficha_pago_pdf
+        from django.http import HttpResponse as _HR
+        pdf_bytes = generar_preficha_pago_pdf(referencia)
+        response = _HR(pdf_bytes, content_type='application/pdf')
+        nombre = f'preficha_{referencia.referencia_bancaria}.pdf'
+        response['Content-Disposition'] = f'attachment; filename="{nombre}"'
+        return response
 
 
 class NotificacionListView(LoginRequiredMixin, ListView):

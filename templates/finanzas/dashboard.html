@@ -58,6 +58,10 @@
     </div>
 </div>
 
+<div class="mb-4">
+{% include 'includes/_resumen_adeudos_dashboard.html' with url_adeudos='finanzas:adeudos_pendientes' %}
+</div>
+
 <div class="content-card">
     <div class="card-header-custom d-flex align-items-center gap-2">
         <i class="bi bi-folder2-open"></i> Expedientes en etapa de pago
@@ -70,7 +74,7 @@
             <tbody>
             {% for exp in expedientes_pago_recientes %}
             <tr>
-                <td>{{ exp.alumno.get_full_name }}<br><small class="text-muted">{{ exp.alumno.username }}</small></td>
+                <td>{{ exp.alumno.get_full_name }}<br><small class="text-muted">Número de control: {{ exp.alumno.numero_control|default:exp.alumno.username }}</small></td>
                 <td>{{ exp.alumno.carrera.nombre|default:"—" }}</td>
                 <td><span class="badge bg-secondary">{{ exp.get_estado_display }}</span></td>
                 <td><a href="{% url 'finanzas:expediente_pago_detalle' exp.pk %}" class="btn btn-sm btn-outline-primary">Gestionar</a></td>
