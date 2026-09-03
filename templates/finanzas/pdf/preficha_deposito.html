@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page {
+    size: letter;
+    margin: 0.6cm 1cm;
+  }
+  body {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 9pt;
+    color: #000;
+    margin: 0;
+    padding: 0;
+  }
+  .preficha {
+    border: 1px solid #333;
+    padding: 8px 12px 10px;
+    margin-bottom: 6px;
+  }
+  .etiqueta-copia {
+    font-size: 8pt;
+    font-weight: bold;
+    text-align: right;
+    margin-bottom: 4px;
+  }
+  .logos {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 6px;
+  }
+  .logos td {
+    width: 33%;
+    text-align: center;
+    vertical-align: middle;
+    padding: 2px;
+  }
+  .logos img {
+    max-height: 42px;
+    max-width: 95%;
+  }
+  .titulo {
+    text-align: center;
+    font-size: 13pt;
+    font-weight: bold;
+    margin: 4px 0 10px;
+    letter-spacing: 0.5px;
+  }
+  .datos {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 8px;
+  }
+  .datos td {
+    padding: 2px 4px;
+    vertical-align: top;
+    font-size: 8.5pt;
+  }
+  .datos .label {
+    font-weight: bold;
+    width: 28%;
+    white-space: nowrap;
+  }
+  .datos .valor {
+    border-bottom: 1px solid #000;
+  }
+  .banco {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 6px 0;
+  }
+  .banco td {
+    padding: 2px 4px;
+    font-size: 8.5pt;
+  }
+  .banco .label {
+    font-weight: bold;
+    width: 35%;
+  }
+  .aviso {
+    font-size: 7pt;
+    text-align: justify;
+    margin-top: 6px;
+    line-height: 1.25;
+  }
+  .aviso strong {
+    display: block;
+    text-align: center;
+    margin-bottom: 4px;
+    font-size: 7.5pt;
+  }
+  .corte {
+    text-align: center;
+    font-size: 7pt;
+    margin: 4px 0;
+    border-top: 1px dashed #666;
+    padding-top: 4px;
+    color: #444;
+  }
+</style>
+</head>
+<body>
+
+{% with copia_label="PREFICHA ITA" %}
+{% include "finanzas/pdf/_preficha_seccion.html" %}
+{% endwith %}
+
+<div class="corte">— — — CORTAR AQUÍ — — —</div>
+
+{% with copia_label="PREFICHA ESTUDIANTE" %}
+{% include "finanzas/pdf/_preficha_seccion.html" %}
+{% endwith %}
+
+</body>
+</html>

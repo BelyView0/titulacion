@@ -35,6 +35,8 @@ class ExpedienteForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['modalidad'].empty_label = '— Primero selecciona plan de estudios —'
         self.fields['modalidad'].queryset = Modalidad.objects.none()
+        self.fields['modalidad'].required = True
+        self.fields['modalidad'].label = 'Modalidad de Titulación'
         self.fields['asesor'].queryset = Profesor.objects.filter(activo=True)
         self.fields['asesor'].empty_label = '— Selecciona tu asesor —'
         self.fields['asesor'].required = True

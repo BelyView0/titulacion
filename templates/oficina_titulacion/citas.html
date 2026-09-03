@@ -119,16 +119,26 @@
                     <td>{{ cita.lote_id|default:"—" }}</td>
                     <td class="text-end">
                         {% if cita.estado == 'REPROGRAMACION_SOLICITADA' %}
-                        <form method="post" action="{% url 'oficina_titulacion:aprobar_reprogramacion' cita.pk %}" class="d-inline-flex gap-1">
+                        <div class="text-start small mb-2 p-2 rounded bg-warning bg-opacity-10">
+                            <strong>Motivo del alumno:</strong> {{ cita.propuesta_alumno_notas|default:"—" }}
+                            {% if cita.propuesta_alumno_fecha %}
+                            <br><strong>Fecha propuesta:</strong> {{ cita.propuesta_alumno_fecha|date:"d/m/Y H:i" }}
+                            {% endif %}
+                        </div>
+                        <form method="post" action="{% url 'oficina_titulacion:aprobar_reprogramacion' cita.pk %}" class="d-flex flex-wrap gap-1 justify-content-end align-items-center">
                             {% csrf_token %}
-                            <input type="datetime-local" name="nueva_fecha" class="form-control form-control-sm" style="max-width:180px;">
-                            <button class="btn btn-warning btn-sm">Aprobar reprogramación</button>
+                            <input type="datetime-local" name="nueva_fecha" class="form-control form-control-sm" style="max-width:180px;"
+                                   {% if cita.propuesta_alumno_fecha %}value="{{ cita.propuesta_alumno_fecha|date:'Y-m-d' }}T{{ cita.propuesta_alumno_fecha|date:'H:i' }}"{% endif %}>
+                            <input type="text" name="lugar" class="form-control form-control-sm" style="max-width:140px;" placeholder="Lugar" value="{{ cita.lugar }}">
+                            <button class="btn btn-warning btn-sm">Asignar nueva fecha</button>
                         </form>
                         {% endif %}
+                        {% if cita.estado != 'REPROGRAMACION_SOLICITADA' %}
                         <form method="post" action="{% url 'oficina_titulacion:completar_cita' cita.pk %}" class="d-inline">
                             {% csrf_token %}
                             <button class="btn btn-success btn-sm">Completar</button>
                         </form>
+                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}

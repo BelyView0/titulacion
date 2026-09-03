@@ -103,12 +103,13 @@ class NotificacionesBandejaView(CentroInformacionRequeridoMixin, TemplateView):
     template_name = 'centro_informacion/notificaciones.html'
 
     def get_context_data(self, **kwargs):
+        from expediente.notifications import marcar_notificaciones_leidas
+
         ctx = super().get_context_data(**kwargs)
-        notifs = Notificacion.objects.filter(
+        marcar_notificaciones_leidas(self.request.user)
+        ctx['notificaciones'] = Notificacion.objects.filter(
             destinatario=self.request.user,
         ).order_by('-fecha')[:50]
-        notifs.filter(leida=False).update(leida=True)
-        ctx['notificaciones'] = notifs
         ctx['pendientes'] = expedientes_adeudo_pendientes(AREA)[:20]
         ctx['liberados'] = expedientes_liberados(AREA)
         ctx['con_adeudos'] = expedientes_con_adeudos(AREA)

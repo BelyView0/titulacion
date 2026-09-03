@@ -13,6 +13,7 @@
             <label class="form-label small">Estado</label>
             <select name="estado" class="form-select form-select-sm">
                 <option value="">Todos</option>
+                <option value="OFICIO_FIRMADO" {% if estado_filtro == 'OFICIO_FIRMADO' %}selected{% endif %}>Oficio firmado (sin preficha)</option>
                 <option value="PAGO_PENDIENTE" {% if estado_filtro == 'PAGO_PENDIENTE' %}selected{% endif %}>Pago pendiente</option>
                 <option value="PAGO_VALIDADO" {% if estado_filtro == 'PAGO_VALIDADO' %}selected{% endif %}>Pago validado</option>
             </select>
@@ -35,20 +36,28 @@
                     <th>Carrera</th>
                     <th>Estado</th>
                     <th>Pago</th>
+                    <th>Preficha</th>
                     <th></th>
                 </tr>
             </thead>
             <tbody>
             {% for exp in expedientes %}
             <tr>
-                <td>{{ exp.alumno.get_full_name }}<br><small class="text-muted">{{ exp.alumno.username }}</small></td>
+                <td>{{ exp.alumno.get_full_name }}<br><small class="text-muted">{{ exp.alumno.numero_control|default:exp.alumno.username }}</small></td>
                 <td>{{ exp.alumno.carrera.nombre|default:"—" }}</td>
                 <td><span class="badge bg-secondary">{{ exp.get_estado_display }}</span></td>
                 <td>{{ exp.get_pago_validado_display }}</td>
+                <td>
+                    {% for r in exp.referencias_pago.all %}
+                        {% if r.activa %}<span class="badge bg-success">Generada</span>{% endif %}
+                    {% empty %}
+                        <span class="badge bg-warning text-dark">Pendiente</span>
+                    {% endfor %}
+                </td>
                 <td><a href="{% url 'finanzas:expediente_pago_detalle' exp.pk %}" class="btn btn-sm btn-outline-primary">Detalle</a></td>
             </tr>
             {% empty %}
-            <tr><td colspan="5" class="text-center text-muted p-4">Sin resultados.</td></tr>
+            <tr><td colspan="6" class="text-center text-muted p-4">Sin resultados.</td></tr>
             {% endfor %}
             </tbody>
         </table>

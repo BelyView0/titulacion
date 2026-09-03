@@ -9,6 +9,16 @@ from django.conf import settings
 from django.utils import timezone
 
 
+def url_expediente_alumno():
+    from django.urls import reverse
+    return reverse('alumnos:expediente')
+
+
+def marcar_notificaciones_leidas(usuario):
+    from alumnos.models import Notificacion
+    return Notificacion.objects.filter(destinatario=usuario, leida=False).update(leida=True)
+
+
 def notificar_alumno(expediente, tipo, titulo, mensaje, url=''):
     """
     Crea una notificación interna al alumno Y envía correo institucional.
@@ -23,6 +33,8 @@ def notificar_alumno(expediente, tipo, titulo, mensaje, url=''):
     from alumnos.models import Notificacion
 
     alumno = expediente.alumno
+    if not url:
+        url = url_expediente_alumno()
 
     # 1 — Notificación interna
     notif = Notificacion.objects.create(
@@ -39,10 +51,23 @@ def notificar_alumno(expediente, tipo, titulo, mensaje, url=''):
     return notif
 
 
+def url_expediente_oficina(expediente):
+    from django.urls import reverse
+    return reverse('oficina_titulacion:expediente_detalle', kwargs={'pk': expediente.pk})
+
+
+def url_citas_oficina():
+    from django.urls import reverse
+    return reverse('oficina_titulacion:citas_pendientes')
+
+
 def notificar_oficina_titulacion(expediente, titulo, mensaje, url='', tipo='INFO'):
     """Notifica a usuarios de Oficina de Titulación (incluye roles legados)."""
     from administracion.models import Usuario, roles_oficina_titulacion
     from alumnos.models import Notificacion
+
+    if not url and expediente is not None:
+        url = url_expediente_oficina(expediente)
 
     usuarios = Usuario.objects.filter(rol__in=roles_oficina_titulacion(), is_active=True)
     creadas = []

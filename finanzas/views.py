@@ -7,6 +7,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.db.models import Q
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -24,6 +25,17 @@ from expediente.notifications import (
     notificar_alumno,
     notificar_usuarios_por_rol,
     registrar_cambio_estado,
+)
+from finanzas.pago_queries import (
+    ESTADOS_BANDEJA_PAGO_FINANZAS,
+    ESTADOS_GENERAR_PREFICHA,
+    expedientes_bandeja_pago_finanzas,
+)
+from finanzas.preficha_pago import (
+    concepto_pago_expediente,
+    generar_referencia_bancaria,
+    guardar_preficha_pdf,
+    monto_default_pago,
 )
 from oficina_titulacion.services import registrar_confirmacion_adeudo
 from administracion.models import Rol
@@ -43,7 +55,7 @@ class DashboardFinanzasView(FinanzasRequeridoMixin, TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['pagos_pendientes'] = Expediente.objects.filter(
-            estado=EstadoExpediente.PAGO_PENDIENTE,
+            estado__in=[EstadoExpediente.OFICIO_FIRMADO, EstadoExpediente.PAGO_PENDIENTE],
         ).count()
         ctx['pagos_validados'] = Expediente.objects.filter(
             estado=EstadoExpediente.PAGO_VALIDADO,
@@ -56,9 +68,9 @@ class DashboardFinanzasView(FinanzasRequeridoMixin, TemplateView):
         ctx['notificaciones_no_leidas'] = Notificacion.objects.filter(
             destinatario=self.request.user, leida=False,
         ).count()
-        ctx['expedientes_pago_recientes'] = Expediente.objects.filter(
-            estado__in=[EstadoExpediente.PAGO_PENDIENTE, EstadoExpediente.PAGO_VALIDADO],
-        ).select_related('alumno', 'alumno__carrera').order_by('-fecha_ultima_actualizacion')[:10]
+        ctx['expedientes_pago_recientes'] = expedientes_bandeja_pago_finanzas().select_related(
+            'alumno', 'alumno__carrera',
+        ).order_by('-fecha_ultima_actualizacion')[:10]
         return ctx
 
 
@@ -69,12 +81,12 @@ class ExpedientesPagoView(FinanzasRequeridoMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = Expediente.objects.filter(
-            estado__in=[EstadoExpediente.PAGO_PENDIENTE, EstadoExpediente.PAGO_VALIDADO],
-        ).select_related('alumno', 'alumno__carrera', 'modalidad').prefetch_related('referencias_pago')
+        qs = expedientes_bandeja_pago_finanzas().select_related(
+            'alumno', 'alumno__carrera', 'modalidad',
+        ).prefetch_related('referencias_pago')
 
         estado = self.request.GET.get('estado', '').strip()
-        if estado in (EstadoExpediente.PAGO_PENDIENTE, EstadoExpediente.PAGO_VALIDADO):
+        if estado in ESTADOS_BANDEJA_PAGO_FINANZAS:
             qs = qs.filter(estado=estado)
 
         busqueda = self.request.GET.get('q', '').strip()
@@ -100,31 +112,41 @@ class ExpedientePagoDetalleView(FinanzasRequeridoMixin, DetailView):
     context_object_name = 'expediente'
 
     def get_queryset(self):
-        return Expediente.objects.filter(
-            estado__in=[EstadoExpediente.PAGO_PENDIENTE, EstadoExpediente.PAGO_VALIDADO],
-        ).select_related('alumno', 'alumno__carrera', 'modalidad').prefetch_related('referencias_pago')
+        return expedientes_bandeja_pago_finanzas().select_related(
+            'alumno', 'alumno__carrera', 'modalidad',
+        ).prefetch_related('referencias_pago')
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['referencia_activa'] = self.object.referencias_pago.filter(activa=True).first()
+        ctx['monto_default'] = monto_default_pago()
         return ctx
 
 
 class GenerarReferenciaPagoView(FinanzasRequeridoMixin, View):
-    """Genera una referencia de pago para el expediente."""
+    """Genera la preficha de pago con referencia bancaria y PDF institucional."""
 
     def post(self, request, pk):
         expediente = get_object_or_404(Expediente, pk=pk)
-        if expediente.estado != EstadoExpediente.PAGO_PENDIENTE:
+        if expediente.estado not in ESTADOS_GENERAR_PREFICHA:
             messages.error(request, 'El expediente no está en etapa de pago pendiente.')
             return redirect('finanzas:expediente_pago_detalle', pk=pk)
 
+        if expediente.estado == EstadoExpediente.OFICIO_FIRMADO:
+            registrar_cambio_estado(
+                expediente,
+                EstadoExpediente.PAGO_PENDIENTE,
+                request.user,
+                'Oficio firmado. El expediente avanza a pago de titulación.',
+            )
+            expediente.refresh_from_db()
+
         monto_raw = request.POST.get('monto', '').strip()
         vigencia_raw = request.POST.get('vigencia', '').strip()
-        pdf = request.FILES.get('pdf_referencia')
+        concepto = request.POST.get('concepto', '').strip() or concepto_pago_expediente(expediente)
 
         try:
-            monto = Decimal(monto_raw)
+            monto = Decimal(monto_raw) if monto_raw else monto_default_pago()
             if monto <= 0:
                 raise InvalidOperation
         except (InvalidOperation, ValueError):
@@ -141,26 +163,63 @@ class GenerarReferenciaPagoView(FinanzasRequeridoMixin, View):
 
         expediente.referencias_pago.filter(activa=True).update(activa=False)
         folio = f'ITA-{timezone.now().year}-{expediente.pk:05d}-{uuid.uuid4().hex[:6].upper()}'
+        referencia_bancaria = generar_referencia_bancaria(expediente.alumno)
         referencia = ReferenciaPago.objects.create(
             expediente=expediente,
             folio=folio,
+            referencia_bancaria=referencia_bancaria,
+            concepto=concepto,
             monto=monto,
             vigencia=vigencia,
-            pdf_referencia=pdf,
             generado_por=request.user,
             activa=True,
         )
 
+        try:
+            guardar_preficha_pdf(referencia)
+        except Exception as exc:
+            referencia.delete()
+            messages.error(request, f'No se pudo generar el PDF de la preficha: {exc}')
+            return redirect('finanzas:expediente_pago_detalle', pk=pk)
+
+        expediente.pago_validado = 'PENDIENTE'
+        expediente.pago_observaciones = ''
+        expediente.save(update_fields=[
+            'pago_validado', 'pago_observaciones', 'fecha_ultima_actualizacion',
+        ])
+
         notificar_alumno(
             expediente,
             'AVANCE',
-            'Referencia de pago generada',
-            f'Se generó su referencia de pago {referencia.folio} por ${referencia.monto}. '
-            f'Descárguela y realice el pago correspondiente.',
+            'Preficha de pago disponible',
+            f'Se generó su preficha de depósito con referencia {referencia.referencia_bancaria} '
+            f'por ${referencia.monto}. Descárguela, realice el pago en banco y suba su comprobante.',
             url=reverse('alumnos:expediente'),
         )
-        messages.success(request, f'Referencia {referencia.folio} generada correctamente.')
+        messages.success(
+            request,
+            f'Preficha generada. Referencia bancaria: {referencia.referencia_bancaria}',
+        )
         return redirect('finanzas:expediente_pago_detalle', pk=pk)
+
+
+class DescargarPrefichaPagoView(FinanzasRequeridoMixin, View):
+    """Descarga la preficha PDF activa de un expediente."""
+
+    def get(self, request, pk):
+        expediente = get_object_or_404(
+            expedientes_bandeja_pago_finanzas(),
+            pk=pk,
+        )
+        referencia = expediente.referencias_pago.filter(activa=True).first()
+        if not referencia or not referencia.pdf_referencia:
+            raise Http404('No hay preficha de pago disponible.')
+        return FileResponse(
+            referencia.pdf_referencia.open('rb'),
+            as_attachment=True,
+            filename=f'preficha_{referencia.referencia_bancaria}.pdf',
+            content_type='application/pdf',
+        )
 
 
 class ValidarPagoView(FinanzasRequeridoMixin, View):
@@ -310,12 +369,13 @@ class NotificacionesBandejaView(FinanzasRequeridoMixin, TemplateView):
     template_name = 'finanzas/notificaciones.html'
 
     def get_context_data(self, **kwargs):
+        from expediente.notifications import marcar_notificaciones_leidas
+
         ctx = super().get_context_data(**kwargs)
-        notifs = Notificacion.objects.filter(
+        marcar_notificaciones_leidas(self.request.user)
+        ctx['notificaciones'] = Notificacion.objects.filter(
             destinatario=self.request.user,
         ).order_by('-fecha')[:50]
-        notifs.filter(leida=False).update(leida=True)
-        ctx['notificaciones'] = notifs
         ctx['pendientes'] = expedientes_adeudo_pendientes(AREA_FINANZAS)[:20]
         ctx['liberados'] = expedientes_liberados(AREA_FINANZAS)
         ctx['con_adeudos'] = expedientes_con_adeudos(AREA_FINANZAS)

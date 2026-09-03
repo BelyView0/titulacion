@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}Notificaciones — Oficina de Titulación{% endblock %}
+{% block page_title %}Bandeja de notificaciones{% endblock %}
+
+{% block content %}
+<div class="content-card">
+    <div class="card-header-custom">
+        <i class="bi bi-bell"></i> Notificaciones del sistema
+        <span class="ms-auto badge bg-secondary rounded-pill">{{ notificaciones|length }}</span>
+    </div>
+
+    {% if notificaciones %}
+    {% for notif in notificaciones %}
+    <div class="doc-item {% if not notif.leida %}bg-primary bg-opacity-10{% endif %}">
+        <div class="doc-icon bg-{{ notif.get_tipo_color }}-subtle">
+            <i class="{{ notif.get_tipo_icono }} text-{{ notif.get_tipo_color }}"></i>
+        </div>
+        <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="doc-name">{{ notif.titulo }}</span>
+                <span class="badge bg-{{ notif.get_tipo_color }} badge-estado" style="font-size:.6rem;">
+                    {{ notif.get_tipo_display }}
+                </span>
+            </div>
+            <div class="doc-instruccion mt-1">{{ notif.mensaje }}</div>
+            {% if notif.url_relacionada %}
+            <a href="{{ notif.url_relacionada }}" class="small mt-2 d-inline-block">
+                <i class="bi bi-link-45deg me-1"></i>Ver detalle
+            </a>
+            {% endif %}
+        </div>
+        <div class="text-end flex-shrink-0 ms-3">
+            <small class="text-muted d-block">{{ notif.fecha|date:"d/m/Y" }}</small>
+            <small class="text-muted d-block">{{ notif.fecha|date:"H:i" }}</small>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-bell-slash" style="font-size:3rem; opacity:.3;"></i>
+        <p class="mt-3 mb-0">Sin notificaciones.</p>
+        <small>Las alertas de alumnos (citas, documentos, reprogramaciones) aparecerán aquí.</small>
+    </div>
+    {% endif %}
+</div>
+
+<div class="mt-3">
+    <a href="{% url 'oficina_titulacion:dashboard' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Volver al panel
+    </a>
+</div>
+{% endblock %}

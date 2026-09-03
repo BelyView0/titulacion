@@ -35,9 +35,11 @@ from expediente.models import (
 )
 from expediente.notifications import (
     notificar_alumno,
+    notificar_usuarios_por_rol,
     registrar_cambio_documento,
     registrar_cambio_estado,
 )
+from administracion.models import Rol
 from expediente.siget_utils import expediente_completo, paso_expediente_display
 from expediente.workflow import actualizar_estado_documento, verificar_avance_expediente
 
@@ -99,6 +101,29 @@ class DashboardOficinaView(OficinaTitulacionRequeridoMixin, TemplateView):
         ).count()
         ctx['en_revision'] = mapa.get(EstadoExpediente.EN_REVISION, 0)
         ctx['adeudos_revision'] = mapa.get(EstadoExpediente.ADEUDOS_EN_REVISION, 0)
+
+        from alumnos.models import Notificacion
+        ctx['notificaciones_no_leidas'] = Notificacion.objects.filter(
+            destinatario=self.request.user, leida=False
+        ).count()
+        ctx['notificaciones_recientes'] = Notificacion.objects.filter(
+            destinatario=self.request.user
+        ).order_by('-fecha')[:8]
+        return ctx
+
+
+class NotificacionesOficinaView(OficinaTitulacionRequeridoMixin, TemplateView):
+    template_name = 'oficina_titulacion/notificaciones.html'
+
+    def get_context_data(self, **kwargs):
+        from alumnos.models import Notificacion
+        from expediente.notifications import marcar_notificaciones_leidas
+
+        ctx = super().get_context_data(**kwargs)
+        marcar_notificaciones_leidas(self.request.user)
+        ctx['notificaciones'] = Notificacion.objects.filter(
+            destinatario=self.request.user,
+        ).order_by('-fecha')[:50]
         return ctx
 
 
@@ -272,7 +297,6 @@ class AprobarExpedienteView(OficinaTitulacionRequeridoMixin, View):
 
         if expediente.estado not in (
             EstadoExpediente.EN_REVISION,
-            EstadoExpediente.CARGA_DOCUMENTOS,
             EstadoExpediente.EN_REVISION_DOCUMENTOS,
         ):
             messages.error(request, 'El expediente no está en etapa de revisión.')
@@ -287,13 +311,13 @@ class AprobarExpedienteView(OficinaTitulacionRequeridoMixin, View):
             expediente=expediente,
             estado_nuevo=EstadoExpediente.EXPEDIENTE_APROBADO,
             realizado_por=request.user,
-            descripcion=observaciones or 'Expediente aprobado por Oficina de Titulación.',
+            descripcion=observaciones or 'Expediente aprobado tras revisión documental.',
         )
         notificar_alumno(
             expediente=expediente,
             tipo='APROBADO',
             titulo='Expediente aprobado',
-            mensaje='Tu expediente fue aprobado. Se generará el Oficio de Autorización de Publicación.',
+            mensaje='Tu expediente fue aprobado por Oficina de Titulación. Se generará el Oficio de Autorización de Publicación.',
         )
         messages.success(request, 'Expediente aprobado correctamente.')
         return redirect('oficina_titulacion:expediente_detalle', pk=pk)
@@ -408,12 +432,25 @@ class CitasPendientesView(OficinaTitulacionRequeridoMixin, ListView):
 
 class CompletarCitaView(OficinaTitulacionRequeridoMixin, View):
     def post(self, request, pk):
+        from expediente.workflow import habilitar_carga_documentos
+
         cita = get_object_or_404(CitaDocumentoFisico, pk=pk)
         expediente = cita.expediente
 
         if cita.estado == CitaDocumentoFisico.EstadoCita.COMPLETADA:
             messages.warning(request, 'La cita ya estaba completada.')
             return redirect('oficina_titulacion:citas_pendientes')
+
+        if cita.tipo == CitaDocumentoFisico.TipoCita.CERTIFICADO:
+            if cita.estado != CitaDocumentoFisico.EstadoCita.CONFIRMADA_ALUMNO:
+                messages.error(
+                    request,
+                    'La cita de certificado debe estar confirmada por el alumno antes de marcarla como completada.',
+                )
+                redirect_pk = request.POST.get('redirect_expediente')
+                if redirect_pk:
+                    return redirect('oficina_titulacion:expediente_detalle', pk=redirect_pk)
+                return redirect('oficina_titulacion:citas_pendientes')
 
         cita.estado = CitaDocumentoFisico.EstadoCita.COMPLETADA
         cita.save(update_fields=['estado'])
@@ -424,14 +461,9 @@ class CompletarCitaView(OficinaTitulacionRequeridoMixin, View):
                     expediente=expediente,
                     estado_nuevo=EstadoExpediente.CERTIFICADO_FIRMADO,
                     realizado_por=request.user,
-                    descripcion='Cita de certificado completada. Pendiente digitalización.',
+                    descripcion='Cita de certificado completada. Certificado firmado.',
                 )
-            notificar_alumno(
-                expediente=expediente,
-                tipo='AVANCE',
-                titulo='Cita de certificado completada',
-                mensaje='Se registró la firma de su certificado. Oficina de Titulación digitalizará el documento.',
-            )
+            habilitar_carga_documentos(expediente, realizado_por=request.user)
         elif cita.tipo == CitaDocumentoFisico.TipoCita.OFICIO_PUBLICACION:
             if expediente.estado == EstadoExpediente.OFICIO_CITA_PROGRAMADA:
                 registrar_cambio_estado(
@@ -440,11 +472,34 @@ class CompletarCitaView(OficinaTitulacionRequeridoMixin, View):
                     realizado_por=request.user,
                     descripcion='Cita de oficio de publicación completada.',
                 )
+                expediente.refresh_from_db()
+            if expediente.estado == EstadoExpediente.OFICIO_FIRMADO:
+                registrar_cambio_estado(
+                    expediente=expediente,
+                    estado_nuevo=EstadoExpediente.PAGO_PENDIENTE,
+                    realizado_por=request.user,
+                    descripcion='Oficio firmado. El expediente avanza a pago de titulación.',
+                )
+                expediente.pago_validado = 'PENDIENTE'
+                expediente.save(update_fields=[
+                    'pago_validado', 'fecha_ultima_actualizacion',
+                ])
+                notificar_usuarios_por_rol(
+                    [Rol.FINANZAS],
+                    'Preficha de pago pendiente',
+                    f'{expediente.alumno.get_full_name()} requiere la generación de su preficha de pago de titulación.',
+                    url=reverse('finanzas:expedientes_pago'),
+                    tipo='URGENTE',
+                )
             notificar_alumno(
                 expediente=expediente,
                 tipo='AVANCE',
-                titulo='Cita de oficio completada',
-                mensaje='Se registró la firma del Oficio de Autorización de Publicación.',
+                titulo='Oficio de publicación firmado',
+                mensaje=(
+                    'Se registró la firma del Oficio de Autorización de Publicación. '
+                    'Finanzas generará tu preficha de depósito para que realices el pago de titulación.'
+                ),
+                url=reverse('alumnos:expediente'),
             )
 
         messages.success(request, 'Cita marcada como completada.')
@@ -466,20 +521,38 @@ class AprobarReprogramacionView(OficinaTitulacionRequeridoMixin, View):
             nueva_fecha = cita.propuesta_alumno_fecha
         if not nueva_fecha:
             messages.error(request, 'Indica la nueva fecha y hora.')
-            return redirect('oficina_titulacion:citas_pendientes')
+            return self._redirect(request, cita)
+
+        lugar = request.POST.get('lugar', '').strip()
+        if lugar:
+            cita.lugar = lugar
 
         cita.fecha_hora = nueva_fecha
         cita.estado = CitaDocumentoFisico.EstadoCita.PROGRAMADA
-        cita.notas = request.POST.get('notas', cita.notas)
+        notas_oficina = request.POST.get('notas', '').strip()
+        if notas_oficina:
+            cita.notas = notas_oficina
+        cita.propuesta_alumno_fecha = None
+        cita.propuesta_alumno_notas = ''
         cita.save()
 
         notificar_alumno(
             expediente=cita.expediente,
             tipo='INFO',
-            titulo='Reprogramación de cita aprobada',
-            mensaje=f'Su cita fue reprogramada para el {nueva_fecha:%d/%m/%Y a las %H:%M} en {cita.lugar}.',
+            titulo='Nueva fecha de cita asignada',
+            mensaje=(
+                f'Su cita de {cita.get_tipo_display().lower()} fue reprogramada para el '
+                f'{nueva_fecha:%d/%m/%Y a las %H:%M} en {cita.lugar}. '
+                f'Confirme su asistencia en el sistema.'
+            ),
+            url=reverse('alumnos:expediente'),
         )
-        messages.success(request, 'Reprogramación aprobada.')
+        messages.success(request, 'Cita reprogramada. El alumno fue notificado.')
+        return self._redirect(request, cita)
+
+    def _redirect(self, request, cita):
+        if request.POST.get('redirect_expediente'):
+            return redirect('oficina_titulacion:expediente_detalle', pk=cita.expediente_id)
         return redirect('oficina_titulacion:citas_pendientes')
 
 
@@ -490,6 +563,7 @@ class GenerarOficioPublicacionView(OficinaTitulacionRequeridoMixin, View):
         if expediente.estado not in (
             EstadoExpediente.EXPEDIENTE_APROBADO,
             EstadoExpediente.OFICIO_GENERADO,
+            EstadoExpediente.CERTIFICADO_FIRMADO,
         ):
             messages.error(request, 'El expediente debe estar aprobado para generar el oficio.')
             return redirect('oficina_titulacion:expediente_detalle', pk=pk)
@@ -508,6 +582,13 @@ class GenerarOficioPublicacionView(OficinaTitulacionRequeridoMixin, View):
                 estado_nuevo=EstadoExpediente.OFICIO_GENERADO,
                 realizado_por=request.user,
                 descripcion='Oficio de Autorización de Publicación generado.',
+            )
+        elif expediente.estado == EstadoExpediente.CERTIFICADO_FIRMADO:
+            registrar_cambio_estado(
+                expediente=expediente,
+                estado_nuevo=EstadoExpediente.OFICIO_GENERADO,
+                realizado_por=request.user,
+                descripcion='Certificado registrado. Oficio de publicación generado.',
             )
         else:
             expediente.save(update_fields=['oficio_publicacion_pdf', 'fecha_ultima_actualizacion'])
@@ -999,7 +1080,7 @@ class TablaGlobalAlumnosView(OficinaTitulacionRequeridoMixin, ListView):
 
 
 class MarcarCertificadoListoView(OficinaTitulacionRequeridoMixin, View):
-    """Digitaliza certificado firmado y avanza a carga de documentos."""
+    """Registra la digitalización del certificado firmado."""
 
     def post(self, request, pk):
         expediente = get_object_or_404(Expediente, pk=pk)
@@ -1024,18 +1105,14 @@ class MarcarCertificadoListoView(OficinaTitulacionRequeridoMixin, View):
                 descripcion='Certificado firmado registrado.',
             )
 
-        registrar_cambio_estado(
-            expediente=expediente,
-            estado_nuevo=EstadoExpediente.CARGA_DOCUMENTOS,
-            realizado_por=request.user,
-            descripcion='Certificado digitalizado. El alumno puede cargar documentos.',
-        )
+        from expediente.workflow import habilitar_carga_documentos
+        habilitar_carga_documentos(expediente, realizado_por=request.user)
 
         notificar_alumno(
             expediente=expediente,
             tipo='AVANCE',
-            titulo='Certificado listo — Carga de documentos',
-            mensaje='Su certificado fue registrado. Ya puede cargar los documentos de titulación en el sistema.',
+            titulo='Certificado digital registrado',
+            mensaje='Su certificado firmado fue registrado en el sistema.',
         )
-        messages.success(request, 'Certificado marcado como listo. Expediente en carga de documentos.')
+        messages.success(request, 'Certificado digital registrado correctamente.')
         return redirect('oficina_titulacion:expediente_detalle', pk=pk)

@@ -8,48 +8,62 @@
         <div class="content-card p-3">
             <h6 class="fw-bold mb-3"><i class="bi bi-person"></i> Datos del alumno</h6>
             <p class="mb-1"><strong>Nombre:</strong> {{ expediente.alumno.get_full_name }}</p>
-            <p class="mb-1"><strong>Control:</strong> {{ expediente.alumno.username }}</p>
+            <p class="mb-1"><strong>Control:</strong> {{ expediente.alumno.numero_control|default:expediente.alumno.username }}</p>
             <p class="mb-1"><strong>Carrera:</strong> {{ expediente.alumno.carrera.nombre|default:"—" }}</p>
             <p class="mb-0"><strong>Estado:</strong> {{ expediente.get_estado_display }}</p>
         </div>
     </div>
     <div class="col-lg-6">
         <div class="content-card p-3">
-            <h6 class="fw-bold mb-3"><i class="bi bi-receipt"></i> Referencia activa</h6>
+            <h6 class="fw-bold mb-3"><i class="bi bi-receipt"></i> Preficha activa</h6>
             {% if referencia_activa %}
-            <p class="mb-1"><strong>Folio:</strong> {{ referencia_activa.folio }}</p>
+            <p class="mb-1"><strong>Referencia bancaria:</strong> {{ referencia_activa.referencia_bancaria }}</p>
+            <p class="mb-1"><strong>Folio interno:</strong> {{ referencia_activa.folio }}</p>
             <p class="mb-1"><strong>Monto:</strong> ${{ referencia_activa.monto }}</p>
-            <p class="mb-1"><strong>Vigencia:</strong> {{ referencia_activa.vigencia|default:"—" }}</p>
+            <p class="mb-1"><strong>Concepto:</strong> {{ referencia_activa.concepto }}</p>
+            <p class="mb-2"><strong>Vigencia:</strong> {{ referencia_activa.vigencia|default:"—" }}</p>
             {% if referencia_activa.pdf_referencia %}
-            <a href="{{ referencia_activa.pdf_referencia.url }}" target="_blank" class="btn btn-sm btn-outline-primary">Descargar PDF</a>
+            <a href="{% url 'finanzas:descargar_preficha' expediente.pk %}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-download me-1"></i>Descargar preficha PDF
+            </a>
             {% endif %}
             {% else %}
-            <p class="text-muted mb-0">Sin referencia activa.</p>
+            <p class="text-muted mb-0">Sin preficha generada. Usa el formulario inferior para crearla.</p>
             {% endif %}
         </div>
     </div>
 </div>
 
 <div class="content-card p-3 mt-3">
-    <h6 class="fw-bold mb-3"><i class="bi bi-file-earmark-pdf"></i> Generar referencia de pago</h6>
-    <form method="post" action="{% url 'finanzas:generar_referencia' expediente.pk %}" enctype="multipart/form-data" class="row g-2">
+    <h6 class="fw-bold mb-3"><i class="bi bi-file-earmark-pdf"></i> Generar preficha de depósito</h6>
+    <p class="small text-muted mb-3">
+        Se generará automáticamente la preficha institucional con la referencia bancaria del alumno
+        (formato A2201L + número de control + X) y los datos de depósito en Banamex.
+    </p>
+    <form method="post" action="{% url 'finanzas:generar_referencia' expediente.pk %}" class="row g-2">
         {% csrf_token %}
         <div class="col-md-3">
             <label class="form-label small">Monto</label>
-            <input type="number" step="0.01" min="0.01" name="monto" class="form-control form-control-sm" required>
+            <input type="number" step="0.01" min="0.01" name="monto" value="{{ monto_default }}" class="form-control form-control-sm" required>
         </div>
         <div class="col-md-3">
-            <label class="form-label small">Vigencia</label>
+            <label class="form-label small">Vigencia (opcional)</label>
             <input type="date" name="vigencia" class="form-control form-control-sm">
         </div>
         <div class="col-md-4">
-            <label class="form-label small">PDF (opcional)</label>
-            <input type="file" name="pdf_referencia" accept=".pdf" class="form-control form-control-sm">
+            <label class="form-label small">Concepto</label>
+            <input type="text" name="concepto" value="TRÁMITE DE TITULACIÓN NIVEL LICENCIATURA" class="form-control form-control-sm" maxlength="200">
         </div>
         <div class="col-md-2 d-flex align-items-end">
-            <button type="submit" class="btn btn-primary btn-sm w-100">Generar</button>
+            <button type="submit" class="btn btn-primary btn-sm w-100">Generar preficha</button>
         </div>
     </form>
+    {% if referencia_activa %}
+    <p class="small text-warning mt-2 mb-0">
+        <i class="bi bi-info-circle me-1"></i>
+        Al generar una nueva preficha, la anterior quedará inactiva y el alumno deberá usar la más reciente.
+    </p>
+    {% endif %}
 </div>
 
 <div class="content-card p-3 mt-3">
@@ -60,6 +74,7 @@
     {% if expediente.pago_observaciones %}
     <p class="small text-muted">Observaciones: {{ expediente.pago_observaciones }}</p>
     {% endif %}
+    {% if expediente.pago_validado == 'CARGADO' %}
     <form method="post" action="{% url 'finanzas:validar_pago' expediente.pk %}">
         {% csrf_token %}
         <div class="mb-2">
@@ -69,8 +84,9 @@
         <button type="submit" name="accion" value="APROBAR" class="btn btn-success btn-sm">Aprobar pago</button>
         <button type="submit" name="accion" value="RECHAZAR" class="btn btn-danger btn-sm">Rechazar</button>
     </form>
+    {% endif %}
     {% else %}
-    <p class="text-muted mb-0">El alumno aún no ha cargado comprobante.</p>
+    <p class="text-muted mb-0">El alumno aún no ha cargado comprobante. Primero debe descargar la preficha y realizar el depósito.</p>
     {% endif %}
 </div>
 

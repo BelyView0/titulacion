@@ -22,7 +22,7 @@
         <div class="content-card p-3">
             <h6 class="fw-bold mb-3">Acciones rápidas</h6>
             <div class="d-grid gap-2">
-                {% if expediente.estado == 'EN_REVISION' or expediente.estado == 'CARGA_DOCUMENTOS' %}
+                {% if expediente.estado == 'EN_REVISION' %}
                 <form method="post" action="{% url 'oficina_titulacion:aprobar_expediente' expediente.pk %}">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-success btn-sm w-100">Aprobar expediente</button>
@@ -152,6 +152,61 @@
             <button class="btn btn-outline-warning btn-sm">Reprogramar</button>
         </div>
     </form>
+</div>
+{% endif %}
+
+{% if citas %}
+<div class="content-card p-3 mb-3">
+    <h6 class="fw-bold mb-3"><i class="bi bi-calendar-event me-1"></i> Citas programadas</h6>
+    {% for cita in citas %}
+    <div class="border rounded p-3 mb-2 {% if cita.estado == 'REPROGRAMACION_SOLICITADA' %}border-warning bg-warning bg-opacity-10{% endif %}">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+                <strong>{{ cita.get_tipo_display }}</strong>
+                <span class="badge bg-secondary ms-1">{{ cita.get_estado_display }}</span>
+                <div class="small text-muted mt-1">
+                    {{ cita.fecha_hora|date:"d/m/Y H:i" }} — {{ cita.lugar }}
+                </div>
+            </div>
+            {% if cita.estado != 'REPROGRAMACION_SOLICITADA' and cita.estado != 'COMPLETADA' and cita.estado != 'CANCELADA' %}
+            <form method="post" action="{% url 'oficina_titulacion:completar_cita' cita.pk %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="redirect_expediente" value="{{ expediente.pk }}">
+                <button class="btn btn-success btn-sm">Marcar completada</button>
+            </form>
+            {% endif %}
+        </div>
+        {% if cita.estado == 'REPROGRAMACION_SOLICITADA' %}
+        <div class="alert alert-warning py-2 small mt-2 mb-2">
+            <strong>El alumno no puede asistir en la fecha programada.</strong><br>
+            <strong>Motivo:</strong> {{ cita.propuesta_alumno_notas }}
+            {% if cita.propuesta_alumno_fecha %}
+            <br><strong>Fecha propuesta por el alumno:</strong> {{ cita.propuesta_alumno_fecha|date:"d/m/Y H:i" }}
+            {% endif %}
+        </div>
+        <form method="post" action="{% url 'oficina_titulacion:aprobar_reprogramacion' cita.pk %}" class="row g-2 align-items-end">
+            {% csrf_token %}
+            <input type="hidden" name="redirect_expediente" value="{{ expediente.pk }}">
+            <div class="col-md-3">
+                <label class="form-label small">Nueva fecha y hora</label>
+                <input type="datetime-local" name="nueva_fecha" class="form-control form-control-sm" required
+                       {% if cita.propuesta_alumno_fecha %}value="{{ cita.propuesta_alumno_fecha|date:'Y-m-d' }}T{{ cita.propuesta_alumno_fecha|date:'H:i' }}"{% endif %}>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small">Lugar</label>
+                <input type="text" name="lugar" class="form-control form-control-sm" value="{{ cita.lugar }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">Notas (opcional)</label>
+                <input type="text" name="notas" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-warning btn-sm w-100">Reprogramar cita</button>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+    {% endfor %}
 </div>
 {% endif %}
 

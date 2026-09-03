@@ -5,6 +5,7 @@ Validación única por Oficina de Titulación.
 from expediente.models import (
     Expediente, Documento, ValidacionDocumento,
     EstadoExpediente, EstadoDocumento, EstadoValidacion,
+    CitaDocumentoFisico,
 )
 
 
@@ -16,7 +17,7 @@ def verificar_documento_aprobado(documento):
 def actualizar_estado_documento(documento, realizado_por=None):
     """
     Actualiza el estado del documento según la validación única de Oficina.
-    Si hay rechazo, regresa el expediente a CARGA_DOCUMENTOS.
+    Si hay rechazo, regresa el expediente a corrección.
     """
     validacion = getattr(documento, 'validacion', None)
     if not validacion:
@@ -57,8 +58,68 @@ def actualizar_estado_documento(documento, realizado_por=None):
             )
 
 
+def cita_certificado_confirmada(expediente):
+    """True si el alumno confirmó (o ya completó) la cita de certificado."""
+    return expediente.citas_fisicas.filter(
+        tipo=CitaDocumentoFisico.TipoCita.CERTIFICADO,
+        estado__in=(
+            CitaDocumentoFisico.EstadoCita.CONFIRMADA_ALUMNO,
+            CitaDocumentoFisico.EstadoCita.COMPLETADA,
+        ),
+    ).exists()
+
+
+def habilitar_carga_documentos(expediente, realizado_por=None):
+    """
+    Habilita la carga de documentos tras cita confirmada y certificado firmado.
+    Retorna True si el expediente avanzó a CARGA_DOCUMENTOS.
+    """
+    if expediente.estado in (
+        EstadoExpediente.CARGA_DOCUMENTOS,
+        EstadoExpediente.EN_REVISION,
+        EstadoExpediente.EN_CORRECCION,
+    ):
+        return False
+
+    if not cita_certificado_confirmada(expediente):
+        return False
+
+    if expediente.estado not in (
+        EstadoExpediente.CERTIFICADO_FIRMADO,
+        EstadoExpediente.CERTIFICADO_CITA_PROGRAMADA,
+    ):
+        return False
+
+    from expediente.notifications import registrar_cambio_estado, notificar_alumno
+
+    if expediente.estado == EstadoExpediente.CERTIFICADO_CITA_PROGRAMADA:
+        registrar_cambio_estado(
+            expediente=expediente,
+            estado_nuevo=EstadoExpediente.CERTIFICADO_FIRMADO,
+            realizado_por=realizado_por,
+            descripcion='Certificado firmado en cita confirmada por el alumno.',
+        )
+
+    registrar_cambio_estado(
+        expediente=expediente,
+        estado_nuevo=EstadoExpediente.CARGA_DOCUMENTOS,
+        realizado_por=realizado_por,
+        descripcion='Certificado firmado y cita confirmada. El alumno puede cargar sus documentos.',
+    )
+    notificar_alumno(
+        expediente=expediente,
+        tipo='AVANCE',
+        titulo='Carga de documentos habilitada',
+        mensaje=(
+            'Tu certificado fue firmado y la cita quedó confirmada. '
+            'Ya puedes cargar tus documentos y enviarlos a revisión de Oficina de Titulación.'
+        ),
+    )
+    return True
+
+
 def verificar_avance_expediente(expediente):
-    """Si todos los documentos obligatorios están aprobados, avanza a EXPEDIENTE_APROBADO."""
+    """Si todos los documentos obligatorios están aprobados, avanza a expediente aprobado."""
     if not expediente.todos_documentos_aprobados():
         return False
 
@@ -78,7 +139,7 @@ def verificar_avance_expediente(expediente):
             expediente=expediente,
             tipo='AVANCE',
             titulo='Expediente aprobado',
-            mensaje='Tu expediente fue aprobado. Se generará el Oficio de Autorización de Publicación.',
+            mensaje='Tu expediente fue aprobado por Oficina de Titulación. Se continuará con el Oficio de Autorización de Publicación.',
         )
         return True
     return False

@@ -6,6 +6,7 @@ app_name = 'oficina_titulacion'
 
 urlpatterns = [
     path('', views.DashboardOficinaView.as_view(), name='dashboard'),
+    path('notificaciones/', views.NotificacionesOficinaView.as_view(), name='notificaciones'),
     path('expedientes/', views.ExpedienteListaView.as_view(), name='expedientes'),
     path('expedientes/<int:pk>/', views.ExpedienteDetalleView.as_view(), name='expediente_detalle'),
 

@@ -196,6 +196,89 @@ ESTADOS_INTEGRADOS = [
     EstadoExpediente.CONCLUIDO,
 ]
 
+COLORES_ESTADO = {
+    # SIGET
+    EstadoExpediente.DATOS_EXPEDIENTE: 'secondary',
+    EstadoExpediente.CERTIFICADO_PENDIENTE_CITA: 'warning',
+    EstadoExpediente.CERTIFICADO_CITA_PROGRAMADA: 'info',
+    EstadoExpediente.CERTIFICADO_FIRMADO: 'success',
+    EstadoExpediente.CARGA_DOCUMENTOS: 'warning',
+    EstadoExpediente.EN_REVISION: 'info',
+    EstadoExpediente.EN_CORRECCION: 'warning',
+    EstadoExpediente.EXPEDIENTE_APROBADO: 'success',
+    EstadoExpediente.OFICIO_GENERADO: 'primary',
+    EstadoExpediente.OFICIO_CITA_PROGRAMADA: 'info',
+    EstadoExpediente.OFICIO_FIRMADO: 'success',
+    EstadoExpediente.PAGO_PENDIENTE: 'warning',
+    EstadoExpediente.PAGO_VALIDADO: 'success',
+    EstadoExpediente.ADEUDOS_EN_REVISION: 'info',
+    EstadoExpediente.DOCUMENTOS_OFICIALES_LISTOS: 'primary',
+    EstadoExpediente.JURADO_ASIGNADO: 'primary',
+    EstadoExpediente.PROTOCOLO_PROGRAMADO: 'primary',
+    EstadoExpediente.ACTO_REALIZADO: 'success',
+    EstadoExpediente.CONCLUIDO: 'success',
+    EstadoExpediente.CANCELADO: 'danger',
+    # Legados (pueden existir en BD)
+    EstadoExpediente.BORRADOR: 'secondary',
+    EstadoExpediente.EN_REVISION_ACADEMICO: 'info',
+    EstadoExpediente.RECHAZADO_ACADEMICO: 'danger',
+    EstadoExpediente.DOCUMENTOS_PENDIENTES: 'warning',
+    EstadoExpediente.EN_REVISION_DOCUMENTOS: 'info',
+    EstadoExpediente.LISTO_INTEGRACION: 'primary',
+    EstadoExpediente.PAGO_EN_REVISION: 'info',
+    EstadoExpediente.INTEGRADO: 'primary',
+    EstadoExpediente.EMPASTADO_PENDIENTE: 'warning',
+    EstadoExpediente.EMPASTADO_RECIBIDO: 'success',
+    EstadoExpediente.ACTO_PROGRAMADO: 'primary',
+    EstadoExpediente.ACTA_EXENCION: 'info',
+    'ESPERANDO_CONSTANCIA': 'warning',
+    'CONSTANCIA_EN_REVISION': 'info',
+    'RECIBI_PAPEL_ORIGINAL': 'primary',
+    'TRAMITE_DGP': 'info',
+    'CEDULA_EN_REVISION': 'warning',
+    'CEDULA_RECHAZADA': 'danger',
+    'CITA_ENTREGA': 'success',
+    'ENVIADO_CDMX': 'info',
+    'RECHAZADO_CDMX': 'danger',
+    'APROBADO_CDMX': 'success',
+}
+
+ETAPAS_PROGRESO_SIGET = [
+    EstadoExpediente.DATOS_EXPEDIENTE,
+    EstadoExpediente.CERTIFICADO_PENDIENTE_CITA,
+    EstadoExpediente.CERTIFICADO_CITA_PROGRAMADA,
+    EstadoExpediente.CERTIFICADO_FIRMADO,
+    EstadoExpediente.CARGA_DOCUMENTOS,
+    EstadoExpediente.EN_REVISION,
+    EstadoExpediente.EXPEDIENTE_APROBADO,
+    EstadoExpediente.OFICIO_GENERADO,
+    EstadoExpediente.OFICIO_CITA_PROGRAMADA,
+    EstadoExpediente.OFICIO_FIRMADO,
+    EstadoExpediente.PAGO_PENDIENTE,
+    EstadoExpediente.PAGO_VALIDADO,
+    EstadoExpediente.ADEUDOS_EN_REVISION,
+    EstadoExpediente.DOCUMENTOS_OFICIALES_LISTOS,
+    EstadoExpediente.JURADO_ASIGNADO,
+    EstadoExpediente.PROTOCOLO_PROGRAMADO,
+    EstadoExpediente.ACTO_REALIZADO,
+    EstadoExpediente.CONCLUIDO,
+]
+
+ESTADOS_SLA_ACTIVOS = {
+    EstadoExpediente.EN_REVISION,
+    EstadoExpediente.EN_CORRECCION,
+    EstadoExpediente.PAGO_PENDIENTE,
+    EstadoExpediente.ADEUDOS_EN_REVISION,
+    EstadoExpediente.CERTIFICADO_PENDIENTE_CITA,
+    EstadoExpediente.OFICIO_CITA_PROGRAMADA,
+    EstadoExpediente.EN_REVISION_ACADEMICO,
+    EstadoExpediente.EN_REVISION_DOCUMENTOS,
+    EstadoExpediente.PAGO_EN_REVISION,
+    'CONSTANCIA_EN_REVISION',
+    'CEDULA_EN_REVISION',
+    EstadoExpediente.LISTO_INTEGRACION,
+}
+
 
 class EstadoDocumento(models.TextChoices):
     PENDIENTE = 'PENDIENTE', 'Pendiente de carga'
@@ -381,60 +464,16 @@ class Expediente(models.Model):
         return f'Expediente #{self.pk} — {self.alumno.get_full_name()}'
 
     def get_estado_display_color(self):
-        colores = {
-            EstadoExpediente.BORRADOR: 'secondary',
-            EstadoExpediente.EN_REVISION_ACADEMICO: 'info',
-            EstadoExpediente.RECHAZADO_ACADEMICO: 'danger',
-            EstadoExpediente.EN_CORRECCION: 'warning',
-            EstadoExpediente.DOCUMENTOS_PENDIENTES: 'warning',
-            EstadoExpediente.EN_REVISION_DOCUMENTOS: 'info',
-            EstadoExpediente.LISTO_INTEGRACION: 'primary',
-            EstadoExpediente.PAGO_PENDIENTE: 'warning',
-            EstadoExpediente.PAGO_EN_REVISION: 'info',
-            EstadoExpediente.ESPERANDO_CONSTANCIA: 'warning',
-            EstadoExpediente.CONSTANCIA_EN_REVISION: 'info',
-            EstadoExpediente.INTEGRADO: 'primary',
-            EstadoExpediente.EMPASTADO_PENDIENTE: 'warning',
-            EstadoExpediente.EMPASTADO_RECIBIDO: 'success',
-            EstadoExpediente.JURADO_ASIGNADO: 'primary',
-            EstadoExpediente.ACTO_PROGRAMADO: 'primary',
-            EstadoExpediente.ACTA_EXENCION: 'info',
-            EstadoExpediente.TRAMITE_DGP: 'info',
-            EstadoExpediente.CEDULA_EN_REVISION: 'warning',
-            EstadoExpediente.CEDULA_RECHAZADA: 'danger',
-            EstadoExpediente.CITA_ENTREGA: 'success',
-            EstadoExpediente.CONCLUIDO: 'success',
-            EstadoExpediente.CANCELADO: 'danger',
-        }
-        return colores.get(self.estado, 'secondary')
+        return COLORES_ESTADO.get(self.estado, 'secondary')
 
     def porcentaje_progreso(self):
         """Calcula el porcentaje de avance del proceso para la barra de progreso."""
-        etapas_lineales = [
-            EstadoExpediente.BORRADOR,
-            EstadoExpediente.EN_REVISION_ACADEMICO,
-            EstadoExpediente.DOCUMENTOS_PENDIENTES,
-            EstadoExpediente.EN_REVISION_DOCUMENTOS,
-            EstadoExpediente.LISTO_INTEGRACION,
-            EstadoExpediente.RECIBI_PAPEL_ORIGINAL,
-            EstadoExpediente.PAGO_PENDIENTE,
-            EstadoExpediente.PAGO_EN_REVISION,
-            EstadoExpediente.ESPERANDO_CONSTANCIA,
-            EstadoExpediente.CONSTANCIA_EN_REVISION,
-            EstadoExpediente.INTEGRADO,
-            EstadoExpediente.EMPASTADO_PENDIENTE,
-            EstadoExpediente.EMPASTADO_RECIBIDO,
-            EstadoExpediente.JURADO_ASIGNADO,
-            EstadoExpediente.ACTO_PROGRAMADO,
-            EstadoExpediente.ACTA_EXENCION,
-            EstadoExpediente.TRAMITE_DGP,
-            EstadoExpediente.CEDULA_EN_REVISION,
-            EstadoExpediente.CITA_ENTREGA,
-            EstadoExpediente.CONCLUIDO,
-        ]
-        if self.estado in etapas_lineales:
-            idx = etapas_lineales.index(self.estado)
-            return round((idx / (len(etapas_lineales) - 1)) * 100)
+        estado = self.estado
+        if estado == EstadoExpediente.EN_CORRECCION:
+            estado = EstadoExpediente.CARGA_DOCUMENTOS
+        if estado in ETAPAS_PROGRESO_SIGET:
+            idx = ETAPAS_PROGRESO_SIGET.index(estado)
+            return round((idx / (len(ETAPAS_PROGRESO_SIGET) - 1)) * 100)
         return 0
 
     @property
@@ -450,16 +489,8 @@ class Expediente(models.Model):
     @property
     def semaforo_sla(self):
         """Retorna la clase CSS del color del semáforo SLA basado en los días en el estado actual."""
-        estados_activos = [
-            EstadoExpediente.EN_REVISION_ACADEMICO,
-            EstadoExpediente.EN_REVISION_DOCUMENTOS,
-            EstadoExpediente.PAGO_EN_REVISION,
-            EstadoExpediente.CONSTANCIA_EN_REVISION,
-            EstadoExpediente.CEDULA_EN_REVISION,
-            EstadoExpediente.LISTO_INTEGRACION,
-        ]
-        if self.estado not in estados_activos:
-            return 'secondary'  # Estado pasivo o concluido, no requiere atención inmediata
+        if self.estado not in ESTADOS_SLA_ACTIVOS:
+            return 'secondary'
 
         dias = self.dias_en_estado_actual
         if dias < 3:
@@ -692,6 +723,15 @@ class ReferenciaPago(models.Model):
         related_name='referencias_pago'
     )
     folio = models.CharField(max_length=50, unique=True)
+    referencia_bancaria = models.CharField(
+        max_length=30, blank=True,
+        verbose_name='Referencia alfanumérica bancaria',
+    )
+    concepto = models.CharField(
+        max_length=200,
+        default='TRÁMITE DE TITULACIÓN NIVEL LICENCIATURA',
+        verbose_name='Concepto de pago',
+    )
     monto = models.DecimalField(max_digits=10, decimal_places=2)
     vigencia = models.DateField(null=True, blank=True)
     pdf_referencia = models.FileField(upload_to='referencias_pago/%Y/', null=True, blank=True)
@@ -707,7 +747,7 @@ class ReferenciaPago(models.Model):
         ordering = ['-fecha_generacion']
 
     def __str__(self):
-        return f'Ref. {self.folio}'
+        return self.referencia_bancaria or f'Ref. {self.folio}'
 
 
 class ConfirmacionAdeudo(models.Model):
@@ -1067,33 +1107,7 @@ class HistorialExpediente(models.Model):
 
     def get_estado_nuevo_color(self):
         """Color for timeline badges."""
-        colores = {
-            'BORRADOR': 'secondary',
-            'EN_REVISION_ACADEMICO': 'info',
-            'RECHAZADO_ACADEMICO': 'danger',
-            'EN_CORRECCION': 'warning',
-            'DOCUMENTOS_PENDIENTES': 'warning',
-            'EN_REVISION_DOCUMENTOS': 'info',
-            'LISTO_INTEGRACION': 'primary',
-            'RECIBI_PAPEL_ORIGINAL': 'primary',
-            'PAGO_PENDIENTE': 'warning',
-            'PAGO_EN_REVISION': 'info',
-            'ESPERANDO_CONSTANCIA': 'warning',
-            'CONSTANCIA_EN_REVISION': 'info',
-            'INTEGRADO': 'primary',
-            'EMPASTADO_PENDIENTE': 'warning',
-            'EMPASTADO_RECIBIDO': 'success',
-            'JURADO_ASIGNADO': 'primary',
-            'ACTO_PROGRAMADO': 'primary',
-            'ACTA_EXENCION': 'info',
-            'TRAMITE_DGP': 'info',
-            'CEDULA_EN_REVISION': 'warning',
-            'CEDULA_RECHAZADA': 'danger',
-            'CITA_ENTREGA': 'success',
-            'CONCLUIDO': 'success',
-            'CANCELADO': 'danger',
-        }
-        return colores.get(self.estado_nuevo, 'secondary')
+        return COLORES_ESTADO.get(self.estado_nuevo, 'secondary')
 
 
 class HistorialDocumento(models.Model):
