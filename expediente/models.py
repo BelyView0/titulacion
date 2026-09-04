@@ -408,7 +408,7 @@ class Expediente(models.Model):
     )
     fecha_subida_pago = models.DateTimeField(null=True, blank=True)
     fecha_validacion_pago = models.DateTimeField(null=True, blank=True)
-    # Constancia de No Inconveniencia (subida manualmente por Escolares)
+    # Constancia de No Inconveniencia (automática tras confirmar no adeudos)
     constancia_no_inconveniencia = models.FileField(
         upload_to='constancias/%Y/',
         null=True, blank=True,

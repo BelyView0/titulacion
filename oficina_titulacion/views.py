@@ -47,7 +47,10 @@ from oficina_titulacion.pdf_constancia import (
     generar_certificacion_final_pdf,
     generar_oficio_publicacion_pdf,
 )
-from oficina_titulacion.services import intentar_generar_constancia_no_adeudos
+from oficina_titulacion.services import (
+    intentar_generar_constancia_no_adeudos,
+    forzar_regenerar_constancia_no_adeudos,
+)
 
 
 def _parse_datetime(value):
@@ -670,14 +673,25 @@ class GenerarNoInconvenienciaView(OficinaTitulacionRequeridoMixin, View):
             from oficina_titulacion.pdf_constancia import generar_constancia_pdf
 
             try:
-                pdf_bytes = generar_constancia_pdf(expediente)
+                pdf = generar_constancia_pdf(expediente)
             except Exception as exc:
                 messages.error(request, f'Error al generar PDF: {exc}')
                 return redirect('oficina_titulacion:expediente_detalle', pk=pk)
 
+            if not pdf:
+                messages.error(request, 'No se pudo generar el PDF de no inconveniencia.')
+                return redirect('oficina_titulacion:expediente_detalle', pk=pk)
+
+            if not isinstance(pdf, ContentFile):
+                pdf = ContentFile(pdf)
+
+            # Regenerar: reemplaza archivo previo (nombre único evita caché del navegador)
+            if expediente.constancia_no_inconveniencia:
+                expediente.constancia_no_inconveniencia.delete(save=False)
+            stamp = timezone.now().strftime('%Y%m%d%H%M%S')
             expediente.constancia_no_inconveniencia.save(
-                f'no_inconveniencia_{expediente.pk}.pdf',
-                ContentFile(pdf_bytes),
+                f'no_inconveniencia_{expediente.pk}_{stamp}.pdf',
+                pdf,
                 save=False,
             )
             expediente.fecha_constancia = timezone.now()
@@ -685,23 +699,43 @@ class GenerarNoInconvenienciaView(OficinaTitulacionRequeridoMixin, View):
                 'constancia_no_inconveniencia', 'fecha_constancia', 'fecha_ultima_actualizacion',
             ])
 
-        if expediente.estado == EstadoExpediente.PAGO_VALIDADO:
-            registrar_cambio_estado(
-                expediente=expediente,
-                estado_nuevo=EstadoExpediente.ADEUDOS_EN_REVISION,
-                realizado_por=request.user,
-                descripcion='Constancia de No Inconveniencia generada/cargada.',
-            )
-
         intentar_generar_constancia_no_adeudos(expediente, request.user)
 
         notificar_alumno(
             expediente=expediente,
             tipo='INFO',
             titulo='Constancia de No Inconveniencia disponible',
-            mensaje='Se registró su Constancia de No Inconveniencia en el expediente.',
+            mensaje=(
+                'Se registró tu Constancia de no Inconveniencia para el Acto '
+                'de Recepción Profesional en el expediente.'
+            ),
         )
-        messages.success(request, 'Constancia de No Inconveniencia registrada.')
+        messages.success(
+            request,
+            'Constancia de no Inconveniencia para el Acto de Recepción Profesional registrada.',
+        )
+        return redirect('oficina_titulacion:expediente_detalle', pk=pk)
+
+
+class RegenerarNoAdeudosView(OficinaTitulacionRequeridoMixin, View):
+    """Regenera la Constancia de no adeudos con el formato actual."""
+
+    def post(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+        try:
+            ok = forzar_regenerar_constancia_no_adeudos(expediente)
+        except Exception as exc:
+            messages.error(request, f'Error al regenerar PDF: {exc}')
+            return redirect('oficina_titulacion:expediente_detalle', pk=pk)
+
+        if not ok:
+            messages.error(
+                request,
+                'No se pudo regenerar. Verifica que las tres áreas hayan confirmado sin adeudos.',
+            )
+            return redirect('oficina_titulacion:expediente_detalle', pk=pk)
+
+        messages.success(request, 'Constancia de no adeudos regenerada.')
         return redirect('oficina_titulacion:expediente_detalle', pk=pk)
 
 

@@ -44,12 +44,26 @@
                     <button type="submit" class="btn btn-warning btn-sm w-100">Marcar certificado listo</button>
                 </form>
                 {% endif %}
-                {% if expediente.estado == 'PAGO_VALIDADO' or expediente.estado == 'ADEUDOS_EN_REVISION' %}
-                <form method="post" action="{% url 'oficina_titulacion:generar_no_inconveniencia' expediente.pk %}" enctype="multipart/form-data">
+                {% if expediente.constancia_no_inconveniencia %}
+                <a href="{{ expediente.constancia_no_inconveniencia.url }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-download me-1"></i>Constancia de no Inconveniencia para el Acto de Recepción Profesional
+                </a>
+                {% endif %}
+                {% if expediente.constancia_no_adeudos %}
+                <a href="{{ expediente.constancia_no_adeudos.url }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-download me-1"></i>Constancia de no adeudos
+                </a>
+                {% endif %}
+                {% if expediente.estado == 'ADEUDOS_EN_REVISION' or expediente.estado == 'DOCUMENTOS_OFICIALES_LISTOS' %}
+                <form method="post" action="{% url 'oficina_titulacion:generar_no_inconveniencia' expediente.pk %}" enctype="multipart/form-data" class="mt-1">
                     {% csrf_token %}
-                    <button type="submit" name="modo" value="generar" class="btn btn-outline-info btn-sm w-100 mb-1">Generar no inconveniencia</button>
+                    <button type="submit" name="modo" value="generar" class="btn btn-outline-info btn-sm w-100 mb-1">Regenerar no inconveniencia</button>
                     <input type="file" name="constancia_pdf" class="form-control form-control-sm mb-1" accept=".pdf">
-                    <button type="submit" name="modo" value="subir" class="btn btn-outline-secondary btn-sm w-100">Subir no inconveniencia</button>
+                    <button type="submit" name="modo" value="subir" class="btn btn-outline-secondary btn-sm w-100 mb-1">Subir no inconveniencia</button>
+                </form>
+                <form method="post" action="{% url 'oficina_titulacion:regenerar_no_adeudos' expediente.pk %}" class="mt-1">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-info btn-sm w-100">Regenerar constancia de no adeudos</button>
                 </form>
                 {% endif %}
                 {% if expediente.estado == 'ACTO_REALIZADO' %}
@@ -90,12 +104,24 @@
             </tbody>
         </table>
     </div>
-    {% if expediente.constancia_no_adeudos %}
-    <a href="{{ expediente.constancia_no_adeudos.url }}" target="_blank" class="btn btn-outline-primary btn-sm">
-        <i class="bi bi-download me-1"></i>Descargar constancia de no adeudos
-    </a>
+    {% if expediente.constancia_no_adeudos or expediente.constancia_no_inconveniencia %}
+    <div class="d-flex flex-wrap gap-2">
+        {% if expediente.constancia_no_adeudos %}
+        <a href="{{ expediente.constancia_no_adeudos.url }}" target="_blank" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-download me-1"></i>Descargar constancia de no adeudos
+        </a>
+        {% endif %}
+        {% if expediente.constancia_no_inconveniencia %}
+        <a href="{{ expediente.constancia_no_inconveniencia.url }}" target="_blank" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-download me-1"></i>Constancia de no Inconveniencia para el Acto de Recepción Profesional
+        </a>
+        {% endif %}
+    </div>
     {% else %}
-    <p class="small text-muted mb-0">La constancia se generará automáticamente cuando las tres áreas marquen sin adeudos.</p>
+    <p class="small text-muted mb-0">
+        Al confirmar las tres áreas sin adeudos se generarán automáticamente
+        la constancia de no adeudos y la Constancia de no Inconveniencia para el Acto de Recepción Profesional.
+    </p>
     {% endif %}
 </div>
 {% endif %}

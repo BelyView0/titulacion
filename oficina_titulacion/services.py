@@ -1,6 +1,7 @@
 """Servicios SIGET — generación automática de documentos."""
 from django.core.files.base import ContentFile
 from django.urls import reverse
+from django.utils import timezone
 
 from expediente.models import EstadoExpediente, ConfirmacionAdeudo
 from expediente.workflow import todas_confirmaciones_adeudo
@@ -12,14 +13,82 @@ from expediente.notifications import (
 )
 
 
+def _guardar_pdf(filefield, nombre, pdf):
+    if not pdf:
+        return False
+    if not isinstance(pdf, ContentFile):
+        pdf = ContentFile(pdf)
+    filefield.save(nombre, pdf, save=False)
+    return True
+
+
 def intentar_generar_constancia_no_adeudos(expediente, realizado_por=None):
-    """Genera constancia de no adeudos cuando las 3 áreas confirman sin adeudo."""
+    """
+    Cuando las 3 áreas confirman sin adeudo (tras pago validado):
+    genera Constancia de no adeudos y Constancia de no inconveniencia.
+    """
     if not todas_confirmaciones_adeudo(expediente):
         return False
 
-    if expediente.constancia_no_adeudos:
-        # Ya existe: solo intenta avanzar estado si aplica
-        _verificar_documentos_oficiales_listos(expediente, realizado_por)
+    from oficina_titulacion.pdf_constancia import (
+        generar_constancia_no_adeudos_pdf,
+        generar_constancia_no_inconveniencia_pdf,
+    )
+
+    genero_algo = False
+
+    stamp = timezone.now().strftime('%Y%m%d%H%M%S')
+
+    if not expediente.constancia_no_adeudos:
+        pdf_adeudos = generar_constancia_no_adeudos_pdf(expediente)
+        if _guardar_pdf(
+            expediente.constancia_no_adeudos,
+            f'constancia_no_adeudos_{expediente.pk}_{stamp}.pdf',
+            pdf_adeudos,
+        ):
+            genero_algo = True
+
+    if not expediente.constancia_no_inconveniencia:
+        pdf_inconv = generar_constancia_no_inconveniencia_pdf(expediente)
+        if _guardar_pdf(
+            expediente.constancia_no_inconveniencia,
+            f'no_inconveniencia_{expediente.pk}_{stamp}.pdf',
+            pdf_inconv,
+        ):
+            expediente.fecha_constancia = timezone.now()
+            genero_algo = True
+
+    if genero_algo:
+        campos = ['constancia_no_adeudos', 'constancia_no_inconveniencia', 'fecha_ultima_actualizacion']
+        if expediente.fecha_constancia:
+            campos.append('fecha_constancia')
+        expediente.save(update_fields=campos)
+
+        notificar_alumno(
+            expediente,
+            'AVANCE',
+            'Documentos oficiales disponibles',
+            'Las tres áreas confirmaron que no tienes adeudos. Ya puedes descargar '
+            'tu Constancia de no adeudos y tu Constancia de no Inconveniencia '
+            'para el Acto de Recepción Profesional desde tu expediente en SIGET.',
+            url=reverse('alumnos:expediente'),
+        )
+        notificar_oficina_titulacion(
+            expediente,
+            'Constancias oficiales generadas',
+            f'Se generaron automáticamente la constancia de no adeudos y la de '
+            f'no inconveniencia para {expediente.alumno.get_full_name()}.',
+            url=reverse('oficina_titulacion:expediente_detalle', kwargs={'pk': expediente.pk}),
+            tipo='AVANCE',
+        )
+
+    _verificar_documentos_oficiales_listos(expediente, realizado_por)
+    return genero_algo
+
+
+def forzar_regenerar_constancia_no_adeudos(expediente):
+    """Regenera la constancia de no adeudos (reemplaza el PDF previo)."""
+    if not todas_confirmaciones_adeudo(expediente):
         return False
 
     from oficina_titulacion.pdf_constancia import generar_constancia_no_adeudos_pdf
@@ -28,44 +97,35 @@ def intentar_generar_constancia_no_adeudos(expediente, realizado_por=None):
     if not pdf:
         return False
 
-    if not isinstance(pdf, ContentFile):
-        pdf = ContentFile(pdf)
-
-    expediente.constancia_no_adeudos.save(
-        f'constancia_no_adeudos_{expediente.pk}.pdf',
+    if expediente.constancia_no_adeudos:
+        expediente.constancia_no_adeudos.delete(save=False)
+    stamp = timezone.now().strftime('%Y%m%d%H%M%S')
+    if not _guardar_pdf(
+        expediente.constancia_no_adeudos,
+        f'constancia_no_adeudos_{expediente.pk}_{stamp}.pdf',
         pdf,
-        save=False,
-    )
-    expediente.save(update_fields=['constancia_no_adeudos', 'fecha_ultima_actualizacion'])
+    ):
+        return False
 
-    notificar_alumno(
-        expediente,
-        'AVANCE',
-        'Constancia de no adeudos disponible',
-        'Las tres áreas (Finanzas, Centro de Cómputo y Centro de Información) '
-        'confirmaron que no tienes adeudos. Ya puedes descargar tu Constancia '
-        'de no adeudos desde tu expediente en SIGET.',
-        url=reverse('alumnos:expediente'),
-    )
-    notificar_oficina_titulacion(
-        expediente,
-        'Constancia de no adeudos generada',
-        f'Se generó automáticamente la constancia de no adeudos para '
-        f'{expediente.alumno.get_full_name()}.',
-        url=reverse('oficina_titulacion:expediente_detalle', kwargs={'pk': expediente.pk}),
-        tipo='AVANCE',
-    )
-    _verificar_documentos_oficiales_listos(expediente, realizado_por)
+    expediente.save(update_fields=['constancia_no_adeudos', 'fecha_ultima_actualizacion'])
     return True
 
 
 def _limpiar_constancia_si_hay_adeudo(expediente):
-    """Si alguna área marca adeudo, la constancia previa deja de ser válida."""
-    if not expediente.constancia_no_adeudos:
-        return
-    expediente.constancia_no_adeudos.delete(save=False)
-    expediente.constancia_no_adeudos = None
-    expediente.save(update_fields=['constancia_no_adeudos', 'fecha_ultima_actualizacion'])
+    """Si alguna área marca adeudo, las constancias previas dejan de ser válidas."""
+    campos = []
+    if expediente.constancia_no_adeudos:
+        expediente.constancia_no_adeudos.delete(save=False)
+        expediente.constancia_no_adeudos = None
+        campos.append('constancia_no_adeudos')
+    if expediente.constancia_no_inconveniencia:
+        expediente.constancia_no_inconveniencia.delete(save=False)
+        expediente.constancia_no_inconveniencia = None
+        expediente.fecha_constancia = None
+        campos.extend(['constancia_no_inconveniencia', 'fecha_constancia'])
+    if campos:
+        campos.append('fecha_ultima_actualizacion')
+        expediente.save(update_fields=campos)
 
 
 def registrar_confirmacion_adeudo(expediente, area, sin_adeudos, usuario, observaciones=''):
@@ -87,7 +147,6 @@ def registrar_confirmacion_adeudo(expediente, area, sin_adeudos, usuario, observ
     }
     area_label = conf.get_area_display()
 
-    # Aviso interno al área que registró
     notificar_usuarios_por_rol(
         [rol_map[area]],
         f'Alumno {"liberado" if sin_adeudos else "con adeudos"} — {area_label}',
@@ -142,6 +201,7 @@ def registrar_confirmacion_adeudo(expediente, area, sin_adeudos, usuario, observ
 
 
 def _verificar_documentos_oficiales_listos(expediente, realizado_por):
+    expediente.refresh_from_db()
     if (
         expediente.constancia_no_inconveniencia
         and expediente.constancia_no_adeudos
@@ -151,7 +211,7 @@ def _verificar_documentos_oficiales_listos(expediente, realizado_por):
             expediente,
             EstadoExpediente.DOCUMENTOS_OFICIALES_LISTOS,
             realizado_por,
-            'No inconveniencia y constancia de no adeudos completas.',
+            'No inconveniencia y constancia de no adeudos generadas automáticamente.',
         )
         from administracion.models import Rol
         notificar_usuarios_por_rol(
