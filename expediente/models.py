@@ -359,7 +359,12 @@ class Expediente(models.Model):
     certificacion_final_pdf = models.FileField(
         upload_to='certificaciones/%Y/',
         null=True, blank=True,
-        verbose_name='Certificación de exención'
+        verbose_name='Certificación de exención (Generada)'
+    )
+    certificacion_final_escaneada = models.FileField(
+        upload_to='certificaciones_firmadas/%Y/',
+        null=True, blank=True,
+        verbose_name='Certificación de exención (Firmada)'
     )
     # Datos del trabajo terminal
     titulo_trabajo = models.CharField(
@@ -898,7 +903,12 @@ class AsignacionJurado(models.Model):
     oficio_pdf = models.FileField(
         upload_to='oficios_jurado/',
         null=True, blank=True,
-        verbose_name='PDF del Oficio de Jurado'
+        verbose_name='Oficio de Asignación (PDF)'
+    )
+    documentos_protocolo_pdf = models.FileField(
+        upload_to='documentos_protocolo/',
+        null=True, blank=True,
+        verbose_name='Documentos de Protocolo (PDF)'
     )
     # ── Acto protocolario ────────────────────────────────────────
     fecha_acto = models.DateTimeField(

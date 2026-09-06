@@ -267,10 +267,16 @@ def generar_certificacion_final_pdf(expediente):
 
     config = ConfiguracionInstitucional.objects.first()
     jurado = getattr(expediente, 'jurado', None)
+    
+    encabezado_path = None
+    if config and config.imagen_encabezado:
+        encabezado_path = config.imagen_encabezado.path
+
     html = render_to_string('oficina_titulacion/pdf/certificacion_exencion.html', {
         'expediente': expediente,
         'config': config,
         'alumno': expediente.alumno,
         'jurado': jurado,
+        'encabezado_path': encabezado_path,
     })
     return _html_to_pdf(html)

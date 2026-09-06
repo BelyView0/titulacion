@@ -79,3 +79,29 @@ def generar_oficio_jurado_pdf(asignacion, jefe_custom=None):
         return result.getvalue()
     else:
         raise Exception("Error al generar PDF: " + str(pdf.err))
+
+def generar_documentos_protocolo_pdf(jurado, acto):
+    """
+    Recibe el jurado y el acto protocolario y genera el PDF con la Guía, Juramento y Código de Ética.
+    """
+    expediente = jurado.expediente
+    alumno = expediente.alumno
+    
+    context = {
+        'jurado': jurado,
+        'acto': acto,
+        'fecha_acto': acto.fecha_acto if acto else jurado.fecha_acto,
+        'expediente': expediente,
+        'alumno': alumno,
+        'modalidad': expediente.modalidad,
+    }
+
+    html_string = render_to_string('administracion/jefe/documentos_protocolo.html', context)
+
+    result = BytesIO()
+    pdf = pisa.pisaDocument(BytesIO(html_string.encode("UTF-8")), result, link_callback=link_callback)
+    
+    if not pdf.err:
+        return result.getvalue()
+    else:
+        raise Exception("Error al generar PDF de Documentos Protocolo: " + str(pdf.err))

@@ -844,6 +844,10 @@ class AsignarProtocoloView(OficinaTitulacionRequeridoMixin, View):
                     realizado_por=request.user,
                     descripcion=f'Protocolo programado en grupo "{grupo.nombre}" ({hora_acto:%d/%m/%Y %H:%M}).',
                 )
+                
+            jurado.fecha_acto = hora_acto
+            jurado.lugar_acto = grupo.lugar
+            jurado.save()
 
             self._enviar_confirmaciones(request, acto, expediente)
             asignados += 1
@@ -877,6 +881,16 @@ class AsignarProtocoloView(OficinaTitulacionRequeridoMixin, View):
         fecha_fmt = acto.fecha_acto.strftime('%d de %B de %Y a las %H:%M')
         base_url = request.build_absolute_uri('/')[:-1]
 
+        pdf_protocolo_bytes = None
+        pdf_oficio_bytes = None
+        try:
+            from oficina_titulacion.pdf_generator import generar_documentos_protocolo
+            from administracion.pdf_oficio import generar_oficio_jurado_pdf
+            pdf_protocolo_bytes = generar_documentos_protocolo(expediente)
+            pdf_oficio_bytes = generar_oficio_jurado_pdf(expediente.jurado)
+        except Exception:
+            pass
+
         for rol, nombre, email in participantes:
             if not email:
                 continue
@@ -898,13 +912,15 @@ class AsignarProtocoloView(OficinaTitulacionRequeridoMixin, View):
                 saludo = f'Estimado(a) {nombre},'
                 mensaje = (
                     'Se programó su acto de recepción profesional. '
+                    'Encuentre adjuntos los documentos de protocolo y su oficio de jurado. '
                     'Confirme su asistencia en la plataforma.'
                 )
             else:
                 saludo = f'Estimado(a) {nombre},'
                 mensaje = (
                     f'Se le invita como {rol_display} al acto del alumno(a) '
-                    f'{expediente.alumno.get_full_name()}.'
+                    f'{expediente.alumno.get_full_name()}. '
+                    'Encuentre adjuntos los documentos de protocolo y el oficio de jurado.'
                 )
 
             html_content = render_to_string('emails/notificacion_generica.html', {
@@ -926,6 +942,10 @@ class AsignarProtocoloView(OficinaTitulacionRequeridoMixin, View):
                     to=[email],
                 )
                 msg.attach_alternative(html_content, 'text/html')
+                if pdf_protocolo_bytes:
+                    msg.attach('Documentos_Protocolo.pdf', pdf_protocolo_bytes, 'application/pdf')
+                if pdf_oficio_bytes:
+                    msg.attach('Oficio_Jurado.pdf', pdf_oficio_bytes, 'application/pdf')
                 msg.send(fail_silently=True)
             except Exception:
                 pass
@@ -936,6 +956,53 @@ class AsignarProtocoloView(OficinaTitulacionRequeridoMixin, View):
             titulo='Acto protocolario programado',
             mensaje=f'Su acto está programado para el {fecha_fmt} en {acto.lugar}.',
         )
+        
+        from expediente.notifications import notificar_oficina_titulacion, notificar_usuarios_por_rol
+        notificar_oficina_titulacion(
+            expediente=expediente,
+            titulo='Acto Protocolario y Oficio de Jurado',
+            mensaje=f'Se programó el acto protocolario del alumno(a) {expediente.alumno.get_full_name()} para el {fecha_fmt} y se generó exitosamente su Oficio de Jurado.'
+        )
+        notificar_usuarios_por_rol(
+            roles=['JEFE_PROYECTO'],
+            titulo='Acto Protocolario y Oficio de Jurado',
+            mensaje=f'Se programó el acto protocolario del alumno(a) {expediente.alumno.get_full_name()} para el {fecha_fmt} y se generó exitosamente su Oficio de Jurado.'
+        )
+        from administracion.models import Usuario
+        emails_extra = list(Usuario.objects.filter(rol__in=['OFICINA_TITULACION', 'JEFE_PROYECTO'], is_active=True).exclude(email='').values_list('email', flat=True))
+
+        if emails_extra and (pdf_protocolo_bytes or pdf_oficio_bytes):
+            saludo = 'Estimado(a) miembro del personal,'
+            mensaje = (
+                f'Se ha programado el acto protocolario del alumno(a) {expediente.alumno.get_full_name()} '
+                f'para el {fecha_fmt} en {acto.lugar}. '
+                'Encuentre adjuntos los documentos generados (Oficio de Jurado y/o Documentos de Protocolo).'
+            )
+            html_content = render_to_string('emails/notificacion_generica.html', {
+                'titulo': 'Acto Protocolario Programado',
+                'saludo': saludo,
+                'mensaje': mensaje,
+                'datos_adicionales': {
+                    'Alumno(a)': expediente.alumno.get_full_name(),
+                    'Fecha y lugar': f'{fecha_fmt} en {acto.lugar}',
+                },
+                'url_accion': None,
+            })
+            try:
+                msg_extra = EmailMultiAlternatives(
+                    subject=f'[ITA Titulación] Acto Protocolario Programado — {expediente.alumno.get_full_name()}',
+                    body=f'{saludo}\n\n{mensaje}',
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=emails_extra,
+                )
+                msg_extra.attach_alternative(html_content, 'text/html')
+                if pdf_protocolo_bytes:
+                    msg_extra.attach('Documentos_Protocolo.pdf', pdf_protocolo_bytes, 'application/pdf')
+                if pdf_oficio_bytes:
+                    msg_extra.attach('Oficio_Jurado.pdf', pdf_oficio_bytes, 'application/pdf')
+                msg_extra.send(fail_silently=True)
+            except Exception:
+                pass
 
 
 class ConfirmarActoView(OficinaTitulacionRequeridoMixin, View):
@@ -947,20 +1014,30 @@ class ConfirmarActoView(OficinaTitulacionRequeridoMixin, View):
         acto.save(update_fields=['resultado'])
 
         if expediente.estado == EstadoExpediente.PROTOCOLO_PROGRAMADO:
+            # Generar certificado automático
+            pdf = generar_certificacion_final_pdf(expediente)
+            if pdf:
+                expediente.certificacion_final_pdf.save(
+                    f'certificacion_{expediente.pk}.pdf',
+                    pdf,
+                    save=False,
+                )
+                expediente.save(update_fields=['certificacion_final_pdf', 'fecha_ultima_actualizacion'])
+
             registrar_cambio_estado(
                 expediente=expediente,
                 estado_nuevo=EstadoExpediente.ACTO_REALIZADO,
                 realizado_por=request.user,
-                descripcion='Acto protocolario realizado y confirmado por Oficina de Titulación.',
+                descripcion='Acto protocolario realizado. Certificación de exención generada.',
             )
 
         notificar_alumno(
             expediente=expediente,
             tipo='AVANCE',
             titulo='Acto protocolario realizado',
-            mensaje='Se confirmó la realización de su acto protocolario.',
+            mensaje='Se confirmó la realización de su acto protocolario y se ha generado su Certificación de Exención para que la descargue. Próximamente se cargará el documento firmado para concluir su trámite.',
         )
-        messages.success(request, 'Acto protocolario confirmado.')
+        messages.success(request, 'Acto protocolario confirmado y Certificación generada exitosamente. En espera de subir archivo firmado para concluir.')
         return redirect('oficina_titulacion:expediente_detalle', pk=expediente.pk)
 
 
@@ -1002,7 +1079,7 @@ class ReprogramarActoView(OficinaTitulacionRequeridoMixin, View):
 
 
 class GenerarCertificacionView(OficinaTitulacionRequeridoMixin, View):
-    def post(self, request, pk):
+    def get(self, request, pk):
         expediente = get_object_or_404(Expediente, pk=pk)
 
         if expediente.estado not in (
@@ -1012,22 +1089,76 @@ class GenerarCertificacionView(OficinaTitulacionRequeridoMixin, View):
             messages.error(request, 'El acto protocolario debe estar realizado.')
             return redirect('oficina_titulacion:expediente_detalle', pk=pk)
 
-        pdf = generar_certificacion_final_pdf(expediente)
-        if pdf:
-            expediente.certificacion_final_pdf.save(
-                f'certificacion_{expediente.pk}.pdf',
-                pdf,
-                save=False,
-            )
-            expediente.save(update_fields=['certificacion_final_pdf', 'fecha_ultima_actualizacion'])
+        if not expediente.certificacion_final_pdf:
+            pdf = generar_certificacion_final_pdf(expediente)
+            if pdf:
+                expediente.certificacion_final_pdf.save(
+                    f'certificacion_{expediente.pk}.pdf',
+                    pdf,
+                    save=False,
+                )
+                expediente.save(update_fields=['certificacion_final_pdf', 'fecha_ultima_actualizacion'])
+                
+                # Enviar notificación al alumno del certificado generado
+                from expediente.notifications import notificar_alumno, url_expediente_alumno
+                notificar_alumno(
+                    expediente=expediente,
+                    tipo='INFO',
+                    titulo='Certificación Generada',
+                    mensaje='Se ha generado tu certificado de exención en sistema para revisión.',
+                    url=url_expediente_alumno()
+                )
+            else:
+                messages.error(request, 'No se pudo generar la certificación.')
+                return redirect('oficina_titulacion:expediente_detalle', pk=pk)
 
-        notificar_alumno(
-            expediente=expediente,
-            tipo='AVANCE',
-            titulo='Certificación de exención generada',
-            mensaje='Su Certificación de Exención de Examen Profesional está disponible en el sistema.',
-        )
-        messages.success(request, 'Certificación de exención generada.')
+        from django.http import HttpResponse
+        if expediente.certificacion_final_pdf:
+            response = HttpResponse(expediente.certificacion_final_pdf.read(), content_type="application/pdf")
+            response['Content-Disposition'] = f'attachment; filename="Certificacion_Exencion_{expediente.alumno.username}.pdf"'
+            return response
+        
+        return redirect('oficina_titulacion:expediente_detalle', pk=pk)
+
+
+class SubirCertificacionFirmadaView(OficinaTitulacionRequeridoMixin, View):
+    def post(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+        
+        if 'certificacion_final_escaneada' in request.FILES:
+            archivo = request.FILES['certificacion_final_escaneada']
+            
+            # Delete old file if exists
+            if expediente.certificacion_final_escaneada:
+                expediente.certificacion_final_escaneada.delete(save=False)
+                
+            expediente.certificacion_final_escaneada = archivo
+            expediente.save(update_fields=['certificacion_final_escaneada', 'fecha_ultima_actualizacion'])
+            
+            # Registrar en historial
+            from expediente.models import HistorialExpediente
+            from expediente.notifications import notificar_alumno, url_expediente_alumno
+            HistorialExpediente.objects.create(
+                expediente=expediente,
+                estado_anterior=expediente.estado,
+                estado_nuevo=expediente.estado,
+                realizado_por=request.user,
+                descripcion='Se cargó el certificado de exención firmado'
+            )
+            
+            # Notificar al alumno
+            notificar_alumno(
+                expediente=expediente,
+                tipo='INFO',
+                titulo='Certificación Firmada Disponible',
+                mensaje='Se ha subido tu certificado de exención firmado. Ya puedes descargarlo.',
+                url=url_expediente_alumno()
+            )
+            
+            messages.success(request, 'El certificado firmado se ha subido y notificado al alumno exitosamente.')
+        else:
+            messages.error(request, 'No se proporcionó ningún archivo.')
+            
         return redirect('oficina_titulacion:expediente_detalle', pk=pk)
 
 
@@ -1149,4 +1280,128 @@ class MarcarCertificadoListoView(OficinaTitulacionRequeridoMixin, View):
             mensaje='Su certificado firmado fue registrado en el sistema.',
         )
         messages.success(request, 'Certificado digital registrado correctamente.')
+        return redirect('oficina_titulacion:expediente_detalle', pk=pk)
+
+
+class ValidarConstanciaYConcluirView(OficinaTitulacionRequeridoMixin, View):
+    def post(self, request, pk):
+        from expediente.models import Expediente, EstadoExpediente
+        from expediente.notifications import registrar_cambio_estado, notificar_alumno
+        from django.shortcuts import get_object_or_404, redirect
+        from django.contrib import messages
+        expediente = get_object_or_404(Expediente, pk=pk)
+        
+        if expediente.estado == EstadoExpediente.ACTO_REALIZADO:
+            registrar_cambio_estado(
+                expediente=expediente,
+                estado_nuevo=EstadoExpediente.CONCLUIDO,
+                realizado_por=request.user,
+                descripcion='Oficina de Titulación concluyó el expediente exitosamente.'
+            )
+            notificar_alumno(
+                expediente=expediente,
+                tipo='AVANCE',
+                titulo='Trámite de Titulación Concluido',
+                mensaje='Tu trámite de titulación ha sido concluido exitosamente.',
+            )
+            messages.success(request, 'Expediente concluido exitosamente.')
+        else:
+            messages.error(request, 'El alumno no está en la etapa correcta para concluir el expediente.')
+        return redirect('oficina_titulacion:expediente_detalle', pk=expediente.pk)
+
+from django.http import Http404
+
+class DescargarOficioJuradoOficinaView(OficinaTitulacionRequeridoMixin, View):
+    def get(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+        try:
+            asignacion = expediente.jurado
+        except AsignacionJurado.DoesNotExist:
+            raise Http404("El expediente no tiene jurado asignado.")
+
+        if asignacion.oficio_pdf:
+            response = HttpResponse(asignacion.oficio_pdf.read(), content_type="application/pdf")
+            filename = f"Oficio_Jurado_{expediente.alumno.username}.pdf"
+            response["Content-Disposition"] = f'attachment; filename="{filename}"'
+            return response
+        else:
+            raise Http404("El PDF del oficio aún no se ha generado.")
+
+
+class DescargarDocumentosProtocoloOficinaView(OficinaTitulacionRequeridoMixin, View):
+    def get(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+        try:
+            asignacion = expediente.jurado
+        except AsignacionJurado.DoesNotExist:
+            raise Http404("El expediente no tiene jurado asignado.")
+
+        if not asignacion.documentos_protocolo_pdf:
+            from administracion.pdf_oficio import generar_documentos_protocolo_pdf
+            from django.core.files.base import ContentFile
+            try:
+                acto = expediente.acto_protocolario
+            except Exception:
+                acto = None
+            try:
+                pdf_bytes_docs = generar_documentos_protocolo_pdf(asignacion, acto)
+                filename_docs = f"Documentos_Protocolo_{expediente.alumno.username}.pdf"
+                asignacion.documentos_protocolo_pdf.save(filename_docs, ContentFile(pdf_bytes_docs), save=True)
+            except Exception as e:
+                pass
+
+        if asignacion.documentos_protocolo_pdf:
+            response = HttpResponse(asignacion.documentos_protocolo_pdf.read(), content_type="application/pdf")
+            filename = f"Documentos_Protocolo_{expediente.alumno.username}.pdf"
+            response["Content-Disposition"] = f'attachment; filename="{filename}"'
+            return response
+        else:
+            raise Http404("El PDF de los documentos de protocolo aún no se ha generado y falló la generación automática.")
+
+
+class RegistrarRecepcionEmpastadoView(OficinaTitulacionRequeridoMixin, View):
+    def post(self, request, pk):
+        expediente = get_object_or_404(Expediente, pk=pk)
+        from expediente.models import RecepcionEmpastado
+        empastado, created = RecepcionEmpastado.objects.get_or_create(
+            expediente=expediente,
+            defaults={
+                'fecha_recepcion': timezone.now().date(),
+                'recibido_por': request.user,
+                'estado': 'REVISADO',
+            }
+        )
+        if not created:
+            empastado.fecha_recepcion = timezone.now().date()
+            empastado.recibido_por = request.user
+            empastado.estado = 'REVISADO'
+            empastado.save()
+
+        registrar_cambio_estado(
+            expediente=expediente,
+            estado_nuevo=expediente.estado, 
+            realizado_por=request.user,
+            descripcion='Empastado físico recibido por Oficina de Titulación.',
+        )
+
+        from expediente.notifications import notificar_alumno
+        notificar_alumno(
+            expediente=expediente,
+            tipo='AVANCE',
+            titulo='Empastado recibido',
+            mensaje='La Oficina de Titulación ha confirmado la recepción de tu empastado físico.',
+        )
+
+        messages.success(request, 'Se ha registrado la recepción del empastado físico y se ha notificado al alumno.')
+        return redirect('oficina_titulacion:expediente_detalle', pk=pk)
+
+class RegenerarNoAdeudosView(OficinaTitulacionRequeridoMixin, View):
+    def post(self, request, pk):
+        from oficina_titulacion.services import forzar_regenerar_constancia_no_adeudos
+        expediente = get_object_or_404(Expediente, pk=pk)
+        resultado = forzar_regenerar_constancia_no_adeudos(expediente)
+        if resultado:
+            messages.success(request, 'Constancia de no adeudos regenerada exitosamente.')
+        else:
+            messages.error(request, 'No se pudo regenerar la constancia de no adeudos.')
         return redirect('oficina_titulacion:expediente_detalle', pk=pk)

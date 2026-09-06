@@ -904,11 +904,13 @@ class ExpedienteDetalleJefeView(JefeProyectoRequeridoMixin, DetailView):
         ctx = super().get_context_data(**kwargs)
         expediente = self.object
         ctx['documentos'] = expediente.documentos.select_related(
-            'tipo_documento'
-        ).prefetch_related('validaciones').order_by('tipo_documento__orden')
+            'tipo_documento', 'validacion'
+        ).order_by('tipo_documento__orden')
         ctx['jurado'] = AsignacionJurado.objects.filter(
             expediente=expediente
         ).select_related('presidente', 'secretario', 'vocal_propietario', 'vocal_suplente').first()
+        
+        ctx['empastado_recibido'] = hasattr(expediente, 'empastado')
         
         # Visibilidad del acto para el Jefe
         try:
@@ -936,6 +938,11 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
             filter_q = Q(alumno__carrera=user.carrera)
 
         expediente = get_object_or_404(Expediente, Q(pk=pk) & filter_q)
+        
+        if not hasattr(expediente, 'empastado') or expediente.empastado.estado != 'REVISADO':
+            messages.error(request, 'No se puede asignar jurado hasta que la Oficina de Titulación confirme la recepción del empastado físico.')
+            return redirect('administracion:jefe_detalle', pk=pk)
+            
         jurado = AsignacionJurado.objects.filter(expediente=expediente).first()
 
         # Obtener posibles sinodales desde el catálogo Profesor
@@ -962,6 +969,10 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
             filter_q = Q(alumno__carrera=user.carrera)
 
         expediente = get_object_or_404(Expediente, Q(pk=pk) & filter_q)
+        
+        if not hasattr(expediente, 'empastado') or expediente.empastado.estado != 'REVISADO':
+            messages.error(request, 'No se puede asignar jurado hasta que la Oficina de Titulación confirme la recepción del empastado físico.')
+            return redirect('administracion:jefe_detalle', pk=pk)
 
         presidente_id = request.POST.get('presidente')
         secretario_id = request.POST.get('secretario')
@@ -996,7 +1007,7 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
             jurado.asignado_por = request.user
             jurado.save()
 
-        messages.success(request, 'Asignación de jurado registrada exitosamente. Ahora puedes programar el acto.')
+        messages.success(request, 'Asignación de jurado registrada exitosamente. La Oficina de Titulación programará el acto.')
 
         # Actualizar estado del expediente
         registrar_cambio_estado(

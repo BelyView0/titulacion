@@ -1,5 +1,5 @@
 """
-Vistas del módulo Alumnos.
+Vistas del mÃ³dulo Alumnos.
 Panel principal, expediente, documentos, timeline, notificaciones.
 """
 from django.views.generic import (
@@ -29,9 +29,13 @@ class DashboardAlumnoView(AlumnoRequeridoMixin, TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         try:
-            ctx['expediente'] = self.request.user.expediente
+            expediente = self.request.user.expediente
+            ctx['expediente'] = expediente
+            from expediente.models import RecepcionEmpastado
+            ctx['empastado_recibido'] = RecepcionEmpastado.objects.filter(expediente=expediente).exists()
         except Expediente.DoesNotExist:
             ctx['expediente'] = None
+            ctx['empastado_recibido'] = False
         ctx['notificaciones_no_leidas'] = Notificacion.objects.filter(
             destinatario=self.request.user, leida=False
         ).count()
@@ -51,7 +55,7 @@ class ExpedienteCreateView(AlumnoRequeridoMixin, CreateView):
         # Verificar que el usuario tenga al menos un correo verificado
         user = request.user
         if not user.email_verificado and not user.correo_institucional_verificado:
-            messages.warning(request, 'Debes verificar al menos uno de tus correos (Personal o Institucional) en tu perfil para poder aperturar tu expediente de titulación y asegurar la recepción de notificaciones.')
+            messages.warning(request, 'Debes verificar al menos uno de tus correos (Personal o Institucional) en tu perfil para poder aperturar tu expediente de titulaciÃ³n y asegurar la recepciÃ³n de notificaciones.')
             return redirect('perfil')
 
         # Si ya tiene expediente, redirigir al detalle
@@ -89,7 +93,7 @@ class ExpedienteCreateView(AlumnoRequeridoMixin, CreateView):
         )
         messages.success(
             self.request,
-            'Expediente creado correctamente. Oficina de Titulación programará la cita para firma de tu certificado; después podrás cargar tus documentos.'
+            'Expediente creado correctamente. Oficina de TitulaciÃ³n programarÃ¡ la cita para firma de tu certificado; despuÃ©s podrÃ¡s cargar tus documentos.'
         )
         return redirect('alumnos:expediente')
 
@@ -110,7 +114,7 @@ class ModalidadesPorPlanView(AlumnoRequeridoMixin, View):
 
 
 class ExpedienteUpdateView(ExpedientePropioMixin, UpdateView):
-    """El alumno edita sus datos iniciales mientras esté en borrador o corrección."""
+    """El alumno edita sus datos iniciales mientras estÃ© en borrador o correcciÃ³n."""
     model = Expediente
     form_class = ExpedienteForm
     template_name = 'alumnos/expediente/crear.html'  # Reutilizamos el mismo template
@@ -188,18 +192,18 @@ class ExpedienteDetalleView(ExpedientePropioMixin, TemplateView):
 
 
 class SolicitarRevisionView(ExpedientePropioMixin, View):
-    """Legado — redirige al flujo SIGET (sin revisión académica previa)."""
+    """Legado â redirige al flujo SIGET (sin revisiÃ³n acadÃ©mica previa)."""
 
     def post(self, request, *args, **kwargs):
         messages.info(
             request,
-            'Utiliza la sección de documentos en tu expediente para enviarlos a revisión de Oficina de Titulación.'
+            'Utiliza la secciÃ³n de documentos en tu expediente para enviarlos a revisiÃ³n de Oficina de TitulaciÃ³n.'
         )
         return redirect('alumnos:expediente')
 
 
 class EnviarDocumentosRevisionView(ExpedientePropioMixin, View):
-    """El alumno envía documentos a revisión de Oficina de Titulación."""
+    """El alumno envÃ­a documentos a revisiÃ³n de Oficina de TitulaciÃ³n."""
 
     def post(self, request, *args, **kwargs):
         expediente = self.get_expediente()
@@ -227,20 +231,20 @@ class EnviarDocumentosRevisionView(ExpedientePropioMixin, View):
             expediente=expediente,
             estado_nuevo=EstadoExpediente.EN_REVISION,
             realizado_por=request.user,
-            descripcion='Alumno envió expediente completo a revisión.',
+            descripcion='Alumno enviÃ³ expediente completo a revisiÃ³n.',
         )
         notificar_oficina_titulacion(
-            expediente, 'Expediente en revisión',
-            f'{expediente.alumno.get_full_name()} envió su expediente a revisión.',
+            expediente, 'Expediente en revisiÃ³n',
+            f'{expediente.alumno.get_full_name()} enviÃ³ su expediente a revisiÃ³n.',
             url=reverse('oficina_titulacion:expediente_detalle', kwargs={'pk': expediente.pk}),
         )
         notificar_alumno(
             expediente=expediente, tipo='AVANCE',
-            titulo='Documentos enviados a revisión',
-            mensaje='Tu expediente fue enviado a Oficina de Titulación para revisión.',
+            titulo='Documentos enviados a revisiÃ³n',
+            mensaje='Tu expediente fue enviado a Oficina de TitulaciÃ³n para revisiÃ³n.',
             url=reverse('alumnos:expediente'),
         )
-        messages.success(request, '¡Expediente enviado a revisión!')
+        messages.success(request, 'Â¡Expediente enviado a revisiÃ³n!')
         return redirect('alumnos:expediente')
 
 
@@ -267,7 +271,7 @@ class DocumentoCargarView(ExpedientePropioMixin, UpdateView):
         if expediente.estado not in estados_exp:
             messages.warning(
                 request,
-                'La carga de documentos solo está disponible durante la etapa de carga o corrección del expediente.'
+                'La carga de documentos solo estÃ¡ disponible durante la etapa de carga o correcciÃ³n del expediente.'
             )
             return redirect('alumnos:expediente')
         estados_permitidos = [
@@ -276,7 +280,7 @@ class DocumentoCargarView(ExpedientePropioMixin, UpdateView):
             EstadoDocumento.REQUIERE_CORRECCION,
         ]
         if obj.estado not in estados_permitidos:
-            messages.warning(request, 'Este documento no requiere acción en este momento.')
+            messages.warning(request, 'Este documento no requiere acciÃ³n en este momento.')
             return redirect('alumnos:expediente')
         return super().dispatch(request, *args, **kwargs)
 
@@ -304,7 +308,7 @@ class DocumentoCargarView(ExpedientePropioMixin, UpdateView):
         from expediente.notifications import registrar_cambio_documento
         registrar_cambio_documento(
             documento=documento,
-            accion=f'Alumno cargó versión {documento.version} del documento.',
+            accion=f'Alumno cargÃ³ versiÃ³n {documento.version} del documento.',
             realizado_por=self.request.user,
         )
         messages.success(self.request, f'Documento "{documento.tipo_documento.nombre}" cargado exitosamente.')
@@ -321,16 +325,16 @@ class SubirComprobantePagoView(ExpedientePropioMixin, View):
             return redirect('alumnos:dashboard')
 
         if expediente.estado not in [EstadoExpediente.PAGO_PENDIENTE]:
-            messages.error(request, 'No estás en la etapa de pago actualmente.')
+            messages.error(request, 'No estÃ¡s en la etapa de pago actualmente.')
             return redirect('alumnos:expediente')
 
         referencia = expediente.referencias_pago.filter(activa=True).first()
         if not referencia:
-            messages.error(request, 'Aún no hay preficha de pago disponible. Espera a que Finanzas la genere.')
+            messages.error(request, 'AÃºn no hay preficha de pago disponible. Espera a que Finanzas la genere.')
             return redirect('alumnos:expediente')
 
         if expediente.pago_validado == 'CARGADO':
-            messages.error(request, 'Tu comprobante ya está en revisión por Finanzas.')
+            messages.error(request, 'Tu comprobante ya estÃ¡ en revisiÃ³n por Finanzas.')
             return redirect('alumnos:expediente')
 
         comprobante = request.FILES.get('comprobante_pago')
@@ -338,7 +342,7 @@ class SubirComprobantePagoView(ExpedientePropioMixin, View):
             messages.error(request, 'Por favor, selecciona un archivo.')
             return redirect('alumnos:expediente')
 
-        # Validar extensión
+        # Validar extensiÃ³n
         if not comprobante.name.lower().endswith('.pdf'):
             messages.error(request, 'El comprobante debe ser un archivo en formato PDF.')
             return redirect('alumnos:expediente')
@@ -355,7 +359,7 @@ class SubirComprobantePagoView(ExpedientePropioMixin, View):
             expediente=expediente,
             estado_nuevo=expediente.estado,
             realizado_por=request.user,
-            descripcion='Alumno cargó su comprobante de pago.'
+            descripcion='Alumno cargÃ³ su comprobante de pago.'
         )
 
         from expediente.notifications import notificar_alumno, notificar_usuarios_por_rol
@@ -363,7 +367,7 @@ class SubirComprobantePagoView(ExpedientePropioMixin, View):
         notificar_usuarios_por_rol(
             [Rol.FINANZAS],
             'Comprobante de pago por validar',
-            f'{expediente.alumno.get_full_name()} cargó su comprobante de pago.',
+            f'{expediente.alumno.get_full_name()} cargÃ³ su comprobante de pago.',
             tipo='URGENTE',
             url=reverse('finanzas:expediente_pago_detalle', kwargs={'pk': expediente.pk}),
         )
@@ -372,15 +376,15 @@ class SubirComprobantePagoView(ExpedientePropioMixin, View):
             tipo='AVANCE',
             titulo='Comprobante de pago cargado',
             url=reverse('alumnos:expediente'),
-            mensaje='Has subido tu comprobante de pago. Finanzas lo validará a la brevedad.'
+            mensaje='Has subido tu comprobante de pago. Finanzas lo validarÃ¡ a la brevedad.'
         )
 
-        messages.success(request, '¡Comprobante de pago subido correctamente! En espera de validación por Finanzas.')
+        messages.success(request, 'Â¡Comprobante de pago subido correctamente! En espera de validaciÃ³n por Finanzas.')
         return redirect('alumnos:expediente')
 
 
 class DescargarPrefichaPagoView(ExpedientePropioMixin, View):
-    """El alumno descarga su preficha de depósito activa."""
+    """El alumno descarga su preficha de depÃ³sito activa."""
 
     def get(self, request, *args, **kwargs):
         expediente = self.get_expediente()
@@ -388,12 +392,12 @@ class DescargarPrefichaPagoView(ExpedientePropioMixin, View):
             raise Http404
 
         if expediente.estado != EstadoExpediente.PAGO_PENDIENTE:
-            messages.error(request, 'La preficha de pago no está disponible en esta etapa.')
+            messages.error(request, 'La preficha de pago no estÃ¡ disponible en esta etapa.')
             return redirect('alumnos:expediente')
 
         referencia = expediente.referencias_pago.filter(activa=True).first()
         if not referencia:
-            messages.error(request, 'Aún no hay preficha de pago generada por Finanzas.')
+            messages.error(request, 'AÃºn no hay preficha de pago generada por Finanzas.')
             return redirect('alumnos:expediente')
 
         from finanzas.preficha_pago import generar_preficha_pago_pdf
@@ -436,9 +440,9 @@ class TimelineView(ExpedientePropioMixin, TemplateView):
                 (EstadoExpediente.CERTIFICADO_PENDIENTE_CITA, 'Cita certificado'),
                 (EstadoExpediente.CERTIFICADO_FIRMADO, 'Certificado firmado'),
                 (EstadoExpediente.CARGA_DOCUMENTOS, 'Carga de documentos'),
-                (EstadoExpediente.EN_REVISION, 'Revisión Oficina'),
+                (EstadoExpediente.EN_REVISION, 'RevisiÃ³n Oficina'),
                 (EstadoExpediente.EXPEDIENTE_APROBADO, 'Expediente aprobado'),
-                (EstadoExpediente.OFICIO_GENERADO, 'Oficio de publicación'),
+                (EstadoExpediente.OFICIO_GENERADO, 'Oficio de publicaciÃ³n'),
                 (EstadoExpediente.OFICIO_FIRMADO, 'Oficio firmado'),
                 (EstadoExpediente.PAGO_VALIDADO, 'Pago validado'),
                 (EstadoExpediente.DOCUMENTOS_OFICIALES_LISTOS, 'Documentos oficiales'),
@@ -449,7 +453,7 @@ class TimelineView(ExpedientePropioMixin, TemplateView):
             ]
             ctx['estados_proceso'] = etapas_lineales
 
-            # Determinar qué estados ya se pasaron
+            # Determinar quÃ© estados ya se pasaron
             valores_lineales = [e[0] for e in etapas_lineales]
             estado_actual = expediente.estado
             if estado_actual in valores_lineales:
@@ -461,7 +465,7 @@ class TimelineView(ExpedientePropioMixin, TemplateView):
 
 
 class ConfirmarAsistenciaAlumnoView(AlumnoRequeridoMixin, View):
-    """POST — El alumno confirma su propia asistencia al acto protocolario."""
+    """POST â El alumno confirma su propia asistencia al acto protocolario."""
 
     def post(self, request):
         from expediente.models import ConfirmacionActo
@@ -483,7 +487,7 @@ class ConfirmarAsistenciaAlumnoView(AlumnoRequeridoMixin, View):
 
         confirmacion = ConfirmacionActo.objects.filter(acto=acto, rol='ALUMNO').first()
         if not confirmacion:
-            messages.error(request, 'No se encontró tu confirmación.')
+            messages.error(request, 'No se encontrÃ³ tu confirmaciÃ³n.')
             return redirect('alumnos:dashboard')
 
         if confirmacion.confirmado:
@@ -496,9 +500,9 @@ class ConfirmarAsistenciaAlumnoView(AlumnoRequeridoMixin, View):
 
         # Enviar correo de recibo
         _enviar_correo_confirmacion_recibida(confirmacion, acto)
-        messages.success(request, '¡Tu asistencia ha sido confirmada exitosamente! Se te envió un correo de confirmación.')
+        messages.success(request, 'Â¡Tu asistencia ha sido confirmada exitosamente! Se te enviÃ³ un correo de confirmaciÃ³n.')
 
-        # Si con esta se completan todas → correo final
+        # Si con esta se completan todas â correo final
         if acto.confirmaciones_completas():
             _enviar_correo_acto_confirmado(acto)
 
@@ -524,7 +528,7 @@ class ConfirmarCitaView(ExpedientePropioMixin, View):
             cita.expediente,
             'Cita confirmada por el alumno',
             (
-                f'{request.user.get_full_name()} confirmó asistencia a la cita de '
+                f'{request.user.get_full_name()} confirmÃ³ asistencia a la cita de '
                 f'{cita.get_tipo_display().lower()} el {cita.fecha_hora:%d/%m/%Y a las %H:%M} '
                 f'en {cita.lugar}.'
             ),
@@ -536,7 +540,7 @@ class ConfirmarCitaView(ExpedientePropioMixin, View):
 
 
 class SolicitarReprogramacionCitaView(ExpedientePropioMixin, View):
-    """Alumno rechaza la fecha actual y solicita reprogramación."""
+    """Alumno rechaza la fecha actual y solicita reprogramaciÃ³n."""
 
     def post(self, request, pk):
         from expediente.models import CitaDocumentoFisico
@@ -548,7 +552,7 @@ class SolicitarReprogramacionCitaView(ExpedientePropioMixin, View):
             CitaDocumentoFisico.EstadoCita.CONFIRMADA_ALUMNO,
         )
         if cita.estado not in estados_ok:
-            messages.error(request, 'No puedes solicitar reprogramación para esta cita.')
+            messages.error(request, 'No puedes solicitar reprogramaciÃ³n para esta cita.')
             return redirect('alumnos:expediente')
 
         notas = request.POST.get('propuesta_notas', '').strip()
@@ -564,7 +568,7 @@ class SolicitarReprogramacionCitaView(ExpedientePropioMixin, View):
                     dt, timezone.get_current_timezone()
                 )
             except ValueError:
-                messages.error(request, 'Formato de fecha inválido.')
+                messages.error(request, 'Formato de fecha invÃ¡lido.')
                 return redirect('alumnos:expediente')
         else:
             cita.propuesta_alumno_fecha = None
@@ -580,14 +584,118 @@ class SolicitarReprogramacionCitaView(ExpedientePropioMixin, View):
         detalle += f' Motivo: {notas}'
         notificar_oficina_titulacion(
             cita.expediente,
-            'Solicitud de reprogramación de cita',
+            'Solicitud de reprogramaciÃ³n de cita',
             detalle,
             url=reverse('oficina_titulacion:citas_pendientes'),
             tipo='URGENTE',
         )
         messages.success(
             request,
-            'Solicitud enviada. Oficina de Titulación te asignará una nueva fecha.',
+            'Solicitud enviada. Oficina de TitulaciÃ³n te asignarÃ¡ una nueva fecha.',
         )
         return redirect('alumnos:expediente')
 
+
+
+
+class DescargarOficioJuradoAlumnoView(AlumnoRequeridoMixin if 'Alumno' in 'DescargarOficioJuradoAlumnoView' else OficinaTitulacionRequeridoMixin, View):
+    def get(self, request, pk=None):
+        from expediente.models import Expediente, AsignacionJurado
+        from django.http import HttpResponse, Http404
+        from django.shortcuts import get_object_or_404
+        if 'Alumno' in 'DescargarOficioJuradoAlumnoView':
+            expediente = get_object_or_404(Expediente, alumno=request.user)
+        else:
+            expediente = get_object_or_404(Expediente, pk=pk)
+        try:
+            asignacion = expediente.jurado
+        except AsignacionJurado.DoesNotExist:
+            raise Http404("No hay jurado asignado.")
+        if not asignacion.oficio_pdf:
+            from administracion.pdf_oficio import generar_oficio_jurado_pdf
+            try:
+                pdf_bytes = generar_oficio_jurado_pdf(asignacion)
+                from django.core.files.base import ContentFile
+                asignacion.oficio_pdf.save(f"Oficio_Jurado_{expediente.alumno.username}.pdf", ContentFile(pdf_bytes))
+            except Exception as e:
+                raise Http404(f"Error generando el oficio: {e}")
+
+        if asignacion.oficio_pdf:
+            response = HttpResponse(asignacion.oficio_pdf.read(), content_type="application/pdf")
+            filename = f"Oficio_Jurado_{expediente.alumno.username}.pdf"
+            response["Content-Disposition"] = f'attachment; filename="{filename}"'
+            return response
+        else:
+            raise Http404("El PDF del oficio de jurado aún no se ha generado.")
+
+
+
+
+class DescargarDocumentosProtocoloAlumnoView(AlumnoRequeridoMixin if 'Alumno' in 'DescargarDocumentosProtocoloAlumnoView' else OficinaTitulacionRequeridoMixin, View):
+    def get(self, request, pk=None):
+        from expediente.models import Expediente
+        from django.http import HttpResponse, Http404
+        from django.shortcuts import get_object_or_404
+        if 'Alumno' in 'DescargarDocumentosProtocoloAlumnoView':
+            expediente = get_object_or_404(Expediente, alumno=request.user)
+        else:
+            expediente = get_object_or_404(Expediente, pk=pk)
+        try:
+            asignacion = expediente.jurado
+        except Exception:
+            raise Http404("No hay jurado asignado.")
+        if not asignacion.documentos_protocolo_pdf:
+            from administracion.pdf_oficio import generar_documentos_protocolo_pdf
+            from django.core.files.base import ContentFile
+            try:
+                acto = expediente.acto_protocolario
+            except Exception:
+                acto = None
+            try:
+                pdf_bytes_docs = generar_documentos_protocolo_pdf(asignacion, acto)
+                filename_docs = f"Documentos_Protocolo_{expediente.alumno.username}.pdf"
+                asignacion.documentos_protocolo_pdf.save(filename_docs, ContentFile(pdf_bytes_docs), save=True)
+            except Exception as e:
+                pass
+
+        if asignacion.documentos_protocolo_pdf:
+            response = HttpResponse(asignacion.documentos_protocolo_pdf.read(), content_type="application/pdf")
+            filename = f"Documentos_Protocolo_{expediente.alumno.username}.pdf"
+            response["Content-Disposition"] = f'attachment; filename="{filename}"'
+            return response
+        else:
+            raise Http404("El PDF de los documentos de protocolo aún no se ha generado y falló la generación automática.")
+
+
+class SubirActaExencionView(ExpedientePropioMixin, View):
+    def post(self, request, *args, **kwargs):
+        expediente = self.get_expediente()
+        from expediente.models import EstadoExpediente
+        from expediente.notifications import registrar_cambio_estado, notificar_oficina_titulacion
+        if expediente.estado != EstadoExpediente.ACTO_REALIZADO:
+            messages.error(request, 'No estás en la etapa para subir la constancia de exención escaneada.')
+            return redirect('alumnos:expediente')
+        acta = request.FILES.get('acta_exencion_pdf')
+        if not acta:
+            messages.error(request, 'Por favor, selecciona un archivo.')
+            return redirect('alumnos:expediente')
+        if not acta.name.lower().endswith('.pdf'):
+            messages.error(request, 'El documento debe ser un archivo en formato PDF.')
+            return redirect('alumnos:expediente')
+        expediente.acta_exencion_pdf = acta
+        expediente.save(update_fields=['acta_exencion_pdf', 'fecha_ultima_actualizacion'])
+        registrar_cambio_estado(
+            expediente=expediente,
+            estado_nuevo=expediente.estado,
+            realizado_por=request.user,
+            descripcion='Alumno cargó su constancia de exención escaneada.'
+        )
+        notificar_oficina_titulacion(
+            expediente,
+            'Constancia de exención escaneada subida',
+            f'{expediente.alumno.get_full_name()} cargó su constancia de exención escaneada para revisión final.',
+            tipo='AVANCE',
+            url=reverse('oficina_titulacion:expediente_detalle', kwargs={'pk': expediente.pk}),
+        )
+        messages.success(request, '¡Constancia de exención subida correctamente! En espera de validación final por Oficina de Titulación.')
+        return redirect('alumnos:expediente')

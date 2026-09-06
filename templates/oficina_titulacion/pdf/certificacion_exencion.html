@@ -1,22 +1,190 @@
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><title>Certificación de exención</title></head>
+<head>
+    <meta charset="utf-8">
+    <title>Certificación de exención</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 1cm 1.5cm 1cm 1.5cm;
+        }
+        body { 
+            font-family: Arial, sans-serif; 
+            font-size: 8.5pt; 
+            text-align: justify; 
+            line-height: 1.1; 
+            margin: 0; 
+            padding: 0; 
+        }
+        .header { 
+            text-align: center; 
+            margin-bottom: 20px; 
+        }
+        .header h3 { 
+            font-size: 9.5pt; 
+            margin: 0; 
+            padding: 0; 
+            font-weight: bold;
+        }
+        .header h4 { 
+            font-size: 9.5pt; 
+            margin: 0; 
+            padding: 0; 
+            font-weight: bold;
+        }
+        p { 
+            margin-top: 0;
+            margin-bottom: 6px; 
+        }
+        .table-jurado { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 5px; 
+            margin-bottom: 5px; 
+        }
+        .table-jurado th, .table-jurado td { 
+            text-align: left; 
+            vertical-align: top; 
+            padding: 1px 0 1px 0; 
+            border-bottom: 1px solid black; 
+        }
+        .table-jurado tr:first-child td { 
+            border-top: 1px solid black; 
+        }
+        .col-left { 
+            width: 20%; 
+            font-weight: bold; 
+        }
+        .col-right { 
+            width: 80%; 
+        }
+        .foto-placeholder {
+            width: 90px;
+            height: 130px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
 <body>
-<h2 style="text-align:center;">{{ config.nombre_institucion }}</h2>
-<h3 style="text-align:center;">CERTIFICACIÓN DE CONSTANCIA DE EXENCIÓN DE EXAMEN PROFESIONAL</h3>
-<p>El suscrito Director del {{ config.nombre_institucion }}, hace constar que el(la) C.
-<strong>{{ alumno.get_full_name }}</strong>, número de control <strong>{{ alumno.numero_control }}</strong>,
-cursó y aprobó la carrera de <strong>{{ alumno.carrera }}</strong>, mediante la opción
-<strong>{{ expediente.modalidad }}</strong>.</p>
-{% if jurado %}
-<table border="1" cellpadding="6" style="width:100%; margin-top:20px;">
-<tr><th>Cargo</th><th>Nombre</th></tr>
-<tr><td>Presidente</td><td>{{ jurado.presidente.get_nombre_con_titulo }}</td></tr>
-<tr><td>Secretario</td><td>{{ jurado.secretario.get_nombre_con_titulo }}</td></tr>
-{% if jurado.vocal_propietario %}<tr><td>Vocal</td><td>{{ jurado.vocal_propietario.get_nombre_con_titulo }}</td></tr>{% endif %}
-</table>
-{% endif %}
-<p style="text-align:right;">Apizaco, Tlax., a {% now "j \d\e F \d\e Y" %}</p>
-<p><strong>{{ config.jefe_escolares_nombre }}</strong><br>{{ config.jefe_escolares_cargo }}</p>
+
+    {% if encabezado_path %}
+    <div style="text-align: center; margin-bottom: 10px;">
+        <img src="{{ encabezado_path }}" style="width: 100%; max-height: 70px;">
+    </div>
+    {% endif %}
+
+    <div class="header" style="text-align: center; width: 100%; margin: 0 auto;" align="center">
+        <h4>INSTITUTO TECNOLÓGICO DE APIZACO</h4>
+        <br>
+        <h3>CERTIFICACIÓN DE CONSTANCIA DE EXENCIÓN DE EXAMEN PROFESIONAL</h3>
+    </div>
+
+    <br>
+
+    <!-- TABLA MAESTRA PARA SEPARAR EL ÓVALO DEL TEXTO -->
+    <table style="width: 100%; border: none;">
+        <tr>
+            <!-- Columna izquierda: SOLO EL ÓVALO -->
+            <td style="width: 110px; vertical-align: top; border: none; padding: 0;">
+                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFoAAACMCAYAAAD8z74wAAADAElEQVR4nO2dAW6EMAwE8an//3IqVaqKTlcIib1xkpkHcPF0u+FoASulHBDP15EcM6tKQinFjsRYtkRbpdjZxKcQbRdya4V5HGNZ0fZBjpeUyGNPI9qEErIIl4u20+DqgUd+9muXQd8/02vTTZVoGyw4w5peO0oeke7XjpJHyA6rjt+FZxQ8Yr0hiZ5N8nmtUcl2Fz2jZIVsV9EzS46W7SZ6BcmRsl1Eq0/+lXjN5lodK6Q5apZu0StVRmSFdIleWbK37GbRK/dyxMzd1bFymj1nbBK9Q2V4V4j0evTOPBa9Y5o9Uv1I9I4boJeLpurYMc29s1eL3rkyPCqEzVBElWi6ud/No0RTG+0uqA4Rt6LZBH02RRIt4lI0afZLNYkWgejRoqkN3/og0SIQPVI0teFfHyRaBKJHiaY2YuqDRItAtAhEjxBNP8f1NIkWgWgRiBaBaLVoNsLYDZFEi0C0CESLQLQIRItAtAhEK0VzDh1/Lk2iRSBaBKJFIFoEokUgWgSiRSBaBKJFIFoEokUgWgSiRSBaBKJFIFoEokUgWgSilaKjn2+/I+9/hyXRIhAtAtEiEC0C0SIQLQLRatGcS/vx6X8ZSbQIRItAtAhEjxDNhtjPf//UT6JFIFoEokeJpqfbubrpikSLQPRI0dTHc+7u1STRIhA9WjT1UU/NLd4kWgSiM4imPu6pfTIEiRZxK5pU/8+T55yQaBG83DfTy315YWS/G6pDRLVoNsU/Wh721ZTone8MsMbZeblv1pf77lwh1vESejZDEU2id0y1daTZJdE7yDaHGZtF7/glpnTM3JXoHSrEOivDrTpWlm1Okt3POlaSbc6zuIheua+L02xuiV6pQsyxMkKqYwXZFiA55JvhzLItSHLYV/AZZVug5J/jlxLn4iy6JN0wVWsMvah0XrglTLcyCOFX77LKNvFvW2h1ZKwSG7QG6fXoMjjdI3/Q0kRfSQ7b7YWflU60QkIWwSlE19RIrRyPYywv+oxXd2eQm1p0q/hsYqcTfSzCN/lqGPlElHoKAAAAAElFTkSuQmCC" 
+                     class="foto-placeholder">
+            </td>
+            
+            <!-- Columna derecha: TODO EL TEXTO -->
+            <td style="vertical-align: top; border: none; padding-left: 15px;">
+                
+                <p>
+                    La suscrita Directora del Instituto Tecnológico de <u><strong>Apizaco</strong></u> certifica que en el Libro para 
+                    Constancias de Exención de Examen Profesional No. <u><strong>4</strong></u> autorizado el dia <u><strong>10</strong></u> del mes de 
+                    <u><strong>Febrero</strong></u> del año <u><strong>2025</strong></u> por la Dirección de Asuntos Escolares y Apoyo a Estudiantes de la 
+                    Dirección General del Tecnológico Nacional de México, se encuentra asentada en la foja número 
+                    <u><strong>107</strong></u> la Constancia que a la letra dice:
+                </p>
+
+                <p>
+                    De acuerdo con el instructivo vigente de Titulación, que no tiene como requisito la sustentación del 
+                    Examen Profesional para efecto de obtención de Título, en las opciones <u><strong>VIII,IX</strong></u> y Titulación Integral, 
+                    el jurado <strong>HACE CONSTAR:</strong> que el(la) <u><strong>C. {{ alumno.get_full_name|title }}</strong></u> 
+                    Número de control <u><strong>{{ alumno.numero_control|default:alumno.username }}</strong></u> egresado(a) del 
+                    Instituto Tecnológico de <u><strong>Apizaco</strong></u> con Clave <u><strong>{{ alumno.carrera.clave|default:"29DIT0037U" }}</strong></u> 
+                    que cursó la carrera de <u><strong>{{ alumno.carrera.nombre|title }}</strong></u> cumplió satisfactoriamente con lo estipulado en la opción: <u><strong>{{ expediente.modalidad.nombre|default:"Titulación Integral, Examen Global por Áreas de Conocimiento" }}</strong></u>. 
+                    El (la) Presidente (a) del Jurado le hizo saber a él (la) sustentante el Código de Ética Profesional y le tomó 
+                    la Protesta de Ley y una vez escrita y leída la firmaron las personas que en el acto protocolario 
+                    intervinieron, para los efectos legales a que haya lugar, se asienta la presente en la ciudad de 
+                    <u><strong>Apizaco, Tlaxcala</strong></u>, a los <u><strong>{% now "j" %}</strong></u> días del mes de <u><strong>{% now "F" %}</strong></u> del año <u><strong>{% now "Y" %}.</strong></u>
+                </p>
+
+                <p style="margin-top: 15px;">Rubrican</p>
+
+                {% if jurado %}
+                <table class="table-jurado">
+                    <tr>
+                        <td class="col-left">Presidente:</td>
+                        <td class="col-right">{{ jurado.presidente.titulo_academico|default:"Maestro en Ciencias de la Educación" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="col-left"></td>
+                        <td class="col-right"><u><strong>{{ jurado.presidente.get_full_name|title }}</strong></u></td>
+                    </tr>
+                    <tr>
+                        <td class="col-left"></td>
+                        <td class="col-right"><u><strong>{{ jurado.presidente.cedula|default:"10308998" }}</strong></u></td>
+                    </tr>
+
+                    <tr>
+                        <td class="col-left">Secretario:</td>
+                        <td class="col-right">{{ jurado.secretario.titulo_academico|default:"Ingeniero Civil en Desarrollo de la Comunidad" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="col-left"></td>
+                        <td class="col-right"><u><strong>{{ jurado.secretario.get_full_name|title }}</strong></u></td>
+                    </tr>
+                    <tr>
+                        <td class="col-left"></td>
+                        <td class="col-right"><u><strong>{{ jurado.secretario.cedula|default:"1337180" }}</strong></u></td>
+                    </tr>
+
+                    {% if jurado.vocal_propietario %}
+                    <tr>
+                        <td class="col-left">Vocal:</td>
+                        <td class="col-right">{{ jurado.vocal_propietario.titulo_academico|default:"Ingeniero Civil en Desarrollo de la Comunidad" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="col-left"></td>
+                        <td class="col-right"><u><strong>{{ jurado.vocal_propietario.get_full_name|title }}</strong></u></td>
+                    </tr>
+                    <tr>
+                        <td class="col-left"></td>
+                        <td class="col-right"><u><strong>{{ jurado.vocal_propietario.cedula|default:"1416858" }}</strong></u></td>
+                    </tr>
+                    {% endif %}
+                </table>
+                {% else %}
+                <p><em>(Sin jurado asignado)</em></p>
+                {% endif %}
+
+                <p style="margin-top: 15px;">
+                    Se extiende esta certificación a los <u><strong>{% now "j" %}</strong></u> días del mes de <u><strong>{% now "F" %}</strong></u> de <u><strong>{% now "Y" %}.</strong></u>
+                </p>
+
+                <div style="margin-top: 10px; text-align: left;">
+                    <p>Cotejó</p>
+                    
+                    <div style="margin-top: 15px;">
+                        {{ config.jefe_escolares_nombre|default:"Martin Rojas Ramirez" }}<br>
+                        Jefe del Departamento de<br>
+                        Servicios Escolares
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin-top: 5px;">
+                    <strong>Directora</strong><br><br><br>
+                    <strong>Dra. Yesica Imelda Saavedra Benitez</strong>
+                </div>
+
+            </td>
+        </tr>
+    </table>
+
 </body>
 </html>

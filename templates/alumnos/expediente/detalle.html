@@ -73,6 +73,31 @@
             {% include 'alumnos/expediente/_cita_acciones.html' with cita=cita_oficio titulo_cita='Oficio de publicación' %}
             {% endif %}
         </div>
+        
+        <!-- Certificación de Exención -->
+        {% if expediente.certificacion_final_pdf or expediente.certificacion_final_escaneada %}
+        <div class="content-card p-3 mb-3">
+            <div class="card-header-custom mb-2"><i class="bi bi-award"></i> Certificado de Exención</div>
+            
+            {% if expediente.certificacion_final_escaneada %}
+                <div class="alert alert-success py-2 small mb-3">
+                    <i class="bi bi-check-circle me-1"></i>
+                    Tu certificado de exención final ya ha sido firmado y está disponible para descarga.
+                </div>
+                <a href="{{ expediente.certificacion_final_escaneada.url }}" target="_blank" class="btn btn-primary btn-sm w-100">
+                    <i class="bi bi-file-earmark-pdf"></i> Descargar Certificado Firmado
+                </a>
+            {% elif expediente.certificacion_final_pdf %}
+                <div class="alert alert-info py-2 small mb-3">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Oficina de Titulación ha generado tu certificado de exención para revisión. Próximamente se subirá la versión firmada.
+                </div>
+                <a href="{{ expediente.certificacion_final_pdf.url }}" target="_blank" class="btn btn-outline-primary btn-sm w-100">
+                    <i class="bi bi-file-earmark-pdf"></i> Ver Certificado (Lectura)
+                </a>
+            {% endif %}
+        </div>
+        {% endif %}
 
         <!-- Acciones -->
         {% if expediente.estado in 'CARGA_DOCUMENTOS,EN_CORRECCION' %}
@@ -305,7 +330,7 @@
         </div>
         {% endif %}
 
-        {% if expediente.constancia_no_adeudos or expediente.constancia_no_inconveniencia %}
+        {% if expediente.constancia_no_adeudos or expediente.constancia_no_inconveniencia or expediente.jurado.oficio_pdf %}
         <div class="content-card p-3 mt-3">
             <div class="card-header-custom mb-2"><i class="bi bi-file-earmark-pdf"></i> Documentos oficiales</div>
             {% if expediente.constancia_no_adeudos %}
@@ -314,8 +339,16 @@
             </a>
             {% endif %}
             {% if expediente.constancia_no_inconveniencia %}
-            <a href="{{ expediente.constancia_no_inconveniencia.url }}" target="_blank" class="btn btn-outline-primary btn-sm w-100">
+            <a href="{{ expediente.constancia_no_inconveniencia.url }}" target="_blank" class="btn btn-outline-primary btn-sm w-100 mb-2">
                 <i class="bi bi-download me-1"></i>Constancia de no Inconveniencia para el Acto de Recepción Profesional
+            </a>
+            {% endif %}
+            {% if expediente.jurado.oficio_pdf %}
+            <a href="{% url 'alumnos:descargar_oficio_jurado' %}" target="_blank" class="btn btn-outline-danger btn-sm w-100 mb-2">
+                <i class="bi bi-file-earmark-pdf me-1"></i>Descargar Oficio de Jurado
+            </a>
+            <a href="{% url 'alumnos:descargar_documentos_protocolo' %}" target="_blank" class="btn btn-outline-secondary btn-sm w-100">
+                <i class="bi bi-file-earmark-pdf me-1"></i>Documentos Protocolo
             </a>
             {% endif %}
         </div>
@@ -400,6 +433,35 @@
             </div>
             {% endfor %}
         </div>
+
+        <!-- Carga de Constancia Escaneada -->
+        {% if expediente.estado == 'ACTO_REALIZADO' %}
+        <div class="content-card mt-3">
+            <div class="card-header-custom">
+                <i class="bi bi-cloud-arrow-up"></i> Carga de Certificado Escaneado
+            </div>
+            <div class="p-3">
+                {% if expediente.acta_exencion_pdf %}
+                    <div class="alert alert-success small mb-0">
+                        <i class="bi bi-check-circle me-1"></i> Tu constancia ha sido subida correctamente. Espera la revisión final de la Oficina de Titulación para concluir tu proceso.
+                    </div>
+                {% else %}
+                    <div class="alert alert-info small mb-3">
+                        <i class="bi bi-info-circle me-1"></i> Sube aquí el archivo PDF de tu certificado escaneado para poder concluir tu proceso.
+                    </div>
+                    <form method="post" action="{% url 'alumnos:subir_acta_exencion' %}" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="input-group mb-2">
+                            <input type="file" class="form-control" id="acta_exencion_pdf" name="acta_exencion_pdf" accept=".pdf" required>
+                            <button class="btn btn-primary" type="submit">
+                                <i class="bi bi-upload"></i> Subir
+                            </button>
+                        </div>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Historial reciente -->
         {% if historial %}

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page {
+    size: letter;
+    margin: 2cm 2cm 2cm 2cm;
+    @frame header_frame {           /* Cabecera general */
+      -pdf-frame-content: header_content;
+      left: 50pt; width: 512pt; top: 30pt; height: 80pt;
+    }
+  }
+  @font-face {
+    font-family: 'Noto Sans';
+    src: url('{{ STATIC_ROOT }}/fonts/NotoSans-Regular.ttf');
+  }
+  body {
+    font-family: 'Noto Sans', sans-serif;
+    font-size: 11pt;
+    color: #000;
+    line-height: 1.5;
+    text-align: justify;
+  }
+  .center {
+    text-align: center;
+  }
+  .bold {
+    font-weight: bold;
+  }
+  .title-main {
+    font-size: 13pt;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 20px;
+    margin-top: 20px;
+  }
+  .subtitle {
+    font-size: 12pt;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .header-sep-text {
+    font-size: 11pt;
+    font-weight: bold;
+    text-align: center;
+    word-spacing: 3cm;
+  }
+  .logos-header {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+  .logos-header td {
+    vertical-align: middle;
+  }
+  .logos-header img {
+    height: 50px;
+  }
+  .table-jurado {
+    margin-left: 2cm;
+    margin-top: 10px;
+    margin-bottom: 10px;
+  }
+  .table-jurado td {
+    padding: 2px 5px;
+  }
+  .firma-section {
+    margin-top: 2cm;
+  }
+  .firma-line {
+    border-top: 1px solid #000;
+    width: 60%;
+    margin: 0 auto;
+    margin-top: 40px;
+  }
+  ol {
+    padding-left: 1.5cm;
+  }
+  ol li {
+    margin-bottom: 10px;
+    text-align: justify;
+  }
+</style>
+</head>
+<body>
+
+<!-- PÁGINA 1: GUÍA DE EXENCIÓN -->
+<div class="header-sep-text" style="margin-top: 1cm; margin-bottom: 1cm;">SEP ITA TNM</div>
+
+<div class="title-main">INSTITUTO TECNOLÓGICO DE APIZACO</div>
+<div class="subtitle">EXENCIÓN DE EXAMEN PROFESIONAL</div>
+
+<div style="margin-top: 1cm;">
+  <p>1. El (La) Presidente (a) del Jurado solicita a todas las personas ponerse de pie.</p>
+  
+  <p style="text-indent: 1cm;">a).- Con la autoridad que nos concede el Artículo Cuadragésimo del Reglamento General de los Institutos Tecnológicos, celebraremos el Acto Protocolario que presentará él (la)</p>
+  
+  <p class="center bold" style="margin: 15px 0;">C. {{ alumno.get_full_name|upper }}</p>
+  
+  <p>Pasante de la carrera de: <strong>{{ alumno.carrera.nombre|upper }}</strong>.</p>
+  
+  <p>Mediante la opción: <strong>.- {{ modalidad.nombre }}</strong>.</p>
+  
+  <p style="text-indent: 1cm;">b).- El jurado estará integrado de la siguiente manera:</p>
+  
+  <table class="table-jurado">
+    {% if jurado.vocal_suplente %}
+    <tr>
+      <td class="bold">Vocal Suplente:</td>
+      <td>{{ jurado.vocal_suplente.get_nombre_con_titulo }}</td>
+    </tr>
+    {% endif %}
+    {% if jurado.vocal_propietario %}
+    <tr>
+      <td class="bold">Vocal Propietario:</td>
+      <td>{{ jurado.vocal_propietario.get_nombre_con_titulo }}</td>
+    </tr>
+    {% endif %}
+    <tr>
+      <td class="bold">Secretario:</td>
+      <td>{{ jurado.secretario.get_nombre_con_titulo }}</td>
+    </tr>
+    <tr>
+      <td class="bold">Presidente:</td>
+      <td>{{ jurado.presidente.get_nombre_con_titulo }}</td>
+    </tr>
+  </table>
+  
+  <p style="text-indent: 1cm;">c).- El (La) Presidente(a) procede a realizar el acto protocolario.</p>
+  
+  <p>2. El (La) Presidente(a) indica a él (la) Vocal Propietario que dé lectura al Código de Ética de los Institutos Tecnológicos. El (La) Presidente(a) le tomará a él (la) pasante la protesta mediante la lectura del Juramento de Ética Profesional, una vez leído el juramento deberá firmarlo en presencia del jurado. El (La) Presidente(a) le entregará el original de dicho documento, exhortándolo (a) a cumplir íntegramente.</p>
+  
+  <p>3. Después de tomada la protesta, el (la) Secretario(a) procederá a leer el Acta de Exención Profesional, dándose por terminado el Acto Recepcional.</p>
+</div>
+
+<pdf:nextpage />
+
+<!-- PÁGINA 2: JURAMENTO DE ÉTICA -->
+<div id="header_content">
+  <table class="logos-header">
+    <tr>
+      <td style="width:50%; text-align:left;">
+        <img src="{{ STATIC_ROOT }}/img/logo_sep.png" alt="SEP">
+      </td>
+      <td style="width:50%; text-align:right;">
+        <img src="{{ STATIC_ROOT }}/img/logo_tecnm.png" alt="TECNM">
+      </td>
+    </tr>
+  </table>
+</div>
+
+<div class="title-main">INSTITUTO TECNOLÓGICO DE APIZACO</div>
+<div class="subtitle">JURAMENTO DE ÉTICA PROFESIONAL</div>
+
+<div style="margin-left: 2cm; margin-right: 2cm; margin-top: 1.5cm; font-size: 12pt; line-height: 1.6;">
+  <p>Como profesionista<br>
+  dedico mis conocimientos profesionales al<br>
+  mejoramiento del bienestar humano.</p>
+  
+  <p style="margin-top: 15px;">Me comprometo a dar un rendimiento máximo,<br>
+  a participar tan solo en empresas dignas,<br>
+  a vivir y trabajar de acuerdo con las<br>
+  leyes propias del hombre y el más<br>
+  elevado nivel de conducta profesional.</p>
+  
+  <p style="margin-top: 15px;">A preferir el servicio al provecho,<br>
+  el honor y la calidad de la profesión<br>
+  a la ventaja personal,<br>
+  el bien público a toda consideración.</p>
+  
+  <p style="margin-top: 15px;">Con respeto y honradez<br>
+  hago el presente juramento.</p>
+</div>
+
+<div class="firma-section center" style="margin-top: 3cm; font-size: 12pt;">
+  <div class="bold" style="margin-bottom: 20px;">C. {{ alumno.get_full_name }}</div>
+  <div>Apizaco, Tlax., a {{ fecha_acto|date:"d" }} de {{ fecha_acto|date:"F" }} de {{ fecha_acto|date:"Y" }}.</div>
+</div>
+
+
+<pdf:nextpage />
+
+<!-- PÁGINA 3: CÓDIGO DE ÉTICA (PARTE 1) -->
+<div class="title-main">INSTITUTO TECNOLÓGICO DE APIZACO</div>
+<div class="subtitle">CÓDIGO DE ÉTICA PROFESIONAL</div>
+
+<div style="margin-top: 1cm; font-size: 10.5pt;">
+  <p>El Instituto confía en que las reglas siguientes guiarán los actos de sus profesionistas egresados:</p>
+  
+  <ol type="I">
+    <li>Las normas más elevadas de integridad y limpia conducta deberán guiarlos en todas sus acciones.</li>
+    <li>Mantener en todo momento ante el público, la dignidad de la profesión en particular y la reputación del Instituto en general.</li>
+    <li>Deberán evitar y desalentar declaraciones sensacionalistas, exageradas y sin garantía.</li>
+    <li>La primera publicación sobre inventos, descubrimientos o mejoras, deberá hacerse en publicaciones técnicas o a través de sociedades científicas.</li>
+    <li>Rehusara comprometerse, cualquiera que sea la remuneración en trabajos que crea no serán beneficiosos para sus clientes, a no ser que adviertan primero a éstos sobre la improbabilidad de éxito de los resultados.</li>
+    <li>Mantendrán el principio de que los honorarios irrazonablemente bajos por labores profesionales, propenden a un trabajo inferior y sin garantía.</li>
+    <li>Rechazarán la prestación de sus nombres a empresas en entredicho.</li>
+    <li>Serán conservadores en todos sus presupuestos, informes, testimonios, etc., particularmente en los que se relacionen con la promoción o impulsión de empresas comerciales.</li>
+    <li>No aceptarán ningún cargo contrario a la ley o al bienestar público.</li>
+  </ol>
+</div>
+
+<pdf:nextpage />
+
+<!-- PÁGINA 4: CÓDIGO DE ÉTICA (PARTE 2) -->
+<div style="margin-top: 1cm; font-size: 10.5pt;">
+  <ol type="I" start="10">
+    <li>Cuando un profesionista emprenda trabajos para otros, en relación con los cuales haya hecho mejoras, inventos, planos, diseños y otros registros, será preferible que consiga un acuerdo a que los considere de su propiedad.</li>
+    <li>Cuando sea consultado para decidir sobre el uso de invenciones, aparatos, procedimientos, etc., en los que tenga algún interés financiero, deberá establecer claramente su situación en la materia antes de comprometerse.</li>
+    <li>Un profesionista no puede ni debe aceptar remuneraciones, compensaciones financieras, ni nada semejante más que de una sola de las partes interesadas, a no ser que tenga el consentimiento de todas las demás, y no aceptará compensación directa o indirecta por cualquiera de las partes, ni por consulta, diseño, instalación ni operación de equipo que trate con su cliente o empresario, sin el consentimiento o conocimiento de éste.</li>
+    <li>El profesionista deberá esforzarse en todo momento por acreditar trabajos a quienes, tan lejos como su conocimiento alcance, sean los autores reales de ellos.</li>
+    <li>No se tolerarán anuncios indignos, sensacionalistas ni engaños. Ni se admitirá el uso de nombres o fotografías de los miembros del Instituto como ayuda de tales anuncios, ni la utilización del nombre de este Instituto en relación con ellos.</li>
+  </ol>
+</div>
+
+<div class="firma-section" style="margin-top: 2cm; margin-left: 1cm; font-size: 11pt;">
+  <div>Apizaco, Tlax., a {{ fecha_acto|date:"d" }} de {{ fecha_acto|date:"F" }} de {{ fecha_acto|date:"Y" }}.</div>
+</div>
+
+</body>
+</html>

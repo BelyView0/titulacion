@@ -19,5 +19,8 @@ urlpatterns = [
     path('documentos/<int:pk>/cargar/', views.DocumentoCargarView.as_view(), name='documento_cargar'),
     path('notificaciones/', views.NotificacionListView.as_view(), name='notificaciones'),
     path('confirmar-asistencia/', views.ConfirmarAsistenciaAlumnoView.as_view(), name='confirmar_asistencia'),
+    path('expediente/oficio-jurado/', views.DescargarOficioJuradoAlumnoView.as_view(), name='descargar_oficio_jurado'),
+    path('expediente/documentos-protocolo/', views.DescargarDocumentosProtocoloAlumnoView.as_view(), name='descargar_documentos_protocolo'),
+    path('expediente/subir-acta-exencion/', views.SubirActaExencionView.as_view(), name='subir_acta_exencion'),
 ]
 

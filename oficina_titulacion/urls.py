@@ -16,8 +16,13 @@ urlpatterns = [
     path('expedientes/<int:pk>/generar-oficio/', views.GenerarOficioPublicacionView.as_view(), name='generar_oficio'),
     path('expedientes/<int:pk>/programar-cita-oficio/', views.ProgramarCitaOficioView.as_view(), name='programar_cita_oficio'),
     path('expedientes/<int:pk>/no-inconveniencia/', views.GenerarNoInconvenienciaView.as_view(), name='generar_no_inconveniencia'),
+    path('expedientes/<int:pk>/registrar-empastado/', views.RegistrarRecepcionEmpastadoView.as_view(), name='registrar_empastado'),
+    path('expedientes/<int:pk>/oficio-jurado/', views.DescargarOficioJuradoOficinaView.as_view(), name='descargar_oficio_jurado'),
+    path('expedientes/<int:pk>/documentos-protocolo/', views.DescargarDocumentosProtocoloOficinaView.as_view(), name='descargar_documentos_protocolo'),
+    path('expedientes/<int:pk>/validar-constancia/', views.ValidarConstanciaYConcluirView.as_view(), name='validar_constancia'),
     path('expedientes/<int:pk>/regenerar-no-adeudos/', views.RegenerarNoAdeudosView.as_view(), name='regenerar_no_adeudos'),
     path('expedientes/<int:pk>/generar-certificacion/', views.GenerarCertificacionView.as_view(), name='generar_certificacion'),
+    path('expedientes/<int:pk>/subir-certificado/', views.SubirCertificacionFirmadaView.as_view(), name='subir_certificado_firmado'),
 
     path('citacion-masiva/', views.CitacionMasivaView.as_view(), name='citacion_masiva'),
     path('citas/', views.CitasPendientesView.as_view(), name='citas_pendientes'),

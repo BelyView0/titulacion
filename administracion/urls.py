@@ -82,7 +82,6 @@ urlpatterns = [
     path('jefe/expedientes/<int:pk>/', views.ExpedienteDetalleJefeView.as_view(), name='jefe_detalle'),
     path('jefe/expedientes/<int:pk>/jurado/', views.AsignacionJuradoJefeView.as_view(), name='jefe_jurado'),
     path('jefe/expedientes/<int:pk>/oficio/', views.DescargarOficioJuradoJefeView.as_view(), name='jefe_oficio'),
-    path('jefe/expedientes/<int:pk>/programar/', views.ActoProtocolarioView.as_view(), name='jefe_programar'),
     path('jefe/acto/<int:pk>/reprogramar/', views.ReprogramarActoView.as_view(), name='jefe_reprogramar'),
     path('jefe/calendario/', views.CalendarioJefeView.as_view(), name='jefe_calendario'),
     path('jefe/estadisticas/', views.EstadisticasJefeView.as_view(), name='jefe_estadisticas'),
