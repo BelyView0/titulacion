@@ -11,6 +11,8 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 
+from expediente.constants import DEFAULT_FORMATOS, DEFAULT_TAMANO_MAX_MB
+
 
 # ─────────────────────────────────────────────────────────────
 # CATÁLOGOS ADMINISTRABLES
@@ -68,11 +70,21 @@ class TipoDocumento(models.Model):
     )
     es_obligatorio = models.BooleanField(default=True, verbose_name='¿Es obligatorio?')
     orden = models.PositiveIntegerField(default=0, verbose_name='Orden de presentación')
-    # ¿Qué departamentos deben validarlo?
-    valida_division = models.BooleanField(default=True, verbose_name='Valida División de Estudios')
-    valida_escolares = models.BooleanField(default=True, verbose_name='Valida Servicios Escolares')
-    acepta_solo_pdf = models.BooleanField(default=True, verbose_name='Solo acepta PDF')
-    es_fotografia = models.BooleanField(default=False, verbose_name='¿Es fotografía?')
+    formatos_admitidos = models.JSONField(
+        default=list,
+        verbose_name='Formatos admitidos',
+        help_text='Lista de formatos: pdf, jpg, png, webp'
+    )
+    tamano_max_mb = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        default=DEFAULT_TAMANO_MAX_MB,
+        verbose_name='Tamaño máximo (MB)'
+    )
+    # Campos legados (se eliminan en migración)
+    valida_division = models.BooleanField(default=True, verbose_name='Valida División (legado)')
+    valida_escolares = models.BooleanField(default=True, verbose_name='Valida Escolares (legado)')
+    acepta_solo_pdf = models.BooleanField(default=True, verbose_name='Solo PDF (legado)')
+    es_fotografia = models.BooleanField(default=False, verbose_name='Es fotografía (legado)')
 
     class Meta:
         verbose_name = 'Tipo de Documento Requerido'
@@ -82,51 +94,190 @@ class TipoDocumento(models.Model):
     def __str__(self):
         return f'{self.nombre} ({self.modalidad.nombre})'
 
+    def save(self, *args, **kwargs):
+        if not self.formatos_admitidos:
+            if self.es_fotografia:
+                self.formatos_admitidos = ['jpg', 'png']
+            elif self.acepta_solo_pdf:
+                self.formatos_admitidos = ['pdf']
+            else:
+                self.formatos_admitidos = list(DEFAULT_FORMATOS)
+        super().save(*args, **kwargs)
+
+    def get_formatos_display(self):
+        return ', '.join(f.upper() for f in (self.formatos_admitidos or DEFAULT_FORMATOS))
+
+    def admite_extension(self, filename):
+        from expediente.constants import FORMATO_EXTENSION_MAP
+        ext = ('.' + filename.rsplit('.', 1)[-1].lower()) if '.' in filename else ''
+        for fmt in (self.formatos_admitidos or DEFAULT_FORMATOS):
+            if ext in FORMATO_EXTENSION_MAP.get(fmt, []):
+                return True
+        return False
+
+    @property
+    def es_documento_imagen(self):
+        formatos = self.formatos_admitidos or []
+        return bool(formatos) and all(f in ('jpg', 'png', 'webp') for f in formatos)
+
+    @property
+    def requiere_validacion_oficina(self):
+        """SIGET: unifica valida_division y valida_escolares en Oficina de Titulación."""
+        return self.valida_division or self.valida_escolares
+
 
 # ─────────────────────────────────────────────────────────────
 # ESTADOS DEL PROCESO
 # ─────────────────────────────────────────────────────────────
 
 class EstadoExpediente(models.TextChoices):
-    BORRADOR = 'BORRADOR', 'Borrador'
-    EN_REVISION_ACADEMICO = 'EN_REVISION_ACADEMICO', 'En Revisión — División de Estudios'
-    RECHAZADO_ACADEMICO = 'RECHAZADO_ACADEMICO', 'Rechazado por División de Estudios'
-    EN_CORRECCION = 'EN_CORRECCION', 'En Corrección por el Alumno'
-    DOCUMENTOS_PENDIENTES = 'DOCUMENTOS_PENDIENTES', 'Carga de Documentos Pendiente'
-    EN_REVISION_DOCUMENTOS = 'EN_REVISION_DOCUMENTOS', 'Documentos en Revisión'
-    LISTO_INTEGRACION = 'LISTO_INTEGRACION', 'Listo para Integración (Escolares)'
-    RECIBI_PAPEL_ORIGINAL = 'RECIBI_PAPEL_ORIGINAL', 'Papeles originales integrados'
-    PAGO_PENDIENTE = 'PAGO_PENDIENTE', 'Pago de Titulación Pendiente'
-    PAGO_EN_REVISION = 'PAGO_EN_REVISION', 'Pago en Revisión'
-    ESPERANDO_CONSTANCIA = 'ESPERANDO_CONSTANCIA', 'Esperando Constancia de No Inconveniencia'
-    CONSTANCIA_EN_REVISION = 'CONSTANCIA_EN_REVISION', 'Constancia en Revisión Académica'
-    INTEGRADO = 'INTEGRADO', 'Expediente Integrado'
-    EMPASTADO_PENDIENTE = 'EMPASTADO_PENDIENTE', 'Pendiente de Recepción de Empastado'
-    EMPASTADO_RECIBIDO = 'EMPASTADO_RECIBIDO', 'Empastado Recibido'
-    JURADO_ASIGNADO = 'JURADO_ASIGNADO', 'Jurado Asignado'
-    ACTO_PROGRAMADO = 'ACTO_PROGRAMADO', 'Acto Protocolario Programado'
-    ACTA_EXENCION = 'ACTA_EXENCION', 'Acta de Exención de Examen Profesional'
-    TRAMITE_DGP = 'TRAMITE_DGP', 'Captura en plataforma (e-títulos) de TNM'
-    CEDULA_EN_REVISION = 'CEDULA_EN_REVISION', 'Revisión de Cédula Profesional'
-    CEDULA_RECHAZADA = 'CEDULA_RECHAZADA', 'Cédula Profesional Rechazada'
-    CITA_ENTREGA = 'CITA_ENTREGA', 'Cita de Entrega Programada'
-    CONCLUIDO = 'CONCLUIDO', 'Proceso Concluido'
+    # SIGET — flujo principal
+    DATOS_EXPEDIENTE = 'DATOS_EXPEDIENTE', 'Datos del expediente'
+    CERTIFICADO_PENDIENTE_CITA = 'CERTIFICADO_PENDIENTE_CITA', 'Certificado — pendiente de cita'
+    CERTIFICADO_CITA_PROGRAMADA = 'CERTIFICADO_CITA_PROGRAMADA', 'Certificado — cita programada'
+    CERTIFICADO_FIRMADO = 'CERTIFICADO_FIRMADO', 'Certificado firmado'
+    CARGA_DOCUMENTOS = 'CARGA_DOCUMENTOS', 'Carga de documentos'
+    EN_REVISION = 'EN_REVISION', 'En revisión — Oficina de Titulación'
+    EN_CORRECCION = 'EN_CORRECCION', 'En corrección por el alumno'
+    EXPEDIENTE_APROBADO = 'EXPEDIENTE_APROBADO', 'Expediente aprobado'
+    OFICIO_GENERADO = 'OFICIO_GENERADO', 'Oficio de publicación generado'
+    OFICIO_CITA_PROGRAMADA = 'OFICIO_CITA_PROGRAMADA', 'Oficio — cita programada'
+    OFICIO_FIRMADO = 'OFICIO_FIRMADO', 'Oficio firmado y cargado'
+    PAGO_PENDIENTE = 'PAGO_PENDIENTE', 'Pago pendiente'
+    PAGO_VALIDADO = 'PAGO_VALIDADO', 'Pago validado'
+    ADEUDOS_EN_REVISION = 'ADEUDOS_EN_REVISION', 'Confirmación de no adeudos'
+    DOCUMENTOS_OFICIALES_LISTOS = 'DOCUMENTOS_OFICIALES_LISTOS', 'Documentos oficiales listos'
+    JURADO_ASIGNADO = 'JURADO_ASIGNADO', 'Jurado asignado'
+    PROTOCOLO_PROGRAMADO = 'PROTOCOLO_PROGRAMADO', 'Protocolo programado'
+    ACTO_REALIZADO = 'ACTO_REALIZADO', 'Acto protocolario realizado'
+    CONCLUIDO = 'CONCLUIDO', 'Proceso concluido'
     CANCELADO = 'CANCELADO', 'Cancelado'
+    # Estados legados (migración)
+    BORRADOR = 'BORRADOR', 'Borrador (legado)'
+    EN_REVISION_ACADEMICO = 'EN_REVISION_ACADEMICO', 'Revisión académica (legado)'
+    RECHAZADO_ACADEMICO = 'RECHAZADO_ACADEMICO', 'Rechazado académico (legado)'
+    DOCUMENTOS_PENDIENTES = 'DOCUMENTOS_PENDIENTES', 'Documentos pendientes (legado)'
+    EN_REVISION_DOCUMENTOS = 'EN_REVISION_DOCUMENTOS', 'Revisión documentos (legado)'
+    LISTO_INTEGRACION = 'LISTO_INTEGRACION', 'Listo integración (legado)'
+    PAGO_EN_REVISION = 'PAGO_EN_REVISION', 'Pago en revisión (legado)'
+    INTEGRADO = 'INTEGRADO', 'Integrado (legado)'
+    EMPASTADO_PENDIENTE = 'EMPASTADO_PENDIENTE', 'Empastado pendiente (legado)'
+    EMPASTADO_RECIBIDO = 'EMPASTADO_RECIBIDO', 'Empastado recibido (legado)'
+    ACTO_PROGRAMADO = 'ACTO_PROGRAMADO', 'Acto programado (legado)'
+    ACTA_EXENCION = 'ACTA_EXENCION', 'Acta exención (legado)'
 
+
+ESTADOS_ACTIVOS_SIGET = [
+    EstadoExpediente.DATOS_EXPEDIENTE,
+    EstadoExpediente.CERTIFICADO_PENDIENTE_CITA,
+    EstadoExpediente.CERTIFICADO_CITA_PROGRAMADA,
+    EstadoExpediente.CERTIFICADO_FIRMADO,
+    EstadoExpediente.CARGA_DOCUMENTOS,
+    EstadoExpediente.EN_REVISION,
+    EstadoExpediente.EN_CORRECCION,
+    EstadoExpediente.EXPEDIENTE_APROBADO,
+    EstadoExpediente.OFICIO_GENERADO,
+    EstadoExpediente.OFICIO_CITA_PROGRAMADA,
+    EstadoExpediente.OFICIO_FIRMADO,
+    EstadoExpediente.PAGO_PENDIENTE,
+    EstadoExpediente.PAGO_VALIDADO,
+    EstadoExpediente.ADEUDOS_EN_REVISION,
+    EstadoExpediente.DOCUMENTOS_OFICIALES_LISTOS,
+    EstadoExpediente.JURADO_ASIGNADO,
+    EstadoExpediente.PROTOCOLO_PROGRAMADO,
+    EstadoExpediente.ACTO_REALIZADO,
+]
 
 ESTADOS_INTEGRADOS = [
-    EstadoExpediente.INTEGRADO,
-    EstadoExpediente.EMPASTADO_PENDIENTE,
-    EstadoExpediente.EMPASTADO_RECIBIDO,
+    EstadoExpediente.DOCUMENTOS_OFICIALES_LISTOS,
     EstadoExpediente.JURADO_ASIGNADO,
-    EstadoExpediente.ACTO_PROGRAMADO,
-    EstadoExpediente.ACTA_EXENCION,
-    EstadoExpediente.TRAMITE_DGP,
-    EstadoExpediente.CEDULA_EN_REVISION,
-    EstadoExpediente.CEDULA_RECHAZADA,
-    EstadoExpediente.CITA_ENTREGA,
+    EstadoExpediente.PROTOCOLO_PROGRAMADO,
+    EstadoExpediente.ACTO_REALIZADO,
     EstadoExpediente.CONCLUIDO,
 ]
+
+COLORES_ESTADO = {
+    # SIGET
+    EstadoExpediente.DATOS_EXPEDIENTE: 'secondary',
+    EstadoExpediente.CERTIFICADO_PENDIENTE_CITA: 'warning',
+    EstadoExpediente.CERTIFICADO_CITA_PROGRAMADA: 'info',
+    EstadoExpediente.CERTIFICADO_FIRMADO: 'success',
+    EstadoExpediente.CARGA_DOCUMENTOS: 'warning',
+    EstadoExpediente.EN_REVISION: 'info',
+    EstadoExpediente.EN_CORRECCION: 'warning',
+    EstadoExpediente.EXPEDIENTE_APROBADO: 'success',
+    EstadoExpediente.OFICIO_GENERADO: 'primary',
+    EstadoExpediente.OFICIO_CITA_PROGRAMADA: 'info',
+    EstadoExpediente.OFICIO_FIRMADO: 'success',
+    EstadoExpediente.PAGO_PENDIENTE: 'warning',
+    EstadoExpediente.PAGO_VALIDADO: 'success',
+    EstadoExpediente.ADEUDOS_EN_REVISION: 'info',
+    EstadoExpediente.DOCUMENTOS_OFICIALES_LISTOS: 'primary',
+    EstadoExpediente.JURADO_ASIGNADO: 'primary',
+    EstadoExpediente.PROTOCOLO_PROGRAMADO: 'primary',
+    EstadoExpediente.ACTO_REALIZADO: 'success',
+    EstadoExpediente.CONCLUIDO: 'success',
+    EstadoExpediente.CANCELADO: 'danger',
+    # Legados (pueden existir en BD)
+    EstadoExpediente.BORRADOR: 'secondary',
+    EstadoExpediente.EN_REVISION_ACADEMICO: 'info',
+    EstadoExpediente.RECHAZADO_ACADEMICO: 'danger',
+    EstadoExpediente.DOCUMENTOS_PENDIENTES: 'warning',
+    EstadoExpediente.EN_REVISION_DOCUMENTOS: 'info',
+    EstadoExpediente.LISTO_INTEGRACION: 'primary',
+    EstadoExpediente.PAGO_EN_REVISION: 'info',
+    EstadoExpediente.INTEGRADO: 'primary',
+    EstadoExpediente.EMPASTADO_PENDIENTE: 'warning',
+    EstadoExpediente.EMPASTADO_RECIBIDO: 'success',
+    EstadoExpediente.ACTO_PROGRAMADO: 'primary',
+    EstadoExpediente.ACTA_EXENCION: 'info',
+    'ESPERANDO_CONSTANCIA': 'warning',
+    'CONSTANCIA_EN_REVISION': 'info',
+    'RECIBI_PAPEL_ORIGINAL': 'primary',
+    'TRAMITE_DGP': 'info',
+    'CEDULA_EN_REVISION': 'warning',
+    'CEDULA_RECHAZADA': 'danger',
+    'CITA_ENTREGA': 'success',
+    'ENVIADO_CDMX': 'info',
+    'RECHAZADO_CDMX': 'danger',
+    'APROBADO_CDMX': 'success',
+}
+
+ETAPAS_PROGRESO_SIGET = [
+    EstadoExpediente.DATOS_EXPEDIENTE,
+    EstadoExpediente.CERTIFICADO_PENDIENTE_CITA,
+    EstadoExpediente.CERTIFICADO_CITA_PROGRAMADA,
+    EstadoExpediente.CERTIFICADO_FIRMADO,
+    EstadoExpediente.CARGA_DOCUMENTOS,
+    EstadoExpediente.EN_REVISION,
+    EstadoExpediente.EXPEDIENTE_APROBADO,
+    EstadoExpediente.OFICIO_GENERADO,
+    EstadoExpediente.OFICIO_CITA_PROGRAMADA,
+    EstadoExpediente.OFICIO_FIRMADO,
+    EstadoExpediente.PAGO_PENDIENTE,
+    EstadoExpediente.PAGO_VALIDADO,
+    EstadoExpediente.ADEUDOS_EN_REVISION,
+    EstadoExpediente.DOCUMENTOS_OFICIALES_LISTOS,
+    EstadoExpediente.JURADO_ASIGNADO,
+    EstadoExpediente.PROTOCOLO_PROGRAMADO,
+    EstadoExpediente.ACTO_REALIZADO,
+    EstadoExpediente.CONCLUIDO,
+]
+
+ESTADOS_SLA_ACTIVOS = {
+    EstadoExpediente.EN_REVISION,
+    EstadoExpediente.EN_CORRECCION,
+    EstadoExpediente.PAGO_PENDIENTE,
+    EstadoExpediente.ADEUDOS_EN_REVISION,
+    EstadoExpediente.CERTIFICADO_PENDIENTE_CITA,
+    EstadoExpediente.OFICIO_CITA_PROGRAMADA,
+    EstadoExpediente.EN_REVISION_ACADEMICO,
+    EstadoExpediente.EN_REVISION_DOCUMENTOS,
+    EstadoExpediente.PAGO_EN_REVISION,
+    'CONSTANCIA_EN_REVISION',
+    'CEDULA_EN_REVISION',
+    EstadoExpediente.LISTO_INTEGRACION,
+}
 
 
 class EstadoDocumento(models.TextChoices):
@@ -169,8 +320,46 @@ class Expediente(models.Model):
     estado = models.CharField(
         max_length=40,
         choices=EstadoExpediente.choices,
-        default=EstadoExpediente.BORRADOR,
+        default=EstadoExpediente.DATOS_EXPEDIENTE,
         verbose_name='Estado del proceso'
+    )
+    plan_estudios = models.ForeignKey(
+        'PlanEstudios', on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='expedientes',
+        verbose_name='Plan de estudios'
+    )
+    asesor = models.ForeignKey(
+        'administracion.Profesor',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='alumnos_asesorados',
+        verbose_name='Asesor'
+    )
+    certificado_digital = models.FileField(
+        upload_to='certificados/%Y/',
+        null=True, blank=True,
+        verbose_name='Certificado digitalizado'
+    )
+    oficio_publicacion_pdf = models.FileField(
+        upload_to='oficios_publicacion/%Y/',
+        null=True, blank=True,
+        verbose_name='Oficio de autorización de publicación'
+    )
+    oficio_publicacion_escaneado = models.FileField(
+        upload_to='oficios_publicacion_escaneados/%Y/',
+        null=True, blank=True,
+        verbose_name='Oficio de publicación escaneado (firmado)'
+    )
+    constancia_no_adeudos = models.FileField(
+        upload_to='constancias_adeudos/%Y/',
+        null=True, blank=True,
+        verbose_name='Constancia de no adeudos'
+    )
+    certificacion_final_pdf = models.FileField(
+        upload_to='certificaciones/%Y/',
+        null=True, blank=True,
+        verbose_name='Certificación de exención'
     )
     # Datos del trabajo terminal
     titulo_trabajo = models.CharField(
@@ -219,19 +408,7 @@ class Expediente(models.Model):
     )
     fecha_subida_pago = models.DateTimeField(null=True, blank=True)
     fecha_validacion_pago = models.DateTimeField(null=True, blank=True)
-    
-    # Preficha de Pago
-    preficha_pago = models.FileField(
-        upload_to='prefichas/%Y/',
-        null=True, blank=True,
-        verbose_name='Preficha de Pago (PDF)'
-    )
-    preficha_enviada = models.BooleanField(
-        default=False,
-        verbose_name='¿Preficha de Pago enviada?'
-    )
-
-    # Constancia de No Inconveniencia (subida manualmente por Escolares)
+    # Constancia de No Inconveniencia (automática tras confirmar no adeudos)
     constancia_no_inconveniencia = models.FileField(
         upload_to='constancias/%Y/',
         null=True, blank=True,
@@ -287,60 +464,16 @@ class Expediente(models.Model):
         return f'Expediente #{self.pk} — {self.alumno.get_full_name()}'
 
     def get_estado_display_color(self):
-        colores = {
-            EstadoExpediente.BORRADOR: 'secondary',
-            EstadoExpediente.EN_REVISION_ACADEMICO: 'info',
-            EstadoExpediente.RECHAZADO_ACADEMICO: 'danger',
-            EstadoExpediente.EN_CORRECCION: 'warning',
-            EstadoExpediente.DOCUMENTOS_PENDIENTES: 'warning',
-            EstadoExpediente.EN_REVISION_DOCUMENTOS: 'info',
-            EstadoExpediente.LISTO_INTEGRACION: 'primary',
-            EstadoExpediente.PAGO_PENDIENTE: 'warning',
-            EstadoExpediente.PAGO_EN_REVISION: 'info',
-            EstadoExpediente.ESPERANDO_CONSTANCIA: 'warning',
-            EstadoExpediente.CONSTANCIA_EN_REVISION: 'info',
-            EstadoExpediente.INTEGRADO: 'primary',
-            EstadoExpediente.EMPASTADO_PENDIENTE: 'warning',
-            EstadoExpediente.EMPASTADO_RECIBIDO: 'success',
-            EstadoExpediente.JURADO_ASIGNADO: 'primary',
-            EstadoExpediente.ACTO_PROGRAMADO: 'primary',
-            EstadoExpediente.ACTA_EXENCION: 'info',
-            EstadoExpediente.TRAMITE_DGP: 'info',
-            EstadoExpediente.CEDULA_EN_REVISION: 'warning',
-            EstadoExpediente.CEDULA_RECHAZADA: 'danger',
-            EstadoExpediente.CITA_ENTREGA: 'success',
-            EstadoExpediente.CONCLUIDO: 'success',
-            EstadoExpediente.CANCELADO: 'danger',
-        }
-        return colores.get(self.estado, 'secondary')
+        return COLORES_ESTADO.get(self.estado, 'secondary')
 
     def porcentaje_progreso(self):
         """Calcula el porcentaje de avance del proceso para la barra de progreso."""
-        etapas_lineales = [
-            EstadoExpediente.BORRADOR,
-            EstadoExpediente.EN_REVISION_ACADEMICO,
-            EstadoExpediente.DOCUMENTOS_PENDIENTES,
-            EstadoExpediente.EN_REVISION_DOCUMENTOS,
-            EstadoExpediente.LISTO_INTEGRACION,
-            EstadoExpediente.RECIBI_PAPEL_ORIGINAL,
-            EstadoExpediente.PAGO_PENDIENTE,
-            EstadoExpediente.PAGO_EN_REVISION,
-            EstadoExpediente.ESPERANDO_CONSTANCIA,
-            EstadoExpediente.CONSTANCIA_EN_REVISION,
-            EstadoExpediente.INTEGRADO,
-            EstadoExpediente.EMPASTADO_PENDIENTE,
-            EstadoExpediente.EMPASTADO_RECIBIDO,
-            EstadoExpediente.JURADO_ASIGNADO,
-            EstadoExpediente.ACTO_PROGRAMADO,
-            EstadoExpediente.ACTA_EXENCION,
-            EstadoExpediente.TRAMITE_DGP,
-            EstadoExpediente.CEDULA_EN_REVISION,
-            EstadoExpediente.CITA_ENTREGA,
-            EstadoExpediente.CONCLUIDO,
-        ]
-        if self.estado in etapas_lineales:
-            idx = etapas_lineales.index(self.estado)
-            return round((idx / (len(etapas_lineales) - 1)) * 100)
+        estado = self.estado
+        if estado == EstadoExpediente.EN_CORRECCION:
+            estado = EstadoExpediente.CARGA_DOCUMENTOS
+        if estado in ETAPAS_PROGRESO_SIGET:
+            idx = ETAPAS_PROGRESO_SIGET.index(estado)
+            return round((idx / (len(ETAPAS_PROGRESO_SIGET) - 1)) * 100)
         return 0
 
     @property
@@ -356,16 +489,8 @@ class Expediente(models.Model):
     @property
     def semaforo_sla(self):
         """Retorna la clase CSS del color del semáforo SLA basado en los días en el estado actual."""
-        estados_activos = [
-            EstadoExpediente.EN_REVISION_ACADEMICO,
-            EstadoExpediente.EN_REVISION_DOCUMENTOS,
-            EstadoExpediente.PAGO_EN_REVISION,
-            EstadoExpediente.CONSTANCIA_EN_REVISION,
-            EstadoExpediente.CEDULA_EN_REVISION,
-            EstadoExpediente.LISTO_INTEGRACION,
-        ]
-        if self.estado not in estados_activos:
-            return 'secondary'  # Estado pasivo o concluido, no requiere atención inmediata
+        if self.estado not in ESTADOS_SLA_ACTIVOS:
+            return 'secondary'
 
         dias = self.dias_en_estado_actual
         if dias < 3:
@@ -438,6 +563,15 @@ class Documento(models.Model):
     fecha_carga = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de carga')
     fecha_actualizacion = models.DateTimeField(auto_now=True)
     notas_alumno = models.TextField(blank=True, verbose_name='Notas del alumno')
+    revisado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='documentos_revisados',
+        verbose_name='Revisado por'
+    )
+    observaciones_revision = models.TextField(blank=True, verbose_name='Observaciones de revisión')
+    fecha_revision = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de revisión')
 
     class Meta:
         verbose_name = 'Documento'
@@ -458,46 +592,30 @@ class Documento(models.Model):
         }
         return colores.get(self.estado, 'secondary')
 
-    def validacion_division(self):
-        return self.validaciones.filter(departamento='DIVISION').first()
+    @property
+    def validacion_oficina(self):
+        try:
+            return self.validacion
+        except ValidacionDocumento.DoesNotExist:
+            return None
 
-    def validacion_escolares(self):
-        return self.validaciones.filter(departamento='ESCOLARES').first()
-
-    def puede_escolares_validar(self):
-        """
-        Determina si Servicios Escolares puede validar este documento.
-        Debe requerir validación de Escolares y, si requiere División, ésta debe estar APROBADA.
-        """
-        if not self.tipo_documento.valida_escolares:
-            return False
-            
-        if self.tipo_documento.valida_division:
-            val_div = self.validacion_division()
-            if not val_div or val_div.estado != 'APROBADO':
-                return False
-        return True
+    def puede_revisar_oficina(self):
+        return self.archivo and self.estado != EstadoDocumento.APROBADO
 
 
 class ValidacionDocumento(models.Model):
     """
-    Registro de validación de un documento por un departamento.
-    Se crea una instancia por departamento por documento.
+    Registro único de validación de un documento por Oficina de Titulación.
     """
-    DEPARTAMENTO_CHOICES = [
-        ('DIVISION', 'División de Estudios Profesionales'),
-        ('ESCOLARES', 'Servicios Escolares'),
-    ]
-
-    documento = models.ForeignKey(
+    documento = models.OneToOneField(
         Documento, on_delete=models.CASCADE,
-        related_name='validaciones',
+        related_name='validacion',
         verbose_name='Documento'
     )
     departamento = models.CharField(
         max_length=15,
-        choices=DEPARTAMENTO_CHOICES,
-        verbose_name='Departamento validador'
+        default='OFICINA',
+        verbose_name='Departamento validador (legado)'
     )
     estado = models.CharField(
         max_length=25,
@@ -522,10 +640,163 @@ class ValidacionDocumento(models.Model):
     class Meta:
         verbose_name = 'Validación de Documento'
         verbose_name_plural = 'Validaciones de Documentos'
-        unique_together = [['documento', 'departamento']]
 
     def __str__(self):
-        return f'{self.get_departamento_display()} — {self.documento} — {self.get_estado_display()}'
+        return f'Validación — {self.documento} — {self.get_estado_display()}'
+
+
+# ─────────────────────────────────────────────────────────────
+# CITAS FÍSICAS Y LOTES
+# ─────────────────────────────────────────────────────────────
+
+class LoteCitacion(models.Model):
+    criterio = models.CharField(max_length=200, verbose_name='Criterio del lote')
+    tipo = models.CharField(
+        max_length=30,
+        choices=[('CERTIFICADO', 'Certificado'), ('OFICIO_PUBLICACION', 'Oficio publicación')],
+        default='CERTIFICADO',
+    )
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name='lotes_citacion'
+    )
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    notas = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = 'Lote de citación'
+        verbose_name_plural = 'Lotes de citación'
+
+    def __str__(self):
+        return f'Lote {self.pk} — {self.criterio}'
+
+
+class CitaDocumentoFisico(models.Model):
+    class TipoCita(models.TextChoices):
+        CERTIFICADO = 'CERTIFICADO', 'Certificado'
+        OFICIO_PUBLICACION = 'OFICIO_PUBLICACION', 'Oficio de publicación'
+
+    class EstadoCita(models.TextChoices):
+        PROGRAMADA = 'PROGRAMADA', 'Programada'
+        CONFIRMADA_ALUMNO = 'CONFIRMADA_ALUMNO', 'Confirmada por alumno'
+        REPROGRAMACION_SOLICITADA = 'REPROGRAMACION_SOLICITADA', 'Reprogramación solicitada'
+        COMPLETADA = 'COMPLETADA', 'Completada'
+        CANCELADA = 'CANCELADA', 'Cancelada'
+
+    expediente = models.ForeignKey(
+        Expediente, on_delete=models.CASCADE,
+        related_name='citas_fisicas',
+        verbose_name='Expediente'
+    )
+    tipo = models.CharField(max_length=30, choices=TipoCita.choices)
+    fecha_hora = models.DateTimeField(verbose_name='Fecha y hora')
+    lugar = models.CharField(max_length=300, verbose_name='Lugar')
+    estado = models.CharField(
+        max_length=30, choices=EstadoCita.choices,
+        default=EstadoCita.PROGRAMADA
+    )
+    notas = models.TextField(blank=True)
+    propuesta_alumno_fecha = models.DateTimeField(null=True, blank=True)
+    propuesta_alumno_notas = models.TextField(blank=True)
+    lote = models.ForeignKey(
+        LoteCitacion, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='citas'
+    )
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name='citas_creadas'
+    )
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Cita documento físico'
+        verbose_name_plural = 'Citas documentos físicos'
+        ordering = ['fecha_hora']
+
+    def __str__(self):
+        return f'{self.get_tipo_display()} — {self.expediente}'
+
+
+class ReferenciaPago(models.Model):
+    expediente = models.ForeignKey(
+        Expediente, on_delete=models.CASCADE,
+        related_name='referencias_pago'
+    )
+    folio = models.CharField(max_length=50, unique=True)
+    referencia_bancaria = models.CharField(
+        max_length=30, blank=True,
+        verbose_name='Referencia alfanumérica bancaria',
+    )
+    concepto = models.CharField(
+        max_length=200,
+        default='TRÁMITE DE TITULACIÓN NIVEL LICENCIATURA',
+        verbose_name='Concepto de pago',
+    )
+    monto = models.DecimalField(max_digits=10, decimal_places=2)
+    vigencia = models.DateField(null=True, blank=True)
+    pdf_referencia = models.FileField(upload_to='referencias_pago/%Y/', null=True, blank=True)
+    generado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name='referencias_generadas'
+    )
+    fecha_generacion = models.DateTimeField(auto_now_add=True)
+    activa = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = 'Referencia de pago'
+        ordering = ['-fecha_generacion']
+
+    def __str__(self):
+        return self.referencia_bancaria or f'Ref. {self.folio}'
+
+
+class ConfirmacionAdeudo(models.Model):
+    class Area(models.TextChoices):
+        FINANZAS = 'FINANZAS', 'Finanzas'
+        CENTRO_COMPUTO = 'CENTRO_COMPUTO', 'Centro de Cómputo'
+        CENTRO_INFORMACION = 'CENTRO_INFORMACION', 'Centro de Información'
+
+    expediente = models.ForeignKey(
+        Expediente, on_delete=models.CASCADE,
+        related_name='confirmaciones_adeudo'
+    )
+    area = models.CharField(max_length=20, choices=Area.choices)
+    sin_adeudos = models.BooleanField(default=False)
+    observaciones = models.TextField(blank=True)
+    confirmado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name='adeudos_confirmados'
+    )
+    fecha = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Confirmación de adeudo'
+        unique_together = [['expediente', 'area']]
+
+    def __str__(self):
+        estado = 'Sin adeudos' if self.sin_adeudos else 'Con adeudos'
+        return f'{self.expediente} — {self.get_area_display()} — {estado}'
+
+
+class GrupoProtocolo(models.Model):
+    nombre = models.CharField(max_length=200, verbose_name='Nombre del grupo')
+    criterio = models.CharField(max_length=300, blank=True, verbose_name='Criterio')
+    fecha = models.DateField(verbose_name='Fecha del acto')
+    hora_inicio = models.TimeField(verbose_name='Hora de inicio')
+    lugar = models.CharField(max_length=300, verbose_name='Lugar')
+    es_egel = models.BooleanField(default=False, verbose_name='¿Es EGEL? (horarios escalonados)')
+    intervalo_minutos = models.PositiveIntegerField(default=30, verbose_name='Intervalo entre alumnos (min)')
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name='grupos_protocolo'
+    )
+
+    class Meta:
+        verbose_name = 'Grupo de protocolo'
+        ordering = ['-fecha']
+
+    def __str__(self):
+        return self.nombre
 
 
 # ─────────────────────────────────────────────────────────────
@@ -645,11 +916,6 @@ class AsignacionJurado(models.Model):
         on_delete=models.SET_NULL, null=True, blank=True,
         related_name='jurados_asignados'
     )
-    oficio_pdf = models.FileField(
-        upload_to='oficios_jurado/',
-        null=True, blank=True,
-        verbose_name='Oficio de Asignación en PDF'
-    )
     solicitud_jefe_usada = models.ForeignKey(
         'administracion.SolicitudCambioJefe',
         on_delete=models.SET_NULL, null=True, blank=True,
@@ -681,6 +947,16 @@ class ActoProtocolario(models.Model):
         Expediente, on_delete=models.CASCADE,
         related_name='acto_protocolario',
         verbose_name='Expediente'
+    )
+    grupo = models.ForeignKey(
+        GrupoProtocolo, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='actos',
+        verbose_name='Grupo de protocolo'
+    )
+    hora_escalonada = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Hora escalonada (EGEL)'
     )
     jurado = models.ForeignKey(
         AsignacionJurado, on_delete=models.PROTECT,
@@ -831,33 +1107,7 @@ class HistorialExpediente(models.Model):
 
     def get_estado_nuevo_color(self):
         """Color for timeline badges."""
-        colores = {
-            'BORRADOR': 'secondary',
-            'EN_REVISION_ACADEMICO': 'info',
-            'RECHAZADO_ACADEMICO': 'danger',
-            'EN_CORRECCION': 'warning',
-            'DOCUMENTOS_PENDIENTES': 'warning',
-            'EN_REVISION_DOCUMENTOS': 'info',
-            'LISTO_INTEGRACION': 'primary',
-            'RECIBI_PAPEL_ORIGINAL': 'primary',
-            'PAGO_PENDIENTE': 'warning',
-            'PAGO_EN_REVISION': 'info',
-            'ESPERANDO_CONSTANCIA': 'warning',
-            'CONSTANCIA_EN_REVISION': 'info',
-            'INTEGRADO': 'primary',
-            'EMPASTADO_PENDIENTE': 'warning',
-            'EMPASTADO_RECIBIDO': 'success',
-            'JURADO_ASIGNADO': 'primary',
-            'ACTO_PROGRAMADO': 'primary',
-            'ACTA_EXENCION': 'info',
-            'TRAMITE_DGP': 'info',
-            'CEDULA_EN_REVISION': 'warning',
-            'CEDULA_RECHAZADA': 'danger',
-            'CITA_ENTREGA': 'success',
-            'CONCLUIDO': 'success',
-            'CANCELADO': 'danger',
-        }
-        return colores.get(self.estado_nuevo, 'secondary')
+        return COLORES_ESTADO.get(self.estado_nuevo, 'secondary')
 
 
 class HistorialDocumento(models.Model):

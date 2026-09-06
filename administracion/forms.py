@@ -5,7 +5,7 @@ from datetime import datetime
 
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import Usuario, Carrera, Departamento, Profesor, Rol, ConfiguracionInstitucional, JefeDepartamento
+from .models import Usuario, Carrera, Departamento, Profesor, Rol, ConfiguracionInstitucional, JefeDepartamento, ContactoArea, choices_siget, normalizar_rol
 
 
 class UsuarioCreateForm(forms.ModelForm):
@@ -40,13 +40,15 @@ class UsuarioCreateForm(forms.ModelForm):
         self.fields['apellido_materno'].label = 'Apellido materno'
         self.fields['carrera'].label = 'Carrera'
         self.fields['departamento'].label = 'Departamento'
+        self.fields['rol'].choices = choices_siget()
 
 
     def clean(self):
         cleaned_data = super().clean()
         password = cleaned_data.get('password')
         password_confirm = cleaned_data.get('password_confirm')
-        rol = cleaned_data.get('rol')
+        rol = normalizar_rol(cleaned_data.get('rol'))
+        cleaned_data['rol'] = rol
         carrera = cleaned_data.get('carrera')
         departamento = cleaned_data.get('departamento')
 
@@ -56,8 +58,8 @@ class UsuarioCreateForm(forms.ModelForm):
         # Validación condicional por rol
         if rol == Rol.ALUMNO and not carrera:
             self.add_error('carrera', 'La carrera es obligatoria para los alumnos.')
-        if rol == Rol.JEFE_PROYECTO and not departamento:
-            self.add_error('departamento', 'El departamento es obligatorio para los Jefes de Proyecto.')
+        if rol in (Rol.JEFE_PROYECTO, Rol.JEFE_ACADEMIA) and not departamento:
+            self.add_error('departamento', 'El departamento es obligatorio para Jefe de Academia.')
 
         correo_institucional = cleaned_data.get('correo_institucional')
         if correo_institucional:
@@ -121,17 +123,19 @@ class UsuarioUpdateForm(forms.ModelForm):
         self.fields['apellido_materno'].label = 'Apellido materno'
         self.fields['carrera'].label = 'Carrera'
         self.fields['departamento'].label = 'Departamento'
+        self.fields['rol'].choices = choices_siget()
 
     def clean(self):
         cleaned_data = super().clean()
-        rol = cleaned_data.get('rol')
+        rol = normalizar_rol(cleaned_data.get('rol'))
+        cleaned_data['rol'] = rol
         carrera = cleaned_data.get('carrera')
         departamento = cleaned_data.get('departamento')
 
         if rol == Rol.ALUMNO and not carrera:
             self.add_error('carrera', 'La carrera es obligatoria para los alumnos.')
-        if rol == Rol.JEFE_PROYECTO and not departamento:
-            self.add_error('departamento', 'El departamento es obligatorio para los Jefes de Proyecto.')
+        if rol in (Rol.JEFE_PROYECTO, Rol.JEFE_ACADEMIA) and not departamento:
+            self.add_error('departamento', 'El departamento es obligatorio para Jefe de Academia.')
 
         correo_institucional = cleaned_data.get('correo_institucional')
         if correo_institucional:
@@ -163,7 +167,9 @@ class UsuarioUpdateForm(forms.ModelForm):
         # Validación de roles críticos y últimos activos
         if self.instance and self.instance.pk:
             old_rol = self.instance.rol
-            roles_criticos = [Rol.ADMINISTRADOR, Rol.ACADEMICO, Rol.ESCOLARES]
+            roles_criticos = [
+                Rol.ADMINISTRADOR, Rol.OFICINA_TITULACION, Rol.FINANZAS,
+            ]
             is_active_new = cleaned_data.get('is_active', True)
             
             if old_rol in roles_criticos:
@@ -173,15 +179,15 @@ class UsuarioUpdateForm(forms.ModelForm):
                         error_msg = f'No se puede desactivar ni cambiar el rol al único usuario activo con rol de {self.instance.get_rol_display()}. Agregue o asigne a alguien más primero.'
                         self.add_error(None, error_msg)
 
-            if old_rol == Rol.JEFE_PROYECTO and self.instance.departamento:
-                if (not is_active_new) or (rol != old_rol) or (departamento != self.instance.departamento):
+            if old_rol in (Rol.JEFE_PROYECTO, Rol.JEFE_ACADEMIA) and self.instance.departamento:
+                if (not is_active_new) or (rol not in (Rol.JEFE_PROYECTO, Rol.JEFE_ACADEMIA)) or (departamento != self.instance.departamento):
                     activos_count = Usuario.objects.filter(
-                        rol=Rol.JEFE_PROYECTO, 
-                        departamento=self.instance.departamento, 
+                        rol__in=(Rol.JEFE_PROYECTO, Rol.JEFE_ACADEMIA),
+                        departamento=self.instance.departamento,
                         is_active=True
                     ).count()
                     if activos_count <= 1:
-                        error_msg = f'No se puede desactivar al único Jefe de Proyecto activo del depto. {self.instance.departamento.nombre}. Cree o asigne uno nuevo (este se desactivará solo).'
+                        error_msg = f'No se puede desactivar al único Jefe de Academia activo del depto. {self.instance.departamento.nombre}. Cree o asigne uno nuevo (este se desactivará solo).'
                         self.add_error(None, error_msg)
 
         return cleaned_data
@@ -192,17 +198,19 @@ class ConfiguracionInstitucionalForm(forms.ModelForm):
         model = ConfiguracionInstitucional
         fields = [
             'dominio_institucional', 'permitir_jefe_proyectos_cambiar_jefe_departamento',
-            'nombre_institucion', 'siglas', 'logo_sistema',
+            'nombre_institucion', 'siglas', 'logo_sep', 'logo_tecnm', 'logo_sistema',
             'mostrar_cintillo', 'imagen_cintillo',
             'color_header', 'color_menu', 'color_botones', 'color_cintillo',
-            'imagen_encabezado', 'imagen_pie_pagina'
+            'imagen_encabezado', 'imagen_pie_pagina', 'telefono_institucional',
         ]
         widgets = {
             'dominio_institucional': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ej: apizaco.tecnm.mx'}),
             'permitir_jefe_proyectos_cambiar_jefe_departamento': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'nombre_institucion': forms.TextInput(attrs={'class': 'form-control'}),
             'siglas': forms.TextInput(attrs={'class': 'form-control'}),
-            'logo_sistema': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+            'logo_sep': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+            'logo_tecnm': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+            'logo_sistema': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
             'mostrar_cintillo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'imagen_cintillo': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'color_header': forms.TextInput(attrs={'type': 'color', 'class': 'form-control form-control-color', 'style': 'max-width: 100px;'}),
@@ -211,6 +219,23 @@ class ConfiguracionInstitucionalForm(forms.ModelForm):
             'color_cintillo': forms.TextInput(attrs={'type': 'color', 'class': 'form-control form-control-color', 'style': 'max-width: 100px;'}),
             'imagen_encabezado': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'imagen_pie_pagina': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+            'telefono_institucional': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '2414172010'}),
+        }
+
+
+class ContactoAreaForm(forms.ModelForm):
+    class Meta:
+        model = ContactoArea
+        fields = [
+            'nombre_responsable', 'correo_departamento', 'correo_personal',
+            'extension', 'activo',
+        ]
+        widgets = {
+            'nombre_responsable': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'correo_departamento': forms.EmailInput(attrs={'class': 'form-control form-control-sm'}),
+            'correo_personal': forms.EmailInput(attrs={'class': 'form-control form-control-sm'}),
+            'extension': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': '119'}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 
@@ -399,6 +424,45 @@ class UsuarioPerfilBasicoForm(forms.ModelForm):
             if not correo_institucional.endswith(f'@{dominio}'):
                 self.add_error('correo_institucional', f'El correo institucional debe terminar en @{dominio}')
 
+        return cleaned_data
+
+
+class UsuarioPerfilAdminForm(forms.ModelForm):
+    """Perfil simplificado para administradores: solo correo institucional."""
+
+    class Meta:
+        model = Usuario
+        fields = ['foto_perfil', 'telefono', 'correo_institucional']
+        widgets = {
+            'foto_perfil': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+            'telefono': forms.TextInput(attrs={'class': 'form-control'}),
+            'correo_institucional': forms.EmailInput(attrs={'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['correo_institucional'].label = 'Correo Institucional'
+        self.fields['telefono'].label = 'Teléfono'
+        if self.instance and self.instance.correo_institucional:
+            self.fields['correo_institucional'].widget.attrs['readonly'] = True
+            self.fields['correo_institucional'].help_text = (
+                'No puedes modificar tu correo institucional una vez asignado.'
+            )
+        else:
+            config = ConfiguracionInstitucional.objects.first()
+            dominio = config.dominio_institucional if config else 'apizaco.tecnm.mx'
+            self.fields['correo_institucional'].help_text = f'Debe terminar en @{dominio}'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        correo_institucional = cleaned_data.get('correo_institucional')
+        if self.instance and self.instance.correo_institucional and correo_institucional != self.instance.correo_institucional:
+            self.add_error('correo_institucional', 'No puedes modificar el correo institucional una vez asignado.')
+        if correo_institucional and (not self.instance or not self.instance.correo_institucional):
+            config = ConfiguracionInstitucional.objects.first()
+            dominio = config.dominio_institucional if config else 'apizaco.tecnm.mx'
+            if not correo_institucional.endswith(f'@{dominio}'):
+                self.add_error('correo_institucional', f'El correo institucional debe terminar en @{dominio}')
         return cleaned_data
 
 

@@ -4,15 +4,36 @@
 {% block header_title %}Código de Verificación{% endblock %}
 
 {% block content %}
-<p style="font-size: 16px;">Hola <strong>{{ user_name }}</strong>,</p>
-<p style="font-size: 16px;">{{ mensaje_corto }}. Tu código de seguridad es:</p>
+<p style="font-size:16px;color:#333;margin:0 0 12px;">
+  Hola <strong>{% firstof user_name full_name "usuario" %}</strong>,
+</p>
+<p style="font-size:15px;color:#444;line-height:1.5;margin:0 0 8px;">
+  {% if mensaje_corto %}
+    {{ mensaje_corto }}. Tu código de seguridad es:
+  {% else %}
+    Tu código de seguridad es:
+  {% endif %}
+</p>
 
-<div style="margin: 30px 0; text-align: center;">
-    <span style="font-size: 36px; font-weight: bold; letter-spacing: 5px; color: #1B396A; background: #f8f9fa; padding: 15px 25px; border-radius: 8px; border: 2px dashed #1B396A;">
-        {{ codigo }}
-    </span>
-</div>
+<!-- Tabla centrada: más compatible en clientes móviles que un span con letter-spacing -->
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:24px 0;">
+  <tr>
+    <td align="center">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border:2px dashed #1B396A;border-radius:8px;background:#f8f9fa;">
+        <tr>
+          <td align="center" style="padding:14px 18px;font-family:Consolas,'Courier New',monospace;font-size:28px;font-weight:700;letter-spacing:0.25em;color:#1B396A;white-space:nowrap;line-height:1.2;">
+            {{ codigo }}
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
 
-<p style="color: #dc3545; font-weight: bold;">⏱️ Este código expirará en 5 minutos.</p>
-<p style="color: #6c757d; font-size: 14px; margin-top: 30px;">Si no solicitaste este código, puedes ignorar este correo. Tu cuenta está segura.</p>
+<p style="color:#dc3545;font-weight:bold;font-size:14px;margin:0 0 16px;">
+  ⏱️ Este código expirará en {{ minutos_validez|default:5 }} minutos.
+</p>
+<p style="color:#6c757d;font-size:14px;line-height:1.5;margin:0;">
+  Ingresa el código en SIGET desde tu equipo. Si no solicitaste este código, puedes ignorar este correo. Tu cuenta está segura.
+</p>
 {% endblock %}

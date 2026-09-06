@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Adeudos pendientes{% endblock %}
+{% block page_title %}Confirmación de adeudos — Finanzas{% endblock %}
+
+{% block content %}
+<div class="content-card mb-3">
+    <form method="get" class="row g-2 align-items-end p-3">
+        <div class="col-md-6">
+            <input type="text" name="q" value="{{ busqueda }}" class="form-control form-control-sm" placeholder="Buscar alumno o control">
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary btn-sm w-100">Buscar</button>
+        </div>
+    </form>
+</div>
+
+<div class="content-card">
+    {% for exp in expedientes %}
+    <div class="p-3 border-bottom">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+            <div>
+                <strong>{{ exp.alumno.get_full_name }}</strong>
+                <div class="small text-muted">Número de control: {{ exp.alumno.numero_control|default:exp.alumno.username }} — {{ exp.alumno.carrera.nombre|default:"—" }}</div>
+            </div>
+            {% for c in exp.confirmaciones_adeudo.all %}
+                {% if c.area == area %}
+                    {% if c.sin_adeudos %}
+                    <span class="badge bg-success">Sin adeudos</span>
+                    {% else %}
+                    <span class="badge bg-danger">Con adeudos — pendiente de liberar</span>
+                    {% endif %}
+                {% endif %}
+            {% empty %}
+            <span class="badge bg-warning text-dark">Pendiente de confirmar</span>
+            {% endfor %}
+        </div>
+        <form method="post" action="{% url 'finanzas:confirmar_adeudo' exp.pk %}" class="row g-2">
+            {% csrf_token %}
+            <div class="col-md-8">
+                <textarea name="observaciones" class="form-control form-control-sm" rows="2" placeholder="Observaciones (requeridas si hay adeudos)"></textarea>
+            </div>
+            <div class="col-md-4 d-flex gap-2 align-items-start">
+                <button type="submit" name="accion" value="LIBERAR" class="btn btn-success btn-sm">Sin adeudos</button>
+                <button type="submit" name="accion" value="ADEUDO" class="btn btn-danger btn-sm">Con adeudos</button>
+            </div>
+        </form>
+    </div>
+    {% empty %}
+    <p class="p-4 text-muted mb-0 text-center">No hay alumnos pendientes de confirmación.</p>
+    {% endfor %}
+</div>
+{% include 'includes/pagination.html' with page_obj=page_obj %}
+{% endblock %}

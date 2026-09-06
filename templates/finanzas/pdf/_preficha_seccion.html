@@ -1,0 +1,74 @@
+<div class="preficha">
+
+  <!-- ── Encabezado: logos + título ── -->
+  <table class="header-row">
+    <tr>
+      <!-- Logo SEP + Escudo izquierda -->
+      <td class="logo-izq">
+        {% if config and config.logo_sep %}
+        <img src="{{ config.logo_sep.path }}" alt="SEP" style="max-height:32px; max-width:110px;">
+        {% endif %}
+      </td>
+      <!-- Título central -->
+      <td class="titulo-centro">
+        <div class="titulo-texto">PREFICHA DE<br>DEPÓSITO</div>
+      </td>
+      <!-- Logo ITA derecha (el texto ya viene integrado en la imagen) -->
+      <td class="logo-der">
+        {% if config and config.logo_sistema %}
+        <img src="{{ config.logo_sistema.path }}" alt="ITA" style="max-height:50px; max-width:120px;">
+        {% endif %}
+      </td>
+    </tr>
+  </table>
+
+  <!-- ── Tabla de datos con bordes ── -->
+  <table class="datos">
+    <tr>
+      <td class="lbl">Nombre:</td>
+      <td class="val" colspan="3">{{ nombre_alumno }}</td>
+      <td class="lbl2">Fecha:</td>
+      <td class="val2">{{ fecha_pago|date:"d/m/Y" }}</td>
+    </tr>
+    <tr>
+      <td class="lbl">No. Control:</td>
+      <td class="val" colspan="3">{{ numero_control }}</td>
+      <td class="lbl2">Hora:</td>
+      <td class="val2">{{ hora_pago }}</td>
+    </tr>
+    <tr>
+      <td class="lbl">Concepto:</td>
+      <td class="val" colspan="3">{{ concepto }}</td>
+      <td class="lbl2">Monto:</td>
+      <td class="val2"><strong>{{ monto_formateado }}</strong></td>
+    </tr>
+  </table>
+
+  <!-- ── Referencia de pago ── -->
+  <div class="ref-row">
+    <strong>Referencia de pago: {{ referencia_bancaria }}</strong>
+  </div>
+
+  <!-- ── Datos bancarios ── -->
+  <div class="banco-row">
+    Institución Bancaria: <strong>{{ banco }}</strong>
+  </div>
+  <div class="banco-row">
+    No de Sucursal: <strong>{{ sucursal }}</strong>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    Número de cuenta: <strong>{{ cuenta }}</strong>
+  </div>
+
+  <!-- ── Aviso legal (fondo gris, subrayado) ── -->
+  <div class="aviso-legal">
+    FAVOR DE VERIFICAR QUE EL IMPORTE Y LA REFERENCIA ALFANUMÉRICA DEL RECIBO
+    BANCARIO SEA IGUAL AL MONTO Y REFERENCIA DE PAGO DE ESTA PREFICHA.
+  </div>
+
+  <!-- ── Nota inferior itálica ── -->
+  <div class="nota-inferior">
+    Esta preficha solo es válida como referencia de depósito, una vez realizado el depósito se deberá
+    conservar el recibo bancario sellado, para cualquier aclaración en el Departamento de Recursos Financieros.
+  </div>
+
+</div>

@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Sistema de Titulación{% endblock %} — {{ institucion.siglas|default:"ITA" }}</title>
-    <meta name="description" content="Sistema de Gestión del Proceso de Titulación — {{ institucion.nombre_institucion|default:'Instituto Tecnológico de Apizaco' }}">
+    <title>{% block title %}SIGET{% endblock %} — {{ institucion.siglas|default:"ITA" }}</title>
+    <meta name="description" content="SIGET — {{ institucion.nombre_institucion|default:'Instituto Tecnológico de Apizaco' }}">
     
     <!-- Favicon -->
     {% if institucion and institucion.logo_sistema %}
@@ -489,8 +489,14 @@
 <header class="header-institucional">
     <div class="header-contenedor">
         <div class="header-logos">
-            {% if not institucion or not institucion.imagen_cintillo %}
+            {% if institucion and institucion.logo_sep %}
+            <img src="{{ institucion.logo_sep.url }}" alt="SEP" class="logo-sep">
+            {% else %}
             <img src="{% static 'img/logo-sep.png' %}" alt="SEP" class="logo-sep">
+            {% endif %}
+            {% if institucion and institucion.logo_tecnm %}
+            <img src="{{ institucion.logo_tecnm.url }}" alt="TecNM" class="logo-tecnm">
+            {% else %}
             <img src="{% static 'img/logo-tecnm.png' %}" alt="TecNM" class="logo-tecnm">
             {% endif %}
             {% if institucion and institucion.logo_sistema %}
@@ -501,7 +507,7 @@
         </div>
         <div class="d-none d-md-block">
             <span style="font-size:.85rem; font-weight:600; color:rgba(255,255,255,.9); letter-spacing:.02em;">
-                Sistema de Gestión de Titulación
+                SIGET
             </span>
         </div>
     </div>
@@ -519,7 +525,7 @@
             <img src="{% static 'img/logo-ita.png' %}" alt="Instituto Tecnológico de Apizaco"
                  style="height:38px; width:auto; object-fit:contain;">
             {% endif %}
-            <span style="color:rgba(255,255,255,.55); font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em;">Titulación</span>
+            <span style="color:rgba(255,255,255,.55); font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em;">SIGET</span>
         </a>
         <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navRol" aria-label="Toggle navigation">
             <i class="bi bi-list text-white fs-4"></i>
@@ -562,10 +568,16 @@
                         <i class="bi bi-file-earmark-excel"></i> Importar/Exportar
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if request.resolver_match.url_name == 'configuracion' %}active{% endif %}" href="{% url 'administracion:configuracion' %}">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle {% if 'configuracion' in request.path %}active{% endif %}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-gear-wide-connected"></i> Configuración
                     </a>
+                    <ul class="dropdown-menu shadow-sm border-0">
+                        <li><a class="dropdown-item" href="{% url 'administracion:configuracion' %}"><i class="bi bi-building me-2 text-muted"></i>Datos institucionales</a></li>
+                        <li><a class="dropdown-item" href="{% url 'administracion:configuracion_contactos' %}"><i class="bi bi-telephone me-2 text-muted"></i>Contactos de áreas</a></li>
+                        <li><a class="dropdown-item" href="{% url 'administracion:configuracion_database' %}"><i class="bi bi-database-gear me-2 text-muted"></i>Base de datos</a></li>
+                        <li><a class="dropdown-item" href="{% url 'administracion:configuracion_email' %}"><i class="bi bi-envelope-gear me-2 text-muted"></i>Servidor de correo (SMTP)</a></li>
+                    </ul>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="/admin/">
@@ -574,7 +586,7 @@
                 </li>
                 {% endif %}
 
-                {% if user.es_jefe_proyecto %}
+                {% if user.es_jefe_academia %}
                 <!-- ── ADMINISTRACIÓN: Jefe de Proyectos / Academia── -->
                 <li class="nav-item">
                     <a class="nav-link {% if request.resolver_match.url_name == 'jefe_dashboard' %}active{% endif %}" href="{% url 'administracion:jefe_dashboard' %}">
@@ -624,53 +636,63 @@
                     <a class="nav-link {% if 'notificaciones' in request.path %}active{% endif %}" href="{% url 'alumnos:notificaciones' %}">
                         <i class="bi bi-bell"></i> Notificaciones
                         {% if notificaciones_no_leidas %}
-                        <span class="badge bg-danger ms-1" style="font-size:.6rem;">{{ notificaciones_no_leidas }}</span>
+                        <span class="badge bg-danger ms-1 notif-count-badge" style="font-size:.6rem;">{{ notificaciones_no_leidas }}</span>
                         {% endif %}
                     </a>
                 </li>
                 {% endif %}
 
-                {% if user.es_escolares %}
-                <!-- ── SERVICIOS ESCOLARES ── -->
+                {% if user.es_oficina_titulacion %}
+                <!-- ── OFICINA DE TITULACIÓN ── -->
                 <li class="nav-item">
-                    <a class="nav-link {% if 'escolares' in request.path and 'dashboard' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'escolares:dashboard' %}">
+                    <a class="nav-link {% if 'oficina-titulacion' in request.path %}active{% endif %}" href="{% url 'oficina_titulacion:dashboard' %}">
                         <i class="bi bi-house"></i> Inicio
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% if 'expedientes' in request.path and 'escolares' in request.path %}active{% endif %}" href="{% url 'escolares:expedientes' %}">
+                    <a class="nav-link" href="{% url 'oficina_titulacion:expedientes' %}">
                         <i class="bi bi-folder2-open"></i> Expedientes
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% if 'calendario' in request.path and 'escolares' in request.path %}active{% endif %}" href="{% url 'escolares:calendario' %}">
-                        <i class="bi bi-calendar3"></i> Calendario
+                    <a class="nav-link" href="{% url 'oficina_titulacion:citas_pendientes' %}">
+                        <i class="bi bi-calendar-check"></i> Citas
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% if 'estadisticas' in request.path and 'escolares' in request.path %}active{% endif %}" href="{% url 'escolares:estadisticas' %}">
-                        <i class="bi bi-bar-chart-line"></i> Estadísticas
+                    <a class="nav-link {% if 'notificaciones' in request.path %}active{% endif %}" href="{% url 'oficina_titulacion:notificaciones' %}">
+                        <i class="bi bi-bell"></i> Notificaciones
+                        {% if notificaciones_no_leidas %}
+                        <span class="badge bg-danger ms-1 notif-count-badge" style="font-size:.6rem;">{{ notificaciones_no_leidas }}</span>
+                        {% endif %}
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'oficina_titulacion:tabla_global' %}">
+                        <i class="bi bi-table"></i> Tabla global
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'oficina_titulacion:grupos_protocolo' %}">
+                        <i class="bi bi-people"></i> Protocolo
                     </a>
                 </li>
                 {% endif %}
 
-                {% if user.es_academico %}
-                <!-- ── DIVISIÓN DE ESTUDIOS ── -->
-                <li class="nav-item">
-                    <a class="nav-link {% if 'academico' in request.path and 'dashboard' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'academico:dashboard' %}">
-                        <i class="bi bi-house"></i> Inicio
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if 'expedientes' in request.path and 'academico' in request.path %}active{% endif %}" href="{% url 'academico:expedientes' %}">
-                        <i class="bi bi-folder2-open"></i> Expedientes
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if 'calendario' in request.path and 'academico' in request.path %}active{% endif %}" href="{% url 'academico:calendario' %}">
-                        <i class="bi bi-calendar3"></i> Calendario
-                    </a>
-                </li>
+                {% if user.es_finanzas %}
+                <li class="nav-item"><a class="nav-link" href="{% url 'finanzas:dashboard' %}"><i class="bi bi-house"></i> Inicio</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'finanzas:expedientes_pago' %}"><i class="bi bi-cash"></i> Pagos</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'finanzas:adeudos_pendientes' %}"><i class="bi bi-check2-square"></i> Adeudos</a></li>
+                {% endif %}
+
+                {% if user.es_centro_computo %}
+                <li class="nav-item"><a class="nav-link" href="{% url 'centro_computo:dashboard' %}"><i class="bi bi-house"></i> Inicio</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'centro_computo:adeudos_pendientes' %}"><i class="bi bi-check2-square"></i> Adeudos</a></li>
+                {% endif %}
+
+                {% if user.es_centro_informacion %}
+                <li class="nav-item"><a class="nav-link" href="{% url 'centro_informacion:dashboard' %}"><i class="bi bi-house"></i> Inicio</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'centro_informacion:adeudos_pendientes' %}"><i class="bi bi-check2-square"></i> Adeudos</a></li>
                 {% endif %}
 
             </ul>
@@ -717,16 +739,28 @@
 
     <!-- Topbar -->
     <div class="topbar">
-        <h5 class="page-title">{% block page_title %}Sistema de Titulación{% endblock %}</h5>
+        <h5 class="page-title">{% block page_title %}SIGET{% endblock %}</h5>
         <div class="d-flex align-items-center gap-3">
             <span class="text-muted" style="font-size:.78rem;">
                 <i class="bi bi-building me-1"></i>{{ institucion.siglas|default:"ITA" }} — TecNM
             </span>
             {% if user.is_authenticated %}
+            {% if user.es_oficina_titulacion %}
+            <a href="{% url 'oficina_titulacion:notificaciones' %}" class="btn btn-sm btn-light position-relative">
+            {% elif user.rol == 'FINANZAS' %}
+            <a href="{% url 'finanzas:notificaciones' %}" class="btn btn-sm btn-light position-relative">
+            {% elif user.rol == 'CENTRO_COMPUTO' %}
+            <a href="{% url 'centro_computo:notificaciones' %}" class="btn btn-sm btn-light position-relative">
+            {% elif user.rol == 'CENTRO_INFORMACION' %}
+            <a href="{% url 'centro_informacion:notificaciones' %}" class="btn btn-sm btn-light position-relative">
+            {% else %}
             <a href="{% url 'alumnos:notificaciones' %}" class="btn btn-sm btn-light position-relative">
+            {% endif %}
                 <i class="bi bi-bell"></i>
                 {% if notificaciones_no_leidas %}
-                <span class="notif-badge">{{ notificaciones_no_leidas }}</span>
+                <span class="notif-badge notif-count-badge">{{ notificaciones_no_leidas }}</span>
+                {% else %}
+                <span class="notif-badge notif-count-badge" style="display:none;">0</span>
                 {% endif %}
             </a>
             {% endif %}
@@ -943,11 +977,10 @@ document.addEventListener("DOMContentLoaded", function() {
                 const newTs = data.global_timestamp;
                 const newCount = data.unread_notifications;
                 
-                // 1. Actualizar notificaciones en la campanita
+                // 1. Actualizar contadores de notificaciones (campana y menú lateral)
                 if (newCount !== currentUnreadCount) {
                     currentUnreadCount = newCount;
-                    const badges = document.querySelectorAll('.notif-badge');
-                    badges.forEach(badge => {
+                    document.querySelectorAll('.notif-count-badge, .notif-badge').forEach(badge => {
                         badge.innerText = newCount;
                         badge.style.display = newCount > 0 ? 'inline-block' : 'none';
                     });

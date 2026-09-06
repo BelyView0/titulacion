@@ -7,6 +7,7 @@ from django.views import View
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Q
 from django.utils import timezone
 from datetime import timedelta
 import random
@@ -46,15 +47,23 @@ class OTPPasswordResetRequestView(View):
             messages.error(request, 'Debes ingresar un correo electrónico.')
             return render(request, 'auth/password_reset.html')
 
-        user = Usuario.objects.filter(email=email, is_active=True).first()
+        user = Usuario.objects.filter(is_active=True).filter(
+            Q(email__iexact=email) | Q(correo_institucional__iexact=email)
+        ).first()
         if user:
             otp = generate_otp_for_user(user)
-            enviar_codigo_otp(user, otp.codigo, context='reset')
+            destino = None
+            if user.email and user.email.lower() == email.lower():
+                destino = user.email
+            elif user.correo_institucional and user.correo_institucional.lower() == email.lower():
+                destino = user.correo_institucional
+            enviar_codigo_otp(
+                user, otp.codigo, context='reset',
+                destinatarios=[destino] if destino else None,
+            )
             request.session['reset_user_id'] = user.id
             return redirect('password_reset_verify')
         else:
-            # Por seguridad, no decimos si el correo existe o no, pero redirigimos a la misma vista de verificación
-            # (Aunque no podrán pasar si no reciben el código)
             messages.error(request, 'Si el correo existe, te hemos enviado un código. Revisa tu bandeja de entrada.')
             return render(request, 'auth/password_reset.html')
 

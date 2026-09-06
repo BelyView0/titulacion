@@ -3,7 +3,7 @@ from django.views import View
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from django import forms
-from administracion.models import Rol, Usuario, EmailVerificationOTP
+from administracion.models import Rol, Usuario, EmailVerificationOTP, ConfiguracionInstitucional
 from django.utils.crypto import get_random_string
 from django.core.mail import send_mail, EmailMultiAlternatives
 from django.conf import settings
@@ -12,78 +12,68 @@ from django.utils import timezone
 from expediente.models import Expediente, Documento
 from alumnos.forms import ExpedienteForm
 
-from administracion.forms import UsuarioPerfilBasicoForm
+from administracion.forms import UsuarioPerfilBasicoForm, UsuarioPerfilAdminForm
 from alumnos.models import Notificacion
 from django.urls import reverse
 
 class PerfilView(LoginRequiredMixin, View):
     template_name = 'perfil.html'
 
-    def get(self, request):
-        user = request.user
+    def _build_context(self, user, perfil_form=None):
         context = {
             'usuario': user,
+            'perfil_admin': user.es_admin,
         }
+        if user.es_admin:
+            context['perfil_basico_form'] = perfil_form or UsuarioPerfilAdminForm(instance=user)
+        else:
+            context['perfil_basico_form'] = perfil_form or UsuarioPerfilBasicoForm(instance=user)
 
         if user.rol == Rol.ALUMNO:
-            # Obtener expediente si existe
             try:
                 expediente = user.expediente
                 context['expediente'] = expediente
-                
-                # Obtener la foto ovalada
                 foto_doc = Documento.objects.filter(
-                    expediente=expediente, 
+                    expediente=expediente,
                     tipo_documento__es_fotografia=True
                 ).first()
                 context['foto_doc'] = foto_doc
-
-                # Si es borrador, enviar el form para editar
                 if expediente.estado == 'BORRADOR':
                     context['form'] = ExpedienteForm(instance=expediente)
-
             except Expediente.DoesNotExist:
                 pass
-        
-        # Formulario base para TODOS los roles
-        context['perfil_basico_form'] = UsuarioPerfilBasicoForm(instance=user)
+        return context
 
-        return render(request, self.template_name, context)
+    def get(self, request):
+        return render(request, self.template_name, self._build_context(request.user))
 
     def post(self, request):
         user = request.user
-        
-        # Hay dos posibles formularios: perfil_basico o expediente (solo alumnos)
+
         if 'perfil_basico' in request.POST:
-            old_email = user.email
             old_institucional = user.correo_institucional
-            perfil_basico_form = UsuarioPerfilBasicoForm(request.POST, request.FILES, instance=user)
-            
-            if perfil_basico_form.is_valid():
-                user_instance = perfil_basico_form.save(commit=False)
-                
-                # Check for changes in emails to trigger verification
-                if user_instance.email != old_email:
-                    user_instance.email_verificado = False
-                    # Aquí enviaremos el OTP más adelante
-                
+            if user.es_admin:
+                perfil_form = UsuarioPerfilAdminForm(request.POST, request.FILES, instance=user)
+            else:
+                old_email = user.email
+                perfil_form = UsuarioPerfilBasicoForm(request.POST, request.FILES, instance=user)
+
+            if perfil_form.is_valid():
+                user_instance = perfil_form.save(commit=False)
+                if not user.es_admin:
+                    if user_instance.email != old_email:
+                        user_instance.email_verificado = False
                 if user_instance.correo_institucional != old_institucional:
                     user_instance.correo_institucional_verificado = False
-                    # Aquí enviaremos el OTP más adelante
-
                 user_instance.save()
-                messages.success(request, 'Perfil actualizado correctamente. Si cambiaste tu correo, por favor verifícalo.')
+                messages.success(
+                    request,
+                    'Perfil actualizado correctamente.'
+                    + (' Verifica tu correo institucional si lo cambiaste.' if user.es_admin else ' Si cambiaste tu correo, por favor verifícalo.')
+                )
                 return redirect('perfil')
-            
-            context = {
-                'usuario': user,
-                'perfil_basico_form': perfil_basico_form,
-            }
-            if user.rol == Rol.ALUMNO and getattr(user, 'tiene_expediente', False):
-                context['expediente'] = user.expediente
-                context['form'] = ExpedienteForm(instance=user.expediente)
-                context['foto_doc'] = Documento.objects.filter(expediente=user.expediente, tipo_documento__es_fotografia=True).first()
 
+            context = self._build_context(user, perfil_form)
             messages.error(request, 'Por favor corrige los errores del formulario de perfil.')
             return render(request, self.template_name, context)
 
@@ -136,6 +126,15 @@ class EnviarVerificacionEmailView(LoginRequiredMixin, View):
             messages.error(request, 'No tienes registrado este tipo de correo.')
             return redirect('perfil')
 
+        if not ConfiguracionInstitucional.smtp_configurado():
+            messages.error(
+                request,
+                'El servidor de correo aún no está configurado. Un administrador debe guardar la configuración SMTP antes de enviar códigos.'
+            )
+            if request.user.es_admin:
+                return redirect('administracion:configuracion_email')
+            return redirect('perfil')
+
         # Invalidate old OTPs for this user and type
         EmailVerificationOTP.objects.filter(usuario=user, tipo_correo=tipo.upper(), usado=False).update(usado=True)
 
@@ -155,8 +154,10 @@ class EnviarVerificacionEmailView(LoginRequiredMixin, View):
             # We already have an otp_codigo.html template, let's use it or generic
             html_content = render_to_string('emails/otp_codigo.html', {
                 'codigo': codigo,
-                'full_name': user.get_full_name(),
-                'minutos_validez': 15
+                'user_name': user.get_full_name() or user.username,
+                'full_name': user.get_full_name() or user.username,
+                'mensaje_corto': f'Has solicitado verificar tu correo {tipo}',
+                'minutos_validez': 15,
             })
             msg = EmailMultiAlternatives(
                 subject,
@@ -169,7 +170,13 @@ class EnviarVerificacionEmailView(LoginRequiredMixin, View):
             messages.success(request, f'Se ha enviado un código de verificación a {correo_destino}.')
         except Exception as e:
             EmailVerificationOTP.objects.filter(usuario=user, tipo_correo=tipo.upper(), codigo=codigo).delete()
-            messages.error(request, f'Error al enviar el correo. Por favor, inténtalo más tarde.')
+            messages.error(
+                request,
+                f'No se pudo enviar el correo: {e}. '
+                + ('Revisa la configuración SMTP.' if user.es_admin else 'Contacta al administrador.')
+            )
+            if user.es_admin:
+                return redirect('administracion:configuracion_email')
             return redirect('perfil')
 
         return redirect('perfil_verificar_validar', tipo=tipo)

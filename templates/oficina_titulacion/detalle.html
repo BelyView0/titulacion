@@ -1,0 +1,289 @@
+{% extends 'base.html' %}
+{% block title %}Expediente {{ expediente.pk }}{% endblock %}
+{% block page_title %}Expediente — {{ expediente.alumno.get_full_name }}{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-3">
+    <div class="col-lg-8">
+        <div class="content-card p-3">
+            <h6 class="fw-bold mb-3"><i class="bi bi-person-badge me-1"></i> Datos del alumno</h6>
+            <div class="row g-2 small">
+                <div class="col-md-6"><strong>Control:</strong> {{ expediente.alumno.numero_control|default:expediente.alumno.username }}</div>
+                <div class="col-md-6"><strong>Carrera:</strong> {{ expediente.alumno.carrera.nombre|default:"—" }}</div>
+                <div class="col-md-6"><strong>Plan:</strong> {{ expediente.plan_estudios.nombre|default:"—" }}</div>
+                <div class="col-md-6"><strong>Modalidad:</strong> {{ expediente.modalidad.nombre|default:"—" }}</div>
+                <div class="col-md-6"><strong>Asesor:</strong> {{ expediente.asesor.get_full_name|default:"—" }}</div>
+                <div class="col-md-6"><strong>Estado:</strong> <span class="badge bg-primary">{{ expediente.get_estado_display }}</span></div>
+                <div class="col-12"><strong>Título:</strong> {{ expediente.titulo_trabajo|default:"—" }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="content-card p-3">
+            <h6 class="fw-bold mb-3">Acciones rápidas</h6>
+            <div class="d-grid gap-2">
+                {% if expediente.estado == 'EN_REVISION' %}
+                <form method="post" action="{% url 'oficina_titulacion:aprobar_expediente' expediente.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success btn-sm w-100">Aprobar expediente</button>
+                </form>
+                {% endif %}
+                {% if expediente.estado == 'EXPEDIENTE_APROBADO' or expediente.estado == 'OFICIO_GENERADO' %}
+                <form method="post" action="{% url 'oficina_titulacion:generar_oficio' expediente.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary btn-sm w-100">Generar oficio publicación</button>
+                </form>
+                {% endif %}
+                {% if expediente.oficio_publicacion_pdf %}
+                <a href="{{ expediente.oficio_publicacion_pdf.url }}" target="_blank" class="btn btn-outline-primary btn-sm">Ver oficio PDF</a>
+                {% endif %}
+                {% if expediente.estado == 'CERTIFICADO_FIRMADO' or expediente.estado == 'CERTIFICADO_CITA_PROGRAMADA' %}
+                <form method="post" action="{% url 'oficina_titulacion:marcar_certificado' expediente.pk %}" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <input type="file" name="certificado_digital" class="form-control form-control-sm mb-2" accept=".pdf,.jpg,.png">
+                    <button type="submit" class="btn btn-warning btn-sm w-100">Marcar certificado listo</button>
+                </form>
+                {% endif %}
+                {% if expediente.constancia_no_inconveniencia %}
+                <a href="{{ expediente.constancia_no_inconveniencia.url }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-download me-1"></i>Constancia de no Inconveniencia para el Acto de Recepción Profesional
+                </a>
+                {% endif %}
+                {% if expediente.constancia_no_adeudos %}
+                <a href="{{ expediente.constancia_no_adeudos.url }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-download me-1"></i>Constancia de no adeudos
+                </a>
+                {% endif %}
+                {% if expediente.estado == 'ADEUDOS_EN_REVISION' or expediente.estado == 'DOCUMENTOS_OFICIALES_LISTOS' %}
+                <form method="post" action="{% url 'oficina_titulacion:generar_no_inconveniencia' expediente.pk %}" enctype="multipart/form-data" class="mt-1">
+                    {% csrf_token %}
+                    <button type="submit" name="modo" value="generar" class="btn btn-outline-info btn-sm w-100 mb-1">Regenerar no inconveniencia</button>
+                    <input type="file" name="constancia_pdf" class="form-control form-control-sm mb-1" accept=".pdf">
+                    <button type="submit" name="modo" value="subir" class="btn btn-outline-secondary btn-sm w-100 mb-1">Subir no inconveniencia</button>
+                </form>
+                <form method="post" action="{% url 'oficina_titulacion:regenerar_no_adeudos' expediente.pk %}" class="mt-1">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-info btn-sm w-100">Regenerar constancia de no adeudos</button>
+                </form>
+                {% endif %}
+                {% if expediente.estado == 'ACTO_REALIZADO' %}
+                <form method="post" action="{% url 'oficina_titulacion:generar_certificacion' expediente.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success btn-sm w-100">Generar certificación exención</button>
+                </form>
+                {% endif %}
+                <a href="{% url 'oficina_titulacion:expedientes' %}" class="btn btn-outline-secondary btn-sm">← Lista</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if expediente.estado == 'ADEUDOS_EN_REVISION' or expediente.estado == 'DOCUMENTOS_OFICIALES_LISTOS' or expediente.constancia_no_adeudos or confirmaciones_adeudo %}
+<div class="content-card p-3 mb-3">
+    <h6 class="fw-bold mb-3"><i class="bi bi-clipboard-check me-1"></i> Confirmación de no adeudos</h6>
+    <div class="table-responsive mb-3">
+        <table class="table table-sm mb-0">
+            <thead class="table-light"><tr><th>Área</th><th>Estado</th><th>Observaciones</th><th>Fecha</th></tr></thead>
+            <tbody>
+            {% for c in confirmaciones_adeudo %}
+            <tr>
+                <td>{{ c.get_area_display }}</td>
+                <td>
+                    {% if c.sin_adeudos %}
+                    <span class="badge bg-success">Sin adeudos</span>
+                    {% else %}
+                    <span class="badge bg-danger">Con adeudos</span>
+                    {% endif %}
+                </td>
+                <td class="small">{{ c.observaciones|default:"—" }}</td>
+                <td class="small">{{ c.fecha|date:"d/m/Y H:i" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-muted text-center">Aún sin confirmaciones de las áreas.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if expediente.constancia_no_adeudos or expediente.constancia_no_inconveniencia %}
+    <div class="d-flex flex-wrap gap-2">
+        {% if expediente.constancia_no_adeudos %}
+        <a href="{{ expediente.constancia_no_adeudos.url }}" target="_blank" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-download me-1"></i>Descargar constancia de no adeudos
+        </a>
+        {% endif %}
+        {% if expediente.constancia_no_inconveniencia %}
+        <a href="{{ expediente.constancia_no_inconveniencia.url }}" target="_blank" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-download me-1"></i>Constancia de no Inconveniencia para el Acto de Recepción Profesional
+        </a>
+        {% endif %}
+    </div>
+    {% else %}
+    <p class="small text-muted mb-0">
+        Al confirmar las tres áreas sin adeudos se generarán automáticamente
+        la constancia de no adeudos y la Constancia de no Inconveniencia para el Acto de Recepción Profesional.
+    </p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if expediente.estado == 'OFICIO_GENERADO' or expediente.estado == 'OFICIO_CITA_PROGRAMADA' %}
+<div class="content-card p-3 mb-3">
+    <h6 class="fw-bold">Programar cita — Oficio de publicación</h6>
+    <form method="post" action="{% url 'oficina_titulacion:programar_cita_oficio' expediente.pk %}" class="row g-2 align-items-end">
+        {% csrf_token %}
+        <div class="col-md-3">
+            <label class="form-label small">Fecha y hora</label>
+            <input type="datetime-local" name="fecha_hora" class="form-control form-control-sm" required>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label small">Lugar</label>
+            <input type="text" name="lugar" class="form-control form-control-sm" required placeholder="Oficina de Titulación">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small">Notas</label>
+            <input type="text" name="notas" class="form-control form-control-sm">
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary btn-sm w-100">Programar</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<div class="content-card mb-3">
+    <div class="card-header-custom"><i class="bi bi-file-earmark-text"></i> Documentos</div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Documento</th>
+                    <th>Estado</th>
+                    <th>Archivo</th>
+                    <th>Validación</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doc in documentos %}
+                <tr>
+                    <td>{{ doc.tipo_documento.nombre }}</td>
+                    <td><span class="badge bg-secondary">{{ doc.get_estado_display }}</span></td>
+                    <td>
+                        {% if doc.archivo %}
+                        <a href="{{ doc.archivo.url }}" target="_blank" class="btn btn-xs btn-outline-primary btn-sm">Ver</a>
+                        {% else %}<span class="text-muted">—</span>{% endif %}
+                    </td>
+                    <td>
+                        {% if doc.archivo and doc.estado != 'APROBADO' %}
+                        <form method="post" action="{% url 'oficina_titulacion:validar_documento' doc.pk %}" class="d-flex flex-wrap gap-1">
+                            {% csrf_token %}
+                            <input type="text" name="observaciones" class="form-control form-control-sm" placeholder="Observaciones" style="max-width:140px;">
+                            <button name="accion" value="APROBAR" class="btn btn-success btn-sm">OK</button>
+                            <button name="accion" value="CORRECCION" class="btn btn-warning btn-sm">Corregir</button>
+                            <button name="accion" value="RECHAZAR" class="btn btn-danger btn-sm">Rechazar</button>
+                        </form>
+                        {% elif doc.validacion %}
+                        <small>{{ doc.validacion.get_estado_display }}</small>
+                        {% else %}—{% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-muted text-center">Sin documentos</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if acto %}
+<div class="content-card p-3 mb-3">
+    <h6 class="fw-bold">Acto protocolario</h6>
+    <p class="small mb-2">{{ acto.fecha_acto|date:"d/m/Y H:i" }} — {{ acto.lugar }} — {{ acto.get_resultado_display }}</p>
+    <form method="post" action="{% url 'oficina_titulacion:confirmar_acto' acto.pk %}" class="d-inline">
+        {% csrf_token %}
+        <button class="btn btn-success btn-sm">Confirmar acto realizado</button>
+    </form>
+    <form method="post" action="{% url 'oficina_titulacion:reprogramar_acto' acto.pk %}" class="row g-2 mt-2 align-items-end">
+        {% csrf_token %}
+        <div class="col-md-3">
+            <input type="datetime-local" name="fecha_acto" class="form-control form-control-sm" required>
+        </div>
+        <div class="col-md-4">
+            <input type="text" name="lugar" value="{{ acto.lugar }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-outline-warning btn-sm">Reprogramar</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+{% if citas %}
+<div class="content-card p-3 mb-3">
+    <h6 class="fw-bold mb-3"><i class="bi bi-calendar-event me-1"></i> Citas programadas</h6>
+    {% for cita in citas %}
+    <div class="border rounded p-3 mb-2 {% if cita.estado == 'REPROGRAMACION_SOLICITADA' %}border-warning bg-warning bg-opacity-10{% endif %}">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+                <strong>{{ cita.get_tipo_display }}</strong>
+                <span class="badge bg-secondary ms-1">{{ cita.get_estado_display }}</span>
+                <div class="small text-muted mt-1">
+                    {{ cita.fecha_hora|date:"d/m/Y H:i" }} — {{ cita.lugar }}
+                </div>
+            </div>
+            {% if cita.estado != 'REPROGRAMACION_SOLICITADA' and cita.estado != 'COMPLETADA' and cita.estado != 'CANCELADA' %}
+            <form method="post" action="{% url 'oficina_titulacion:completar_cita' cita.pk %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="redirect_expediente" value="{{ expediente.pk }}">
+                <button class="btn btn-success btn-sm">Marcar completada</button>
+            </form>
+            {% endif %}
+        </div>
+        {% if cita.estado == 'REPROGRAMACION_SOLICITADA' %}
+        <div class="alert alert-warning py-2 small mt-2 mb-2">
+            <strong>El alumno no puede asistir en la fecha programada.</strong><br>
+            <strong>Motivo:</strong> {{ cita.propuesta_alumno_notas }}
+            {% if cita.propuesta_alumno_fecha %}
+            <br><strong>Fecha propuesta por el alumno:</strong> {{ cita.propuesta_alumno_fecha|date:"d/m/Y H:i" }}
+            {% endif %}
+        </div>
+        <form method="post" action="{% url 'oficina_titulacion:aprobar_reprogramacion' cita.pk %}" class="row g-2 align-items-end">
+            {% csrf_token %}
+            <input type="hidden" name="redirect_expediente" value="{{ expediente.pk }}">
+            <div class="col-md-3">
+                <label class="form-label small">Nueva fecha y hora</label>
+                <input type="datetime-local" name="nueva_fecha" class="form-control form-control-sm" required
+                       {% if cita.propuesta_alumno_fecha %}value="{{ cita.propuesta_alumno_fecha|date:'Y-m-d' }}T{{ cita.propuesta_alumno_fecha|date:'H:i' }}"{% endif %}>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small">Lugar</label>
+                <input type="text" name="lugar" class="form-control form-control-sm" value="{{ cita.lugar }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">Notas (opcional)</label>
+                <input type="text" name="notas" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-warning btn-sm w-100">Reprogramar cita</button>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="content-card">
+    <div class="card-header-custom"><i class="bi bi-clock-history"></i> Historial reciente</div>
+    <ul class="list-group list-group-flush small">
+        {% for h in historial %}
+        <li class="list-group-item">
+            <strong>{{ h.get_estado_nuevo_display|default:h.estado_nuevo }}</strong>
+            — {{ h.descripcion|truncatechars:80 }}
+            <span class="text-muted">({{ h.fecha|date:"d/m/Y H:i" }})</span>
+        </li>
+        {% empty %}
+        <li class="list-group-item text-muted">Sin historial</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

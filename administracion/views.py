@@ -13,7 +13,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
-from django.shortcuts import redirect, get_object_or_404
+from django.shortcuts import redirect, get_object_or_404, render
 from django.http import HttpResponse
 from django.utils import timezone
 
@@ -44,6 +44,43 @@ class ConfiguracionUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView)
         return super().form_valid(form)
 
 
+class ConfiguracionContactosView(AdminRequeridoMixin, View):
+    """Edita contactos institucionales de áreas (no son usuarios del sistema)."""
+    template_name = 'administracion/configuracion_contactos.html'
+
+    def get(self, request):
+        from administracion.forms import ContactoAreaForm
+        from administracion.models import ContactoArea
+        from django.forms import modelformset_factory
+
+        ContactoAreaFormSet = modelformset_factory(
+            ContactoArea, form=ContactoAreaForm, extra=0, can_delete=False,
+        )
+        formset = ContactoAreaFormSet(queryset=ContactoArea.objects.all())
+        return render(request, self.template_name, {
+            'formset': formset,
+            'telefono_base': ConfiguracionInstitucional.objects.first(),
+        })
+
+    def post(self, request):
+        from administracion.forms import ContactoAreaForm
+        from administracion.models import ContactoArea
+        from django.forms import modelformset_factory
+
+        ContactoAreaFormSet = modelformset_factory(
+            ContactoArea, form=ContactoAreaForm, extra=0, can_delete=False,
+        )
+        formset = ContactoAreaFormSet(request.POST, queryset=ContactoArea.objects.all())
+        if formset.is_valid():
+            formset.save()
+            messages.success(request, 'Contactos de áreas actualizados.')
+            return redirect('administracion:configuracion_contactos')
+        return render(request, self.template_name, {
+            'formset': formset,
+            'telefono_base': ConfiguracionInstitucional.objects.first(),
+        })
+
+
 class ConfiguracionEmailUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
     model = ConfiguracionInstitucional
     from .forms import ConfiguracionEmailForm
@@ -61,43 +98,61 @@ class ConfiguracionEmailUpdateView(AdminRequeridoMixin, FormMessageMixin, Update
         return response
 
 class ProbarConfiguracionEmailView(AdminRequeridoMixin, View):
-    """Envía un correo de prueba usando la configuración SMTP actual guardada"""
+    """Envía un correo de prueba usando la configuración SMTP actual guardada."""
+
     def post(self, request, *args, **kwargs):
         from django.core.mail import EmailMultiAlternatives
         from django.template.loader import render_to_string
         from django.conf import settings
-        
-        user_email = request.user.email
-        if not user_email:
-            messages.error(request, 'No tienes un correo electrónico registrado en tu perfil para enviar la prueba.')
-            return redirect('administracion:configuracion_email')
-            
-        try:
-            from administracion.models import ConfiguracionInstitucional
-            config = ConfiguracionInstitucional.objects.first()
-            destinatarios = [user_email]
-            
-            # Si el correo remitente configurado es diferente al del usuario, lo agregamos también
-            if config and config.email_remitente and config.email_remitente != user_email:
-                destinatarios.append(config.email_remitente)
 
+        config = ConfiguracionInstitucional.objects.first()
+        if not config or not config.smtp_listo():
+            messages.error(
+                request,
+                'Guarda primero el servidor SMTP, correo remitente y contraseña de aplicación.'
+            )
+            return redirect('administracion:configuracion_email')
+
+        destinatario = (
+            request.POST.get('email_prueba')
+            or request.user.correo_institucional
+            or request.user.email
+            or config.email_remitente
+        )
+        if not destinatario:
+            messages.error(
+                request,
+                'Indica un correo de prueba o registra un correo personal/institucional en tu perfil.'
+            )
+            return redirect('administracion:configuracion_email')
+
+        try:
             html_content = render_to_string('emails/notificacion_generica.html', {
                 'titulo': 'Verificación de Configuración de Correo',
                 'saludo': f'¡Hola {request.user.get_full_name()}!',
-                'mensaje': 'Si has recibido este correo, significa que la configuración SMTP funciona correctamente y el sistema ya puede enviar correos usando este servidor.'
+                'mensaje': (
+                    'Si recibiste este correo, la configuración SMTP funciona correctamente '
+                    'y el sistema ya puede enviar notificaciones y códigos de verificación.'
+                ),
             })
             msg = EmailMultiAlternatives(
-                subject='[ITA Titulación] Verificación de Configuración de Correo',
-                body='¡Hola! Si has recibido este correo, significa que la configuración SMTP funciona correctamente y el sistema ya puede enviar correos usando este servidor.',
+                subject='[SIGET] Verificación de configuración de correo',
+                body='Prueba de configuración SMTP del Sistema de Titulación ITA.',
                 from_email=settings.DEFAULT_FROM_EMAIL,
-                to=destinatarios
+                to=[destinatario],
             )
-            msg.attach_alternative(html_content, "text/html")
+            msg.attach_alternative(html_content, 'text/html')
             msg.send(fail_silently=False)
-            messages.success(request, f'Correo de prueba enviado exitosamente a tu dirección registrada ({user_email}).')
+            messages.success(
+                request,
+                f'Correo de prueba enviado a {destinatario}. Revisa tu bandeja (y spam).'
+            )
         except Exception as e:
-            messages.error(request, f'Falló el envío del correo de prueba. Revisa tus credenciales o conexión: {str(e)}')
-            
+            messages.error(
+                request,
+                f'No se pudo enviar el correo de prueba: {e}'
+            )
+
         return redirect('administracion:configuracion_email')
 
 
@@ -205,7 +260,23 @@ class DashboardAdminView(AdminRequeridoMixin, TemplateView):
     template_name = 'administracion/dashboard.html'
 
     def get_context_data(self, **kwargs):
+        from administracion.setup_checks import (
+            evaluar_configuracion_sistema,
+            sincronizar_sistema_configurado,
+            get_alertas_informativas,
+        )
+
         ctx = super().get_context_data(**kwargs)
+        evaluacion = sincronizar_sistema_configurado()
+        ctx['configuracion_pendiente'] = evaluacion['pendiente']
+        ctx['pasos_configuracion'] = evaluacion['pasos']
+        ctx['progreso_configuracion'] = evaluacion['progreso']
+        ctx['pasos_pendientes'] = evaluacion['pendientes']
+
+        if evaluacion['pendiente']:
+            return ctx
+
+        ctx['alertas_sistema'] = get_alertas_informativas()
         ctx['total_alumnos'] = Usuario.objects.filter(rol='ALUMNO').count()
         ctx['total_expedientes'] = Expediente.objects.count()
         ctx['expedientes_activos'] = Expediente.objects.exclude(
@@ -254,77 +325,6 @@ class DashboardAdminView(AdminRequeridoMixin, TemplateView):
         ctx['carreras'] = Carrera.objects.filter(activa=True).annotate(
             num_expedientes=Count('usuario__expediente')
         )
-
-        # --- Alertas del sistema para el administrador ---
-        alertas = []
-
-        # Verificar roles criticos
-        roles_criticos = [
-            (Rol.JEFE_PROYECTO, 'Jefe de Proyecto / Administracion',
-             'Este usuario gestiona la asignacion de jurados y programa actos protocolarios.'),
-            (Rol.ACADEMICO, 'Jefe de Division de Estudios Profesionales',
-             'Este usuario valida documentos y supervisa el proceso academico de titulacion.'),
-            (Rol.ESCOLARES, 'Jefe de Servicios Escolares',
-             'Este usuario gestiona el trámite DGP, la validación de cédulas profesionales y la entrega final.'),
-        ]
-
-        for rol_value, rol_nombre, descripcion in roles_criticos:
-            if not Usuario.objects.filter(rol=rol_value, is_active=True).exists():
-                alertas.append({
-                    'tipo': 'danger',
-                    'icono': 'bi-person-x-fill',
-                    'titulo': f'Falta: {rol_nombre}',
-                    'mensaje': f'No hay ningun usuario con el rol "{rol_nombre}" registrado en el sistema. {descripcion}',
-                    'accion_url': reverse_lazy('administracion:usuario_crear'),
-                    'accion_texto': 'Crear usuario',
-                })
-
-        # Verificar carreras
-        if not Carrera.objects.filter(activa=True).exists():
-            alertas.append({
-                'tipo': 'warning',
-                'icono': 'bi-mortarboard-fill',
-                'titulo': 'Sin carreras registradas',
-                'mensaje': 'No hay carreras activas en el sistema. Los alumnos no podran registrar expedientes sin una carrera asignada.',
-                'accion_url': reverse_lazy('administracion:carrera_crear'),
-                'accion_texto': 'Crear carrera',
-            })
-
-        # Verificar departamentos
-        if not Departamento.objects.exists():
-            alertas.append({
-                'tipo': 'warning',
-                'icono': 'bi-building',
-                'titulo': 'Sin departamentos registrados',
-                'mensaje': 'No hay departamentos en el sistema. Los departamentos son necesarios para asignar jefes de proyecto.',
-                'accion_url': '/admin/administracion/departamento/add/',
-                'accion_texto': 'Crear departamento',
-            })
-
-        # Verificar jefes de departamento (para oficios)
-        if Departamento.objects.exists() and not JefeDepartamento.objects.exists():
-            alertas.append({
-                'tipo': 'info',
-                'icono': 'bi-person-badge',
-                'titulo': 'Sin jefes de departamento asignados',
-                'mensaje': 'No se han registrado jefes de departamento. Son necesarios para firmar oficios de asignacion de jurado.',
-                'accion_url': reverse_lazy('administracion:jefe_crear'),
-                'accion_texto': 'Asignar jefe',
-            })
-
-        # Verificar configuracion institucional (SMTP / Membretes)
-        config = ConfiguracionInstitucional.objects.first()
-        if not config or not config.email_remitente or not config.email_password:
-            alertas.append({
-                'tipo': 'danger',
-                'icono': 'bi-exclamation-triangle-fill',
-                'titulo': 'Configuracion Institucional Pendiente',
-                'mensaje': 'Alerta critica: El sistema no podra enviar correos electronicos ni notificaciones porque las credenciales SMTP no han sido configuradas. Configure el remitente y la contraseña de aplicacion inmediatamente.',
-                'accion_url': reverse_lazy('administracion:configuracion_institucional'),
-                'accion_texto': 'Configurar ahora',
-            })
-
-        ctx['alertas_sistema'] = alertas
         return ctx
 
 
@@ -387,19 +387,19 @@ class UsuarioCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
         usuario.debe_cambiar_password = True  # Forzar cambio de contraseña en su primer login por seguridad
         usuario.save()
 
-        # Desactivar Jefe de Proyecto anterior automáticamente si aplica
-        from administracion.models import Rol, Usuario as UserModel
-        if usuario.rol == Rol.JEFE_PROYECTO and usuario.departamento and usuario.is_active:
+        # Desactivar Jefe de Academia anterior automáticamente si aplica
+        from administracion.models import Rol, Usuario as UserModel, roles_jefe_academia
+        if usuario.rol in roles_jefe_academia() and usuario.departamento and usuario.is_active:
             viejos = UserModel.objects.filter(
-                rol=Rol.JEFE_PROYECTO, 
-                departamento=usuario.departamento, 
+                rol__in=roles_jefe_academia(),
+                departamento=usuario.departamento,
                 is_active=True
             ).exclude(pk=usuario.pk)
             for v in viejos:
                 v.is_active = False
                 v.save(update_fields=['is_active'])
             if viejos.exists():
-                messages.info(self.request, f'El Jefe de Proyecto anterior para {usuario.departamento.nombre} ha sido desactivado automáticamente para mantener solo uno activo.')
+                messages.info(self.request, f'El Jefe de Academia anterior para {usuario.departamento.nombre} ha sido desactivado automáticamente para mantener solo uno activo.')
 
         # Enviar correo de bienvenida y verificación (al correo institucional obligatoriamente)
         from django.core.mail import EmailMultiAlternatives
@@ -524,8 +524,8 @@ class UsuarioUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
                 destinatario=usuario
             ).order_by('-fecha')[:5]
 
-        # ── ESCOLARES / ACADEMICO / JEFE_PROYECTO: actividad relacionada ──
-        elif usuario.rol in [Rol.ESCOLARES, Rol.ACADEMICO, Rol.JEFE_PROYECTO]:
+        # ── Oficina de Titulación / Jefe de Academia: actividad relacionada ──
+        elif usuario.es_oficina_titulacion or usuario.es_jefe_academia:
             from expediente.models import (
                 ValidacionDocumento, HistorialExpediente, RecepcionEmpastado
             )
@@ -537,12 +537,12 @@ class UsuarioUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
                 realizado_por=usuario
             ).select_related('expediente').order_by('-fecha')[:10]
 
-            if usuario.rol == Rol.JEFE_PROYECTO:
+            if usuario.es_jefe_academia:
                 ctx['jurados_asignados'] = AsignacionJurado.objects.filter(
                     asignado_por=usuario
                 ).select_related('expediente', 'presidente', 'secretario').order_by('-fecha_oficio')[:10]
 
-            if usuario.rol == Rol.ACADEMICO:
+            if usuario.es_jefe_academia:
                 ctx['actos_programados'] = ActoProtocolario.objects.filter(
                     programado_por=usuario
                 ).select_related('expediente').order_by('-fecha_acto')[:10]
@@ -617,19 +617,19 @@ class UsuarioUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
     def form_valid(self, form):
         usuario = form.save()
         
-        # Desactivar Jefe de Proyecto anterior automáticamente si aplica
-        from administracion.models import Rol, Usuario as UserModel
-        if usuario.rol == Rol.JEFE_PROYECTO and usuario.departamento and usuario.is_active:
+        # Desactivar Jefe de Academia anterior automáticamente si aplica
+        from administracion.models import Rol, Usuario as UserModel, roles_jefe_academia
+        if usuario.rol in roles_jefe_academia() and usuario.departamento and usuario.is_active:
             viejos = UserModel.objects.filter(
-                rol=Rol.JEFE_PROYECTO, 
-                departamento=usuario.departamento, 
+                rol__in=roles_jefe_academia(),
+                departamento=usuario.departamento,
                 is_active=True
             ).exclude(pk=usuario.pk)
             for v in viejos:
                 v.is_active = False
                 v.save(update_fields=['is_active'])
             if viejos.exists():
-                messages.info(self.request, f'El Jefe de Proyecto anterior para {usuario.departamento.nombre} ha sido desactivado automáticamente para mantener solo uno activo.')
+                messages.info(self.request, f'El Jefe de Academia anterior para {usuario.departamento.nombre} ha sido desactivado automáticamente para mantener solo uno activo.')
 
         messages.success(self.request, 'Datos del usuario actualizados exitosamente.')
         return redirect('administracion:usuario_editar', pk=self.object.pk)
@@ -650,18 +650,26 @@ class UsuarioDeleteView(AdminRequeridoMixin, DeleteView):
             
         # Se permite eliminar usuarios sin importar si tienen Expediente.
             
-        # Regla: Al menos un usuario de roles críticos / Jefe de Proyecto
-        roles_criticos = [Rol.ADMINISTRADOR, Rol.ACADEMICO, Rol.ESCOLARES]
+        # Regla: Al menos un usuario de roles críticos / Jefe de Academia
+        from administracion.models import roles_oficina_titulacion, roles_jefe_academia
+        roles_criticos = [Rol.ADMINISTRADOR, *roles_oficina_titulacion()]
         if usuario.rol in roles_criticos and usuario.is_active:
-            activos_count = Usuario.objects.filter(rol=usuario.rol, is_active=True).count()
+            if usuario.rol in roles_oficina_titulacion():
+                activos_count = Usuario.objects.filter(
+                    rol__in=roles_oficina_titulacion(), is_active=True
+                ).count()
+            else:
+                activos_count = Usuario.objects.filter(rol=usuario.rol, is_active=True).count()
             if activos_count <= 1:
                 messages.error(request, f'No se puede eliminar al único usuario activo con el rol de {usuario.get_rol_display()}. Debe agregar alguien más con este rol antes de eliminar o desactivar al actual.')
                 return redirect('administracion:usuarios')
                 
-        if usuario.rol == Rol.JEFE_PROYECTO and usuario.departamento and usuario.is_active:
-            activos_count = Usuario.objects.filter(rol=Rol.JEFE_PROYECTO, departamento=usuario.departamento, is_active=True).count()
+        if usuario.rol in roles_jefe_academia() and usuario.departamento and usuario.is_active:
+            activos_count = Usuario.objects.filter(
+                rol__in=roles_jefe_academia(), departamento=usuario.departamento, is_active=True
+            ).count()
             if activos_count <= 1:
-                messages.error(request, f'No se puede eliminar al único Jefe de Proyectos activo del departamento {usuario.departamento.nombre}. Asigne un nuevo Jefe de Proyecto primero (este se desactivará automáticamente al hacerlo).')
+                messages.error(request, f'No se puede eliminar al único Jefe de Academia activo del departamento {usuario.departamento.nombre}. Asigne un nuevo Jefe de Academia primero (este se desactivará automáticamente al hacerlo).')
                 return redirect('administracion:usuarios')
 
         return super().dispatch(request, *args, **kwargs)
@@ -865,8 +873,10 @@ class ExpedienteListaJefeView(JefeProyectoRequeridoMixin, ListView):
         ctx['modalidad_id'] = self.request.GET.get('modalidad', '')
         user = self.request.user
         if user.departamento:
+            ctx['area_responsabilidad'] = f"Departamento de {user.departamento.nombre}"
             ctx['carreras_filter'] = Carrera.objects.filter(departamento=user.departamento, activa=True)
         else:
+            ctx['area_responsabilidad'] = user.carrera.nombre if user.carrera else "Mi Carrera"
             ctx['carreras_filter'] = Carrera.objects.filter(id=user.carrera_id, activa=True) if user.carrera_id else Carrera.objects.none()
         ctx['modalidades_filter'] = Modalidad.objects.all()
 
@@ -938,6 +948,7 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
             'expediente': expediente,
             'jurado': jurado,
             'sinodales': sinodales,
+            'asesor_presidente_id': expediente.asesor_id,
         }
         return HttpResponse(render_to_string(
             'administracion/jefe/jurado_asignar.html', context, request

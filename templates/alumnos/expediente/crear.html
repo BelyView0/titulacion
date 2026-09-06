@@ -14,7 +14,15 @@
                 Una vez creado el expediente, el sistema generará automáticamente la lista de documentos que debes presentar.
             </div>
 
-            <form method="post" enctype="multipart/form-data">
+            {% if contacto_escolares %}
+            <div class="alert alert-secondary">
+                <i class="bi bi-question-circle me-2"></i>
+                Si no conoces tu plan de estudios, consulta en Servicios Escolares:
+                {% include 'includes/_contacto_area.html' with contacto=contacto_escolares %}
+            </div>
+            {% endif %}
+
+            <form method="post" enctype="multipart/form-data" id="form-crear-expediente">
                 {% csrf_token %}
                 {% for field in form %}
                 <div class="mb-3">
@@ -22,33 +30,11 @@
                         {{ field.label }}
                         {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
                     </label>
-                    {% if field.field.widget.input_type == 'select' %}
-                    <select name="{{ field.html_name }}" id="{{ field.id_for_label }}"
-                            class="form-select {% if field.errors %}is-invalid{% endif %}"
-                            {% if field.field.required %}required{% endif %}>
-                        <option value="">— Selecciona —</option>
-                        {% for val, label in field.field.choices %}
-                        {% if val %}
-                        <option value="{{ val }}" {% if field.value == val|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
-                        {% endif %}
-                        {% endfor %}
-                    </select>
-                    {% elif field.field.widget.input_type == 'file' %}
-                    <input type="file" name="{{ field.html_name }}" id="{{ field.id_for_label }}"
-                           class="form-control {% if field.errors %}is-invalid{% endif %}"
-                           accept="image/*">
-                    <div class="form-text">{{ field.help_text }}</div>
-                    {% else %}
-                    <input type="{{ field.field.widget.input_type|default:'text' }}"
-                           name="{{ field.html_name }}" id="{{ field.id_for_label }}"
-                           value="{{ field.value|default:'' }}"
-                           class="form-control {% if field.errors %}is-invalid{% endif %}"
-                           {% if field.field.required %}required{% endif %}>
-                    {% endif %}
+                    {{ field }}
                     {% if field.errors %}
-                    <div class="invalid-feedback">{{ field.errors.0 }}</div>
+                    <div class="invalid-feedback d-block">{{ field.errors.0 }}</div>
                     {% endif %}
-                    {% if field.help_text and field.field.widget.input_type != 'file' %}
+                    {% if field.help_text %}
                     <div class="form-text">{{ field.help_text }}</div>
                     {% endif %}
                 </div>
@@ -66,4 +52,57 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const planSelect = document.getElementById('id_plan_estudios');
+    const modalidadSelect = document.getElementById('id_modalidad');
+    if (!planSelect || !modalidadSelect) return;
+
+    const modalidadesUrl = '{% url "alumnos:modalidades_por_plan" %}';
+    const selectedModalidad = modalidadSelect.value || '{{ form.modalidad.value|default_if_none:"" }}';
+
+    async function cargarModalidades(planId, keepSelection) {
+        modalidadSelect.innerHTML = '';
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = planId
+            ? '— Selecciona modalidad —'
+            : '— Primero selecciona plan de estudios —';
+        modalidadSelect.appendChild(placeholder);
+        modalidadSelect.disabled = !planId;
+        modalidadSelect.required = true;
+
+        if (!planId) return;
+
+        try {
+            const response = await fetch(`${modalidadesUrl}?plan_id=${encodeURIComponent(planId)}`);
+            const data = await response.json();
+            if (!data.modalidades.length) {
+                placeholder.textContent = '— No hay modalidades para este plan —';
+                return;
+            }
+            data.modalidades.forEach(function(modalidad) {
+                const option = document.createElement('option');
+                option.value = modalidad.id;
+                option.textContent = modalidad.nombre;
+                if (keepSelection && String(keepSelection) === String(modalidad.id)) {
+                    option.selected = true;
+                }
+                modalidadSelect.appendChild(option);
+            });
+        } catch (error) {
+            placeholder.textContent = '— Error al cargar modalidades —';
+        }
+    }
+
+    planSelect.addEventListener('change', function() {
+        cargarModalidades(planSelect.value, '');
+    });
+
+    cargarModalidades(planSelect.value, selectedModalidad);
+});
+</script>
 {% endblock %}

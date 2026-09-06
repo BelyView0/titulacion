@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Configuración de base de datos{% endblock %}
+{% block page_title %}Configuración de base de datos{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="content-card p-4">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-database-gear me-2"></i> Conexión a la base de datos
+            </div>
+            <p class="text-muted small mb-4">
+                Configure SQLite (instalación local) o PostgreSQL (producción). Los cambios se guardan en
+                <code>config/database.json</code> y requieren reiniciar el servicio del sistema.
+            </p>
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% for field in form %}
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                    {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+                </div>
+                {% endfor %}
+                <div class="d-flex flex-wrap gap-2 pt-3 border-top">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-plug me-1"></i>Guardar y probar conexión</button>
+                    <a href="{% url 'administracion:dashboard' %}" class="btn btn-outline-secondary">Volver al panel</a>
+                </div>
+            </form>
+        </div>
+
+        <div class="content-card p-3 mt-3">
+            <div class="small text-muted mb-2 fw-semibold">Otras configuraciones del sistema</div>
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{% url 'administracion:configuracion' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-building me-1"></i>Datos institucionales</a>
+                <a href="{% url 'administracion:configuracion_email' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-envelope-gear me-1"></i>Servidor SMTP</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

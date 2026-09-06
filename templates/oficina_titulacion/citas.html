@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% block title %}Citas — Oficina de Titulación{% endblock %}
+{% block page_title %}{% if modo == 'masiva' %}Citación masiva{% else %}Citas pendientes{% endif %}{% endblock %}
+
+{% block content %}
+<div class="mb-3 d-flex gap-2">
+    <a href="{% url 'oficina_titulacion:citas_pendientes' %}" class="btn btn-sm {% if modo != 'masiva' %}btn-primary{% else %}btn-outline-primary{% endif %}">Pendientes</a>
+    <a href="{% url 'oficina_titulacion:citacion_masiva' %}" class="btn btn-sm {% if modo == 'masiva' %}btn-primary{% else %}btn-outline-primary{% endif %}">Citación masiva</a>
+</div>
+
+{% if modo == 'masiva' %}
+<div class="content-card p-3 mb-4">
+    <h6 class="fw-bold mb-3">Filtros de candidatos (certificado pendiente de cita)</h6>
+    <form method="get" class="row g-2 mb-3">
+        <div class="col-md-3">
+            <select name="plan" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">— Plan —</option>
+                {% for p in planes %}
+                <option value="{{ p.id }}" {% if plan_id == p.id|stringformat:"s" %}selected{% endif %}>{{ p.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <select name="carrera" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">— Carrera —</option>
+                {% for c in carreras %}
+                <option value="{{ c.id }}" {% if carrera_id == c.id|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="row g-2 mb-3">
+            <div class="col-md-3">
+                <label class="form-label small">Fecha y hora</label>
+                <input type="datetime-local" name="fecha_hora" class="form-control form-control-sm" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small">Lugar</label>
+                <input type="text" name="lugar" class="form-control form-control-sm" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">Criterio del lote</label>
+                <input type="text" name="criterio" class="form-control form-control-sm" placeholder="Ej. Plan 2019 — Carrera X">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Notas</label>
+                <input type="text" name="notas" class="form-control form-control-sm">
+            </div>
+        </div>
+
+        <div class="table-responsive mb-3">
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th><input type="checkbox" id="sel-all" onclick="document.querySelectorAll('.exp-check').forEach(c=>c.checked=this.checked)"></th>
+                        <th>Alumno</th>
+                        <th>Carrera</th>
+                        <th>Plan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for exp in candidatos %}
+                    <tr>
+                        <td><input type="checkbox" class="exp-check" name="expediente_ids" value="{{ exp.pk }}"></td>
+                        <td>{{ exp.alumno.get_full_name }} <small class="text-muted">{{ exp.alumno.numero_control }}</small></td>
+                        <td>{{ exp.alumno.carrera.nombre|default:"—" }}</td>
+                        <td>{{ exp.plan_estudios.nombre|default:"—" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="text-muted text-center">No hay candidatos</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-calendar-plus me-1"></i> Crear lote y citas</button>
+    </form>
+</div>
+{% else %}
+<div class="content-card mb-3 p-3">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label small">Tipo de cita</label>
+            <select name="tipo" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">— Todos —</option>
+                <option value="CERTIFICADO" {% if tipo_filtro == 'CERTIFICADO' %}selected{% endif %}>Certificado</option>
+                <option value="OFICIO_PUBLICACION" {% if tipo_filtro == 'OFICIO_PUBLICACION' %}selected{% endif %}>Oficio publicación</option>
+            </select>
+        </div>
+    </form>
+</div>
+
+<div class="content-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Fecha</th>
+                    <th>Alumno</th>
+                    <th>Tipo</th>
+                    <th>Lugar</th>
+                    <th>Estado</th>
+                    <th>Lote</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cita in citas %}
+                <tr>
+                    <td>{{ cita.fecha_hora|date:"d/m/Y H:i" }}</td>
+                    <td>
+                        <a href="{% url 'oficina_titulacion:expediente_detalle' cita.expediente.pk %}">{{ cita.expediente.alumno.get_full_name }}</a>
+                    </td>
+                    <td>{{ cita.get_tipo_display }}</td>
+                    <td>{{ cita.lugar }}</td>
+                    <td><span class="badge bg-secondary">{{ cita.get_estado_display }}</span></td>
+                    <td>{{ cita.lote_id|default:"—" }}</td>
+                    <td class="text-end">
+                        {% if cita.estado == 'REPROGRAMACION_SOLICITADA' %}
+                        <div class="text-start small mb-2 p-2 rounded bg-warning bg-opacity-10">
+                            <strong>Motivo del alumno:</strong> {{ cita.propuesta_alumno_notas|default:"—" }}
+                            {% if cita.propuesta_alumno_fecha %}
+                            <br><strong>Fecha propuesta:</strong> {{ cita.propuesta_alumno_fecha|date:"d/m/Y H:i" }}
+                            {% endif %}
+                        </div>
+                        <form method="post" action="{% url 'oficina_titulacion:aprobar_reprogramacion' cita.pk %}" class="d-flex flex-wrap gap-1 justify-content-end align-items-center">
+                            {% csrf_token %}
+                            <input type="datetime-local" name="nueva_fecha" class="form-control form-control-sm" style="max-width:180px;"
+                                   {% if cita.propuesta_alumno_fecha %}value="{{ cita.propuesta_alumno_fecha|date:'Y-m-d' }}T{{ cita.propuesta_alumno_fecha|date:'H:i' }}"{% endif %}>
+                            <input type="text" name="lugar" class="form-control form-control-sm" style="max-width:140px;" placeholder="Lugar" value="{{ cita.lugar }}">
+                            <button class="btn btn-warning btn-sm">Asignar nueva fecha</button>
+                        </form>
+                        {% endif %}
+                        {% if cita.estado != 'REPROGRAMACION_SOLICITADA' %}
+                        <form method="post" action="{% url 'oficina_titulacion:completar_cita' cita.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <button class="btn btn-success btn-sm">Completar</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="text-center text-muted py-4">No hay citas pendientes</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if is_paginated %}
+    <div class="p-3">
+        <nav><ul class="pagination pagination-sm mb-0">
+            {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a></li>{% endif %}
+            <li class="page-item disabled"><span class="page-link">{{ page_obj.number }}/{{ page_obj.paginator.num_pages }}</span></li>
+            {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Siguiente</a></li>{% endif %}
+        </ul></nav>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}
