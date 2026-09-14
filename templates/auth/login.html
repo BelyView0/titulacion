@@ -30,7 +30,7 @@
         }
         .login-header {
             background: linear-gradient(135deg, {{ institucion.color_menu|default:'#003B73' }} 0%, #001f4b 100%);
-            padding: 2rem 2rem 1.5rem;
+            padding: 2rem 2rem 2.75rem;
             text-align: center;
             position: relative;
         }
@@ -38,9 +38,9 @@
             content: '';
             position: absolute;
             bottom: -1px; left: 0; right: 0;
-            height: 30px;
+            height: 42px;
             background: rgba(255,255,255,.97);
-            clip-path: ellipse(55% 100% at 50% 100%);
+            clip-path: ellipse(58% 100% at 50% 100%);
         }
         .ita-badge {
             display: inline-flex;
@@ -64,9 +64,13 @@
             color: #fff;
             font-size: .82rem;
             font-weight: 500;
-            margin: 0;
+            margin: 0 0 1.15rem;
             letter-spacing: .01em;
             opacity: .92;
+            padding: 0 .75rem;
+            line-height: 1.35;
+            position: relative;
+            z-index: 1;
         }
         .login-header p {
             color: rgb(255, 255, 255);

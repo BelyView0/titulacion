@@ -46,7 +46,7 @@
             {% endif %}
             {% if expediente.asesor %}
             <div class="mb-2">
-                <small class="text-muted fw-semibold">Asesor</small>
+                <small class="text-muted fw-semibold">Asesor(a)</small>
                 <div class="fw-bold">{{ expediente.asesor.get_nombre_con_titulo }}</div>
             </div>
             {% endif %}
@@ -99,8 +99,8 @@
         </div>
         {% endif %}
 
-        <!-- Acciones -->
-        {% if expediente.estado in 'CARGA_DOCUMENTOS,EN_CORRECCION' %}
+        <!-- Acciones: envío solo tras cita (CARGA_DOCUMENTOS / EN_CORRECCION) -->
+        {% if puede_enviar_documentos %}
         <div class="content-card p-3">
             <div class="card-header-custom mb-2"><i class="bi bi-lightning"></i> Acciones</div>
             {% if expediente.estado == 'EN_CORRECCION' %}
@@ -108,30 +108,30 @@
                     <i class="bi bi-exclamation-triangle me-1"></i>
                     Tu expediente regresó a corrección. Revisa los documentos con observaciones, corrígelos y vuelve a enviar a revisión.
                 </div>
-            {% elif expediente.documentos_total > 0 and expediente.documentos_aprobados < expediente.documentos_total %}
-                <p class="small text-muted">Carga todos los documentos obligatorios y envíalos a revisión de Oficina de Titulación.</p>
+            {% else %}
+                <p class="small text-muted">Verifica que todos los documentos obligatorios estén cargados y envíalos a revisión de Oficina de Titulación.</p>
             {% endif %}
 
-            {% with docs_pendientes=expediente.documentos.all %}
-            {% with total=expediente.documentos_total %}
-            <div class="proceso-progress mb-3">
-                <div class="d-flex justify-content-between mb-1">
-                    <small class="fw-semibold text-muted">Progreso de documentos</small>
-                    <small class="fw-bold" style="color:var(--ita-azul);">{{ expediente.documentos_aprobados }}/{{ total }}</small>
-                </div>
-                <div class="progress" style="height: 6px;">
-                    <div class="progress-bar bg-primary" id="progreso-documentos-bar"></div>
-                </div>
+            {% if not todos_obligatorios_cargados %}
+            <div class="alert alert-warning py-2 small mb-2">
+                <i class="bi bi-exclamation-circle me-1"></i>
+                Aún faltan documentos obligatorios por cargar
+                {% if docs_faltantes_carga %}
+                    ({{ docs_faltantes_carga|join:", " }})
+                {% endif %}.
             </div>
-            {% endwith %}
-            {% endwith %}
-
+            <button type="button" class="btn btn-primary w-100" disabled title="Carga todos los documentos obligatorios para enviar">
+                <i class="bi bi-send-check me-2"></i>Enviar Documentos a Revisión
+            </button>
+            {% else %}
             <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#modalEnviarDocs">
                 <i class="bi bi-send-check me-2"></i>Enviar Documentos a Revisión
             </button>
+            {% endif %}
         </div>
 
         <!-- Modal de confirmación envío de documentos -->
+        {% if todos_obligatorios_cargados %}
         <div class="modal fade" id="modalEnviarDocs" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
@@ -162,6 +162,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
         {% elif expediente.estado == 'EN_REVISION' %}
         <div class="content-card p-3">
@@ -172,21 +173,12 @@
             </div>
         </div>
 
-        {% elif expediente.estado == 'CERTIFICADO_PENDIENTE_CITA' or expediente.estado == 'CERTIFICADO_CITA_PROGRAMADA' %}
+        {% elif expediente.estado == 'CERTIFICADO_PENDIENTE_CITA' or expediente.estado == 'CERTIFICADO_CITA_PROGRAMADA' or expediente.estado == 'CERTIFICADO_FIRMADO' %}
         <div class="content-card p-3">
-            <div class="card-header-custom mb-2"><i class="bi bi-award"></i> Certificado</div>
-            <div class="alert alert-warning py-2 small mb-0">
-                <i class="bi bi-info-circle me-1"></i>
-                Oficina de Titulación programará la cita para que firmes tu certificado. La carga de documentos se habilitará después de confirmar la cita y firmar el certificado.
-            </div>
-        </div>
-
-        {% elif expediente.estado == 'CERTIFICADO_FIRMADO' %}
-        <div class="content-card p-3">
-            <div class="card-header-custom mb-2"><i class="bi bi-hourglass-split"></i> Certificado firmado</div>
+            <div class="card-header-custom mb-2"><i class="bi bi-award"></i> Certificado y documentos</div>
             <div class="alert alert-info py-2 small mb-0">
                 <i class="bi bi-info-circle me-1"></i>
-                Tu certificado fue firmado. En breve se habilitará la carga de documentos en este expediente.
+                Ya puedes <strong>precargar</strong> tus documentos abajo. El <strong>envío a revisión</strong> se habilitará después de la cita de firma de certificado.
             </div>
         </div>
 
@@ -367,7 +359,12 @@
             {% if not puede_cargar_documentos and expediente.estado not in 'EN_REVISION' %}
             <div class="alert alert-secondary py-2 small m-3 mb-0">
                 <i class="bi bi-lock me-1"></i>
-                La carga de documentos estará disponible cuando confirmes tu cita de certificado y este sea firmado en Oficina de Titulación.
+                La carga de documentos no está disponible en la etapa actual.
+            </div>
+            {% elif puede_cargar_documentos and not puede_enviar_documentos %}
+            <div class="alert alert-info py-2 small m-3 mb-0">
+                <i class="bi bi-cloud-upload me-1"></i>
+                Precarga habilitada: puedes subir o reemplazar archivos. El envío a revisión se habilitará después de la cita de certificado.
             </div>
             {% endif %}
             {% for documento in documentos %}
@@ -418,6 +415,14 @@
                     <a href="{% url 'alumnos:documento_cargar' documento.pk %}"
                        class="btn btn-sm btn-outline-primary">
                         <i class="bi bi-upload me-1"></i>Cargar
+                    </a>
+                    {% elif documento.estado == 'CARGADO' and puede_cargar_documentos %}
+                    <a href="{{ documento.archivo.url }}" target="_blank" class="btn btn-sm btn-outline-secondary mb-1">
+                        <i class="bi bi-eye me-1"></i>Ver
+                    </a>
+                    <a href="{% url 'alumnos:documento_cargar' documento.pk %}"
+                       class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-arrow-repeat me-1"></i>Reemplazar
                     </a>
                     {% elif documento.archivo %}
                     <a href="{{ documento.archivo.url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
