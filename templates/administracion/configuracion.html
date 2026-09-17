@@ -80,11 +80,11 @@
                                 <div class="form-text text-muted small">{{ form.logo_sep.help_text }}</div>
                                 {% if form.instance.logo_sep %}
                                 <div class="mt-2 border rounded p-2 text-center bg-light">
-                                    <img src="{{ form.instance.logo_sep.url }}" style="max-height: 45px;" alt="Logo SEP">
+                                    <img src="{{ form.instance.logo_sep.url }}" style="max-height: 45px; max-width: 100%;" alt="Logo SEP">
                                 </div>
                                 {% else %}
                                 <div class="mt-2 border rounded p-2 text-center bg-light">
-                                    <img src="{% static 'img/logo-sep.png' %}" style="max-height: 45px;" alt="SEP predeterminado">
+                                    <img src="{% static 'img/logo-sep.png' %}" style="max-height: 45px; max-width: 100%;" alt="SEP predeterminado">
                                     <div class="form-text small mt-1">Predeterminado</div>
                                 </div>
                                 {% endif %}
@@ -95,11 +95,11 @@
                                 <div class="form-text text-muted small">{{ form.logo_tecnm.help_text }}</div>
                                 {% if form.instance.logo_tecnm %}
                                 <div class="mt-2 border rounded p-2 text-center bg-light">
-                                    <img src="{{ form.instance.logo_tecnm.url }}" style="max-height: 45px;" alt="Logo TecNM">
+                                    <img src="{{ form.instance.logo_tecnm.url }}" style="max-height: 45px; max-width: 100%;" alt="Logo TecNM">
                                 </div>
                                 {% else %}
                                 <div class="mt-2 border rounded p-2 text-center bg-light">
-                                    <img src="{% static 'img/logo-tecnm.png' %}" style="max-height: 45px;" alt="TecNM predeterminado">
+                                    <img src="{% static 'img/logo-tecnm.png' %}" style="max-height: 45px; max-width: 100%;" alt="TecNM predeterminado">
                                     <div class="form-text small mt-1">Predeterminado</div>
                                 </div>
                                 {% endif %}
@@ -110,11 +110,11 @@
                                 <div class="form-text text-muted small">{{ form.logo_sistema.help_text }}</div>
                                 {% if form.instance.logo_sistema %}
                                 <div class="mt-2 border rounded p-2 text-center bg-light">
-                                    <img src="{{ form.instance.logo_sistema.url }}" style="max-height: 45px;" alt="Logo plantel">
+                                    <img src="{{ form.instance.logo_sistema.url }}" style="max-height: 45px; max-width: 100%;" alt="Logo plantel">
                                 </div>
                                 {% else %}
                                 <div class="mt-2 border rounded p-2 text-center bg-light">
-                                    <img src="{% static 'img/logo-ita.png' %}" style="max-height: 45px;" alt="Plantel predeterminado">
+                                    <img src="{% static 'img/logo-ita.png' %}" style="max-height: 45px; max-width: 100%;" alt="Plantel predeterminado">
                                     <div class="form-text small mt-1">Predeterminado</div>
                                 </div>
                                 {% endif %}
@@ -138,7 +138,7 @@
                         <div class="form-text text-muted">{{ form.imagen_cintillo.help_text }}</div>
                         {% if form.instance.imagen_cintillo %}
                         <div class="mt-2 border rounded p-2 text-center" style="background:#f8f9fa;">
-                            <img src="{{ form.instance.imagen_cintillo.url }}" style="max-height: 50px;" alt="Imagen cintillo actual">
+                            <img src="{{ form.instance.imagen_cintillo.url }}" style="max-height: 50px; max-width: 100%;" alt="Imagen cintillo actual">
                         </div>
                         {% endif %}
                     </div>
@@ -189,7 +189,7 @@
 
                     <hr class="my-4">
 
-                    <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <a href="{% url 'administracion:dashboard' %}" class="btn btn-outline-secondary">
                             <i class="bi bi-arrow-left me-1"></i>Volver al Inicio
                         </a>

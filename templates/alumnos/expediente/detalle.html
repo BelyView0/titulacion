@@ -386,14 +386,14 @@
                         {% else %}bi-file-earmark-pdf{% endif %}
                         text-{{ documento.get_estado_color }}"></i>
                 </div>
-                <div class="flex-grow-1">
+                <div class="doc-body">
                     <div class="doc-name">
                         {{ documento.tipo_documento.nombre }}
                         {% if documento.tipo_documento.es_obligatorio %}
                         <span class="text-danger ms-1" title="Obligatorio">*</span>
                         {% endif %}
                     </div>
-                    <div class="doc-instruccion text-truncate" style="max-width:380px;">
+                    <div class="doc-instruccion text-truncate">
                         {{ documento.tipo_documento.descripcion_ayuda|truncatechars:80 }}
                     </div>
                     {% if documento.estado == 'CARGADO' or documento.estado == 'EN_REVISION' %}
@@ -407,17 +407,18 @@
                     </div>
                     {% endif %}
                 </div>
-                <div class="text-end">
-                    <span class="badge badge-estado bg-{{ documento.get_estado_color }} mb-2 d-block">
+                <div class="doc-actions">
+                    <span class="badge badge-estado bg-{{ documento.get_estado_color }} mb-2 d-inline-block">
                         {{ documento.get_estado_display }}
                     </span>
+                    <div class="d-flex flex-wrap gap-1 justify-content-md-end">
                     {% if documento.estado in 'PENDIENTE,RECHAZADO,REQUIERE_CORRECCION' and puede_cargar_documentos %}
                     <a href="{% url 'alumnos:documento_cargar' documento.pk %}"
                        class="btn btn-sm btn-outline-primary">
                         <i class="bi bi-upload me-1"></i>Cargar
                     </a>
                     {% elif documento.estado == 'CARGADO' and puede_cargar_documentos %}
-                    <a href="{{ documento.archivo.url }}" target="_blank" class="btn btn-sm btn-outline-secondary mb-1">
+                    <a href="{{ documento.archivo.url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
                         <i class="bi bi-eye me-1"></i>Ver
                     </a>
                     <a href="{% url 'alumnos:documento_cargar' documento.pk %}"
@@ -429,6 +430,7 @@
                         <i class="bi bi-eye me-1"></i>Ver
                     </a>
                     {% endif %}
+                    </div>
                 </div>
             </div>
             {% empty %}
