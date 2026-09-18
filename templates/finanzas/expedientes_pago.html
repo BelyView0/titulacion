@@ -7,7 +7,7 @@
     <form method="get" class="row g-2 align-items-end p-3">
         <div class="col-md-4">
             <label class="form-label small">Buscar</label>
-            <input type="text" name="q" value="{{ busqueda }}" class="form-control form-control-sm" placeholder="Nombre o control">
+            <input type="text" name="q" value="{{ busqueda }}" class="form-control form-control-sm" placeholder="Nombre o control" autocomplete="off">
         </div>
         <div class="col-md-3">
             <label class="form-label small">Estado</label>
@@ -27,6 +27,7 @@
     </form>
 </div>
 
+<div class="search-results">
 <div class="content-card">
     <div class="table-responsive">
         <table class="table table-hover mb-0">
@@ -64,4 +65,5 @@
     </div>
 </div>
 {% include 'includes/pagination.html' with page_obj=page_obj %}
+</div>
 {% endblock %}

@@ -6,7 +6,7 @@
 <div class="content-card mb-3">
     <form method="get" class="row g-2 align-items-end p-3">
         <div class="col-md-6">
-            <input type="text" name="q" value="{{ busqueda }}" class="form-control form-control-sm" placeholder="Buscar alumno o control">
+            <input type="text" name="q" value="{{ busqueda }}" class="form-control form-control-sm" placeholder="Buscar alumno o control" autocomplete="off">
         </div>
         <div class="col-md-2">
             <button type="submit" class="btn btn-primary btn-sm w-100">Buscar</button>
@@ -14,6 +14,7 @@
     </form>
 </div>
 
+<div class="search-results">
 <div class="content-card">
     {% for exp in expedientes %}
     <div class="p-3 border-bottom">
@@ -52,4 +53,5 @@
     {% endfor %}
 </div>
 {% include 'includes/pagination.html' with page_obj=page_obj %}
+</div>
 {% endblock %}

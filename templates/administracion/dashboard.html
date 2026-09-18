@@ -120,13 +120,13 @@
                         <span class="input-group-text"><i class="bi bi-search"></i></span>
                         <input type="text" name="q" class="form-control" placeholder="Buscar por nombre o N° de control…" value="{{ busqueda }}">
                     </div>
-                    <select name="carrera" class="form-select form-select-sm" style="max-width: 200px;" onchange="this.form.submit()">
+                    <select name="carrera" class="form-select form-select-sm" style="max-width: 200px;">
                         <option value="">Todas las carreras</option>
                         {% for c in carreras_filter %}
                         <option value="{{ c.id }}" {% if c.id|stringformat:"s" == carrera_id %}selected{% endif %}>{{ c.nombre }}</option>
                         {% endfor %}
                     </select>
-                    <select name="estado" class="form-select form-select-sm" style="max-width: 220px;" onchange="this.form.submit()">
+                    <select name="estado" class="form-select form-select-sm" style="max-width: 220px;">
                         <option value="">Todos los estados</option>
                         <option value="SIN_EXPEDIENTE" {% if estado_filtro == 'SIN_EXPEDIENTE' %}selected{% endif %}>Sin expediente</option>
                         {% for value, label in estados_filter %}

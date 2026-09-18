@@ -52,13 +52,14 @@ def eventos_calendario(request):
 
     # Búsqueda por nombre/control
     if busqueda:
-        from django.db.models import Q
-        qs = qs.filter(
-            Q(expediente__alumno__first_name__unaccent__icontains=busqueda) |
-            Q(expediente__alumno__last_name__unaccent__icontains=busqueda) |
-            Q(expediente__alumno__username__unaccent__icontains=busqueda) |
-            Q(expediente__alumno__numero_control__unaccent__icontains=busqueda)
-        )
+        from expediente.search_utils import q_busca
+        qs = qs.filter(q_busca(
+            busqueda,
+            'expediente__alumno__first_name',
+            'expediente__alumno__last_name',
+            'expediente__alumno__username',
+            'expediente__alumno__numero_control',
+        ))
 
     eventos = []
     for acto in qs.order_by('fecha_acto'):

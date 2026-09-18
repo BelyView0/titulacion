@@ -49,12 +49,12 @@ class AdeudosPendientesView(CentroInformacionRequeridoMixin, ListView):
         qs = expedientes_adeudo_pendientes(AREA)
         busqueda = self.request.GET.get('q', '').strip()
         if busqueda:
-            qs = qs.filter(
-                Q(alumno__first_name__unaccent__icontains=busqueda) |
-                Q(alumno__last_name__unaccent__icontains=busqueda) |
-                Q(alumno__username__unaccent__icontains=busqueda) |
-                Q(alumno__numero_control__unaccent__icontains=busqueda)
-            )
+            from expediente.search_utils import q_busca
+            qs = qs.filter(q_busca(
+                busqueda,
+                'alumno__first_name', 'alumno__last_name',
+                'alumno__username', 'alumno__numero_control',
+            ))
         return qs
 
     def get_context_data(self, **kwargs):
