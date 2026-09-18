@@ -1,5 +1,13 @@
 @echo off
 chcp 65001 >nul
+setlocal EnableDelayedExpansion
+
+REM Raíz del proyecto = dos niveles arriba de scripts\db\
+set "SCRIPT_DIR=%~dp0"
+pushd "%SCRIPT_DIR%\..\.."
+set "ROOT=%CD%"
+popd
+
 echo ============================================================
 echo   RESTAURACION DE BASE DE DATOS - Sistema de Titulacion ITA
 echo   Contraseña de todos los usuarios: admin12345!
@@ -15,7 +23,7 @@ set PG_USER=%PG_USER%
 if "%PG_USER%"=="" set PG_USER=belyview
 set PG_PASS=%PGPASSWORD%
 set DB_NAME=titulacion_2026
-set BACKUP_FILE=backup_titulacion_2026_FINAL.dump
+set BACKUP_NAME=backup_titulacion_2026_FINAL.dump
 
 if "%PG_PASS%"=="" (
     echo [ERROR] Define la variable de entorno PGPASSWORD antes de ejecutar.
@@ -23,10 +31,16 @@ if "%PG_PASS%"=="" (
     exit /b 1
 )
 
-REM ─── VERIFICAR QUE EXISTE EL BACKUP ────────────────────────
+REM Buscar .dump en la raíz del repo o junto a este script
+set "BACKUP_FILE=%ROOT%\%BACKUP_NAME%"
+if not exist "%BACKUP_FILE%" set "BACKUP_FILE=%SCRIPT_DIR%%BACKUP_NAME%"
+
 if not exist "%BACKUP_FILE%" (
-    echo [ERROR] No se encontro el archivo de backup: %BACKUP_FILE%
-    echo Asegurate de que el archivo .dump esta en la misma carpeta que este script.
+    echo [ERROR] No se encontro el archivo de backup: %BACKUP_NAME%
+    echo Buscado en:
+    echo   - %ROOT%\
+    echo   - %SCRIPT_DIR%
+    echo Copie el .dump a la raiz del repositorio o a scripts\db\.
     pause
     exit /b 1
 )
@@ -63,7 +77,7 @@ echo.
 
 echo [4/4] Restaurando datos desde %BACKUP_FILE%...
 echo        Esto puede tardar unos segundos...
-%PG_BIN%\pg_restore.exe -h %PG_HOST% -p %PG_PORT% -U %PG_USER% -d %DB_NAME% --no-owner --no-privileges --verbose %BACKUP_FILE% 2>restauracion_log.txt
+%PG_BIN%\pg_restore.exe -h %PG_HOST% -p %PG_PORT% -U %PG_USER% -d %DB_NAME% --no-owner --no-privileges --verbose "%BACKUP_FILE%" 2>"%ROOT%\restauracion_log.txt"
 echo [OK] Restauracion completada.
 echo.
 
@@ -84,7 +98,7 @@ echo     - escolares    (Servicios Escolares)
 echo     - jefe_proy    (Jefe de Proyectos)
 echo     - 21370903     (Alumno - Belen)
 echo.
-echo   El log de restauracion se guardo en: restauracion_log.txt
+echo   El log de restauracion se guardo en: %ROOT%\restauracion_log.txt
 echo ============================================================
 echo.
 pause

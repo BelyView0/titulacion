@@ -1,30 +1,50 @@
-import os
-import django
+#!/usr/bin/env python
+"""
+Compara conteos de la BD activa contra listado_completo_bd.txt (en la raíz del proyecto).
+
+Uso (desde la raíz del proyecto):
+    python scripts/db/verify_db.py
+"""
 import codecs
+import os
 import re
+import sys
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+LISTADO = BASE_DIR / 'listado_completo_bd.txt'
+
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'titulacion.settings')
+
+import django
 django.setup()
 
 from django.apps import apps
 from administracion.models import Usuario
 
+
 def verify_counts():
-    with codecs.open('listado_completo_bd.txt', 'r', encoding='utf-8', errors='ignore') as f:
+    if not LISTADO.exists():
+        print(f'[ERROR] No se encontró {LISTADO.name} en la raíz del proyecto.')
+        print('Genere o copie listado_completo_bd.txt junto a manage.py.')
+        raise SystemExit(1)
+
+    with codecs.open(str(LISTADO), 'r', encoding='utf-8', errors='ignore') as f:
         lines = f.readlines()
-    
-    print("--- VERIFICACION DE BASE DE DATOS ---")
-    
-    # Check total users
+
+    print('--- VERIFICACION DE BASE DE DATOS ---')
+
     for line in lines:
         if line.startswith('Total de usuarios:'):
             expected = int(line.split(':')[1].strip())
             actual = Usuario.objects.count()
             status = 'OK' if expected == actual else f'FALLO (Real: {actual})'
-            print(f"Usuarios: Esperado {expected} | {status}")
+            print(f'Usuarios: Esperado {expected} | {status}')
             break
-            
-    # Check models
+
     pattern = re.compile(r'\[(.*?)\] (.*?) \((\d+) registros\)')
     for line in lines:
         match = pattern.search(line)
@@ -32,14 +52,15 @@ def verify_counts():
             app_label = match.group(1).lower()
             model_name = match.group(2)
             expected_count = int(match.group(3))
-            
+
             try:
                 model = apps.get_model(app_label, model_name)
                 actual_count = model.objects.count()
                 status = 'OK' if expected_count == actual_count else f'FALLO (Real: {actual_count})'
-                print(f"{app_label}.{model_name}: Esperado {expected_count} | {status}")
+                print(f'{app_label}.{model_name}: Esperado {expected_count} | {status}')
             except Exception as e:
-                print(f"Error al verificar {app_label}.{model_name}: {e}")
+                print(f'Error al verificar {app_label}.{model_name}: {e}')
+
 
 if __name__ == '__main__':
     verify_counts()

@@ -7,8 +7,11 @@ planes, modalidades, tipos de documento y usuarios de roles operativos.
 
 Excluye: alumnos, administrador, expedientes y documentos de alumnos.
 
-Uso:
-    python migrar_desde_postgresql.py
+Uso (desde la raíz del proyecto):
+    python scripts/db/migrar_desde_postgresql.py
+
+Nota: para migrar TODOS los datos al cambiar de motor, use Admin →
+Configuración de base de datos (titulacion/db_migrate.py).
 """
 import json
 import os
@@ -18,7 +21,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent
+# scripts/db/ -> raíz del proyecto
+BASE_DIR = Path(__file__).resolve().parents[2]
 CONFIG_FILE = BASE_DIR / 'config' / 'database.json'
 SQLITE_DB = BASE_DIR / 'db.sqlite3'
 FIXTURE_FILE = BASE_DIR / 'fixtures' / 'migracion_catalogos.json'

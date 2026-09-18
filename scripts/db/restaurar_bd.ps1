@@ -1,7 +1,11 @@
 # ============================================================
 #   RESTAURACION DE BD - Sistema de Titulacion ITA
-#   Ejecutar: powershell -ExecutionPolicy Bypass -File restaurar_bd.ps1
+#   Ejecutar desde la raíz del proyecto:
+#     powershell -ExecutionPolicy Bypass -File scripts\db\restaurar_bd.ps1
 # ============================================================
+
+$ScriptDir = $PSScriptRoot
+$Root = (Resolve-Path (Join-Path $ScriptDir '..\..')).Path
 
 # ─── CONFIGURACION (editar segun el equipo destino) ──────────
 $PG_BIN   = "C:\Program Files\PostgreSQL\17\bin"
@@ -11,7 +15,13 @@ $PG_USER  = $env:PG_USER
 if (-not $PG_USER) { $PG_USER = "belyview" }
 $PG_PASS  = $env:PGPASSWORD
 $DB_NAME  = "titulacion_2026"
-$BACKUP   = Join-Path $PSScriptRoot "backup_titulacion_2026_FINAL.dump"
+$BackupName = "backup_titulacion_2026_FINAL.dump"
+
+# Buscar .dump en la raíz del repo o junto a este script
+$BACKUP = Join-Path $Root $BackupName
+if (-not (Test-Path $BACKUP)) {
+    $BACKUP = Join-Path $ScriptDir $BackupName
+}
 
 if (-not $PG_PASS) {
     Write-Host "[ERROR] Define la variable de entorno PGPASSWORD antes de ejecutar." -ForegroundColor Red
@@ -25,8 +35,8 @@ Write-Host "============================================`n" -ForegroundColor Cya
 
 # Verificar backup
 if (-not (Test-Path $BACKUP)) {
-    Write-Host "[ERROR] No se encontro: $BACKUP" -ForegroundColor Red
-    Write-Host "Copia el archivo .dump junto a este script." -ForegroundColor Yellow
+    Write-Host "[ERROR] No se encontro: $BackupName" -ForegroundColor Red
+    Write-Host "Copie el .dump a la raiz del repositorio o a scripts\db\." -ForegroundColor Yellow
     Read-Host "Presiona Enter para salir"
     exit 1
 }
@@ -61,7 +71,8 @@ Write-Host "[OK] Base de datos creada." -ForegroundColor Green
 
 # Restaurar
 Write-Host "`n[4/4] Restaurando datos (esto puede tardar)..."
-& "$PG_BIN\pg_restore.exe" -h $PG_HOST -p $PG_PORT -U $PG_USER -d $DB_NAME --no-owner --no-privileges $BACKUP 2>"$PSScriptRoot\restauracion_log.txt"
+$LogPath = Join-Path $Root "restauracion_log.txt"
+& "$PG_BIN\pg_restore.exe" -h $PG_HOST -p $PG_PORT -U $PG_USER -d $DB_NAME --no-owner --no-privileges $BACKUP 2>$LogPath
 Write-Host "[OK] Restauracion completada." -ForegroundColor Green
 
 Write-Host "`n============================================" -ForegroundColor Cyan
@@ -80,5 +91,7 @@ Write-Host "    academico  -> Division de Estudios"
 Write-Host "    escolares  -> Servicios Escolares"
 Write-Host "    jefe_proy  -> Jefe de Proyectos"
 Write-Host "    21370903   -> Alumno (Belen)"
+Write-Host ""
+Write-Host "  Log: $LogPath"
 Write-Host ""
 Read-Host "Presiona Enter para cerrar"
