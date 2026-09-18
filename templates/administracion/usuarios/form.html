@@ -57,14 +57,11 @@
                         <div class="col-md-6">{% include '_field.html' with field=form.periodo_egreso_ciclo %}</div>
                         <div class="col-md-6">{% include '_field.html' with field=form.periodo_egreso_anio %}</div>
                     </div>
-                    {% if object and object.semestres_cursados %}
-                    <div class="alert alert-secondary py-2 small mb-0">
-                        Semestres cursados calculados: <strong>{{ object.semestres_cursados }}</strong>
-                        {% if object.requiere_documentos_extensos %}
-                        <span class="badge bg-warning-subtle text-warning-emphasis ms-1">&gt;12 — docs extensos</span>
-                        {% endif %}
+                    <div id="preview-semestres" class="alert alert-secondary py-2 small mb-0">
+                        Semestres cursados calculados:
+                        <strong id="semestres-cursados-valor">{% if object and object.semestres_cursados %}{{ object.semestres_cursados }}{% else %}—{% endif %}</strong>
+                        <span id="badge-docs-extensos" class="badge bg-warning-subtle text-warning-emphasis ms-1"{% if not object or not object.requiere_documentos_extensos %} style="display:none"{% endif %}>&gt;12 — docs extensos</span>
                     </div>
-                    {% endif %}
                 </div>
 
                 <hr class="my-3 opacity-25">
@@ -714,10 +711,55 @@
         }
     }
 
+    function ordenPeriodo(ciclo, anio) {
+        if (!ciclo || !anio) return null;
+        const mitad = ciclo === 'ENE_JUN' ? 0 : 1;
+        return parseInt(anio, 10) * 2 + mitad;
+    }
+
+    function calcularSemestres(cicloIni, anioIni, cicloEgr, anioEgr) {
+        const ini = ordenPeriodo(cicloIni, anioIni);
+        const fin = ordenPeriodo(cicloEgr, anioEgr);
+        if (ini === null || fin === null || Number.isNaN(ini) || Number.isNaN(fin) || fin < ini) {
+            return null;
+        }
+        return fin - ini + 1;
+    }
+
+    function actualizarSemestresPreview() {
+        const valorEl = document.getElementById('semestres-cursados-valor');
+        const badgeEl = document.getElementById('badge-docs-extensos');
+        if (!valorEl) return;
+
+        const getVal = (id) => {
+            const el = document.getElementById(id);
+            return el ? el.value.trim() : '';
+        };
+
+        const sem = calcularSemestres(
+            getVal('id_periodo_inicio_ciclo'),
+            getVal('id_periodo_inicio_anio'),
+            getVal('id_periodo_egreso_ciclo'),
+            getVal('id_periodo_egreso_anio')
+        );
+
+        valorEl.textContent = sem === null ? '—' : String(sem);
+        if (badgeEl) {
+            badgeEl.style.display = (sem !== null && sem > 12) ? '' : 'none';
+        }
+    }
+
+    inputsPeriodo.forEach(inp => {
+        if (!inp) return;
+        inp.addEventListener('change', actualizarSemestresPreview);
+        inp.addEventListener('input', actualizarSemestresPreview);
+    });
+
     if (rolSelect) {
         rolSelect.addEventListener('change', actualizarCampos);
         actualizarCampos();
     }
+    actualizarSemestresPreview();
 })();
 </script>
 {% endblock %}

@@ -769,7 +769,7 @@ Instituto Tecnológico de Apizaco — TecNM.
         anio_egr = None
         if len(row) > 12 and row[12] is not None and str(row[12]).strip():
             raw12 = str(row[12]).strip().upper()
-            if raw12 in ('ENE_JUN', 'ENE-JUN', 'ENERO-JUNIO', 'ENERO – JUNIO'):
+            if raw12 in ('ENE_JUN', 'ENE-JUN', 'ENERO-JULIO', 'ENERO – JULIO', 'ENERO-JUNIO', 'ENERO – JUNIO'):
                 ciclo_ini = CicloPeriodo.ENE_JUN
             elif raw12 in ('AGO_DIC', 'AGO-DIC', 'AGOSTO-DICIEMBRE', 'AGOSTO – DICIEMBRE'):
                 ciclo_ini = CicloPeriodo.AGO_DIC
@@ -783,13 +783,13 @@ Instituto Tecnológico de Apizaco — TecNM.
             try:
                 anio_ini = int(float(raw13))
             except (TypeError, ValueError):
-                if raw13 in ('ENE_JUN', 'ENE-JUN', 'ENERO-JUNIO'):
+                if raw13 in ('ENE_JUN', 'ENE-JUN', 'ENERO-JULIO', 'ENERO-JUNIO'):
                     ciclo_ini = CicloPeriodo.ENE_JUN
                 elif raw13 in ('AGO_DIC', 'AGO-DIC', 'AGOSTO-DICIEMBRE'):
                     ciclo_ini = CicloPeriodo.AGO_DIC
         if len(row) > 14 and row[14] is not None and str(row[14]).strip():
             raw14 = str(row[14]).strip().upper()
-            if raw14 in ('ENE_JUN', 'ENE-JUN', 'ENERO-JUNIO'):
+            if raw14 in ('ENE_JUN', 'ENE-JUN', 'ENERO-JULIO', 'ENERO-JUNIO'):
                 ciclo_egr = CicloPeriodo.ENE_JUN
             elif raw14 in ('AGO_DIC', 'AGO-DIC', 'AGOSTO-DICIEMBRE'):
                 ciclo_egr = CicloPeriodo.AGO_DIC

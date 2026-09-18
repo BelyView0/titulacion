@@ -489,7 +489,7 @@ class UsuarioUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
 
                 ctx['documentos'] = expediente.documentos.select_related(
                     'tipo_documento'
-                ).prefetch_related('validaciones').order_by('tipo_documento__orden')
+                ).prefetch_related('validacion').order_by('tipo_documento__orden')
 
                 # Jurado
                 ctx['jurado'] = AsignacionJurado.objects.filter(

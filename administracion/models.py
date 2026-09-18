@@ -15,7 +15,7 @@ class Genero(models.TextChoices):
 
 
 class CicloPeriodo(models.TextChoices):
-    ENE_JUN = 'ENE_JUN', 'Enero – Junio'
+    ENE_JUN = 'ENE_JUN', 'Enero – Julio'
     AGO_DIC = 'AGO_DIC', 'Agosto – Diciembre'
 
 
@@ -207,7 +207,7 @@ class Usuario(AbstractUser):
         choices=CicloPeriodo.choices,
         blank=True,
         verbose_name='Periodo de egreso (ciclo)',
-        help_text='Ej: Enero – Junio',
+        help_text='Ej: Enero – Julio',
     )
     periodo_egreso_anio = models.PositiveIntegerField(
         null=True, blank=True,
