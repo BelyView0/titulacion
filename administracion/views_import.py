@@ -18,7 +18,7 @@ from django.contrib import messages
 from django.http import HttpResponse, Http404
 from django.contrib.auth import get_user_model
 
-from expediente.mixins import AdminRequeridoMixin
+from expediente.mixins import AdminOOficinaRequeridoMixin
 from administracion.models import Carrera, Departamento, Profesor, Rol, Genero, Usuario, JefeDepartamento
 from expediente.models import PlanEstudios, Modalidad, TipoDocumento
 from alumnos.models import PerfilAlumno
@@ -26,8 +26,58 @@ import json
 
 Usuario = get_user_model()
 
+TIPOS_IMPORT_OFICINA = frozenset({
+    'planes', 'tipos_documento', 'profesores', 'alumnos',
+})
 
-class ImportarExportarHubView(AdminRequeridoMixin, TemplateView):
+TIPOS_IMPORT_TODO = (
+    'departamentos', 'jefes_departamento', 'carreras', 'planes',
+    'modalidades', 'tipos_documento', 'profesores', 'alumnos',
+)
+
+
+def _tipos_import_permitidos(user):
+    if getattr(user, 'es_admin', False):
+        return list(TIPOS_IMPORT_TODO)
+    return [k for k in TIPOS_IMPORT_TODO if k in TIPOS_IMPORT_OFICINA]
+
+
+def _validar_tipo_import(user, tipo):
+    """Devuelve (ok, active_keys) o (False, mensaje)."""
+    permitidos = _tipos_import_permitidos(user)
+    if tipo == 'todo':
+        return True, permitidos
+    if tipo in permitidos:
+        return True, [tipo]
+    return False, 'No tienes permiso para importar/exportar este catálogo.'
+
+
+def _filas_plantilla_ejemplo(help_rows):
+    """
+    En plantillas vacías, marca el primer dato de la primera fila con
+    «ejemplo» + valor de muestra para que no se importe por error.
+    """
+    if not help_rows:
+        return []
+    filas = [list(r) for r in help_rows]
+    primero = filas[0][0] if filas[0] else ''
+    texto = '' if primero is None else str(primero).strip()
+    if not texto.lower().startswith('ejemplo'):
+        filas[0][0] = f'ejemplo {texto}'.strip() if texto else 'ejemplo'
+    return filas
+
+
+def _es_fila_ejemplo(row):
+    """True si la fila es de muestra (primer celda comienza con «ejemplo»)."""
+    if not row:
+        return False
+    primero = row[0]
+    if primero is None:
+        return False
+    return str(primero).strip().lower().startswith('ejemplo')
+
+
+class ImportarExportarHubView(AdminOOficinaRequeridoMixin, TemplateView):
     """
     Vista principal de la herramienta de importación y exportación.
     Muestra pestañas separadas por catálogo y sus respectivos controles de descarga/carga.
@@ -36,8 +86,7 @@ class ImportarExportarHubView(AdminRequeridoMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        # Pasar conteos actuales de registros en el sistema para contexto informativo
-        ctx['counts'] = {
+        counts_all = {
             'departamentos': Departamento.objects.count(),
             'jefes_departamento': JefeDepartamento.objects.count(),
             'carreras': Carrera.objects.count(),
@@ -47,11 +96,19 @@ class ImportarExportarHubView(AdminRequeridoMixin, TemplateView):
             'profesores': Profesor.objects.count(),
             'alumnos': Usuario.objects.filter(rol=Rol.ALUMNO).count(),
         }
-        ctx['active_tab'] = self.request.GET.get('tab', 'todo')
+        tipos = _tipos_import_permitidos(self.request.user)
+        ctx['tipos_import_visibles'] = tipos
+        ctx['import_solo_oficina'] = not self.request.user.es_admin
+        ctx['counts'] = {k: counts_all[k] for k in tipos if k in counts_all}
+        ctx['counts_all'] = counts_all
+        active = self.request.GET.get('tab', 'todo')
+        if active != 'todo' and active not in tipos:
+            active = 'todo'
+        ctx['active_tab'] = active
         return ctx
 
 
-class DescargarPlantillaView(AdminRequeridoMixin, View):
+class DescargarPlantillaView(AdminOOficinaRequeridoMixin, View):
     """
     Genera y descarga plantillas Excel estructuradas de openpyxl.
     Soporta la descarga de un catálogo específico o del libro completo,
@@ -82,15 +139,16 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
             for u in Usuario.objects.filter(rol=Rol.ALUMNO).select_related('carrera').order_by('username'):
                 p = getattr(u, 'perfil_alumno', None)
                 rows_data.append([
-                    u.username, u.first_name, u.last_name, u.apellido_materno, u.email,
+                    u.username, u.first_name, u.last_name, u.apellido_materno,
+                    u.correo_institucional or '',
+                    u.email or '',
                     u.carrera.clave if u.carrera else '',
                     p.plan_estudios.nombre if (p and p.plan_estudios) else '',
                     p.semestre_egreso if p else '',
-                    str(p.promedio) if (p and p.promedio) else '',
-                    u.telefono, u.genero,
+                    str(p.promedio) if (p and p.promedio is not None) else '',
+                    u.telefono or '', u.genero or '',
                     u.periodo_inicio_ciclo or '', u.periodo_inicio_anio or '',
                     u.periodo_egreso_ciclo or '', u.periodo_egreso_anio or '',
-                    u.semestres_cursados or '',
                 ])
         elif key == 'jefes_departamento':
             for j in JefeDepartamento.objects.select_related('departamento').all().order_by('departamento__clave'):
@@ -103,6 +161,12 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
         tipo = request.GET.get('tipo', 'todo')
         con_datos = request.GET.get('con_datos', 'false') == 'true'
         formato = request.GET.get('formato', 'excel')
+
+        ok, active_or_msg = _validar_tipo_import(request.user, tipo)
+        if not ok:
+            messages.error(request, active_or_msg)
+            return redirect(reverse('administracion:importar_exportar'))
+        active_keys = active_or_msg
 
         wb = openpyxl.Workbook()
         # Eliminar hoja activa por defecto
@@ -180,11 +244,28 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
             },
             'alumnos': {
                 'title': 'Alumnos',
-                'headers': ['Número de Control', 'Nombre(s)', 'Apellido Paterno', 'Apellido Materno', 'Correo Institucional (Obligatorio)', 'Correo Personal (Opcional)', 'Clave Carrera', 'Plan de Estudios Nombre', 'Semestre de Egreso', 'Promedio General', 'Teléfono', 'Género (M/F/O)', 'Generación (Año)'],
-                'widths': [20, 25, 25, 25, 35, 35, 20, 30, 22, 18, 15, 18, 18],
+                'headers': [
+                    'Número de Control', 'Nombre(s)', 'Apellido Paterno', 'Apellido Materno',
+                    'Correo Institucional (Obligatorio)', 'Correo Personal (Opcional)',
+                    'Clave Carrera', 'Plan de Estudios Nombre', 'Semestre de Egreso',
+                    'Promedio General', 'Teléfono', 'Género (M/F/O)',
+                    'Ciclo Inicio (AGO_DIC/ENE_JUN)', 'Año Inicio',
+                    'Ciclo Egreso (AGO_DIC/ENE_JUN)', 'Año Egreso',
+                ],
+                'widths': [20, 25, 25, 25, 38, 30, 18, 28, 20, 16, 15, 16, 28, 14, 28, 14],
                 'help_rows': [
-                    ['20141720', 'DANIELA', 'SUAREZ', 'LOPEZ', 'L20141720@apizaco.tecnm.mx', 'dsuarez@gmail.com', 'ISC', 'ISIC-2010-224', 'Ago-Dic 2024', '91.50', '2411122334', 'F', '2020'],
-                    ['20141721', 'CARLOS', 'PEREZ', 'GOMEZ', 'carlos.perez@gmail.com', '', 'ISC', 'ISIC-2010-224', 'Ene-Jun 2025', '85.40', '2415556677', 'M', '2021']
+                    [
+                        '20141720', 'DANIELA', 'SUAREZ', 'LOPEZ',
+                        'L20141720@apizaco.tecnm.mx', 'dsuarez@gmail.com',
+                        'ISC', 'ISIC-2010-224', 'Ago-Dic 2024', '91.50', '2411122334', 'F',
+                        'AGO_DIC', 2020, 'ENE_JUN', 2025,
+                    ],
+                    [
+                        '20141721', 'CARLOS', 'PEREZ', 'GOMEZ',
+                        'L20141721@apizaco.tecnm.mx', 'cperez@gmail.com',
+                        'ISC', 'ISIC-2010-224', 'Ene-Jun 2025', '85.40', '2415556677', 'M',
+                        'AGO_DIC', 2021, 'ENE_JUN', 2026,
+                    ],
                 ]
             },
             'jefes_departamento': {
@@ -199,7 +280,6 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
         }
 
         # Determinar qué hojas agregar al archivo final
-        active_keys = sheets_def.keys() if tipo == 'todo' else [tipo]
         if not all(k in sheets_def for k in active_keys):
             raise Http404("Catálogo no soportado.")
 
@@ -218,7 +298,7 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
                             for row in self.get_data_for_key(key):
                                 writer.writerow(row)
                         else:
-                            for row in sheet_meta['help_rows']:
+                            for row in _filas_plantilla_ejemplo(sheet_meta['help_rows']):
                                 writer.writerow(row)
                         
                         zip_file.writestr(f"{sheet_meta['title']}.csv", csv_buffer.getvalue().encode('utf-8-sig'))
@@ -246,7 +326,7 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
                     for row in self.get_data_for_key(key):
                         writer.writerow(row)
                 else:
-                    for row in sheet_meta['help_rows']:
+                    for row in _filas_plantilla_ejemplo(sheet_meta['help_rows']):
                         writer.writerow(row)
                         
                 return response
@@ -284,7 +364,7 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
                         cell.alignment = data_align
                         cell.border = thin_border
             else:
-                for row_idx, row_values in enumerate(sheet_meta['help_rows'], 2):
+                for row_idx, row_values in enumerate(_filas_plantilla_ejemplo(sheet_meta['help_rows']), 2):
                     for col_idx, value in enumerate(row_values, 1):
                         ws.cell(row=row_idx, column=col_idx, value=value)
 
@@ -295,7 +375,7 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
         wb.save(response)
         return response
 
-class SubirArchivoMasivoView(AdminRequeridoMixin, View):
+class SubirArchivoMasivoView(AdminOOficinaRequeridoMixin, View):
     """
     Recibe el archivo Excel o CSV cargado por el administrador, valida la integridad,
     relaciones de llaves foráneas y ejecuta un Upsert atómico por transacción.
@@ -305,6 +385,12 @@ class SubirArchivoMasivoView(AdminRequeridoMixin, View):
         tipo = request.POST.get('tipo', 'todo')
         confirmado = request.POST.get('confirmado') == 'true'
         temp_file_path = request.POST.get('temp_file_path')
+
+        ok, active_or_msg = _validar_tipo_import(request.user, tipo)
+        if not ok:
+            messages.error(request, active_or_msg)
+            return redirect(reverse('administracion:importar_exportar'))
+        active_keys = active_or_msg
 
         if confirmado and temp_file_path:
             import os
@@ -347,9 +433,8 @@ class SubirArchivoMasivoView(AdminRequeridoMixin, View):
             'alumnos': 'Alumnos',
         }
 
-        active_keys = sheet_mapping.keys() if tipo == 'todo' else [tipo]
         errors = []
-        stats = {k: {'creados': 0, 'actualizados': 0, 'detalles': []} for k in sheet_mapping.keys()}
+        stats = {k: {'creados': 0, 'actualizados': 0, 'detalles': []} for k in active_keys}
         self.newly_created_users = []
         
         # Bandera para determinar si es previsualización (ya la leímos arriba)
@@ -527,6 +612,9 @@ Instituto Tecnológico de Apizaco — TecNM.
         for idx, row in enumerate(rows, 2):
             # Saltar filas completamente vacías
             if not any(val is not None for val in row):
+                continue
+            # Saltar filas de muestra de la plantilla vacía
+            if _es_fila_ejemplo(row):
                 continue
 
             try:

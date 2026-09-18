@@ -35,6 +35,11 @@ class AdminRequeridoMixin(RolRequeridoMixin):
     roles_permitidos = ['ADMIN']
 
 
+class AdminOOficinaRequeridoMixin(RolRequeridoMixin):
+    """Admin o Oficina de Titulación (y roles legados de escolares/académico)."""
+    roles_permitidos = ['ADMIN', 'OFICINA_TITULACION', 'ESCOLARES', 'ACADEMICO']
+
+
 class OficinaTitulacionRequeridoMixin(RolRequeridoMixin):
     roles_permitidos = ['ADMIN', 'OFICINA_TITULACION', 'ESCOLARES', 'ACADEMICO']
 

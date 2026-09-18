@@ -12,38 +12,54 @@
             </div>
             <p class="small text-muted mb-3">Conteo actual de registros guardados en el sistema de titulación:</p>
             <div class="d-grid gap-2">
+                {% if 'departamentos' in tipos_import_visibles %}
                 <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
                     <span class="small fw-semibold"><i class="bi bi-building me-1"></i> Departamentos</span>
                     <span class="badge bg-secondary rounded-pill">{{ counts.departamentos }}</span>
                 </div>
+                {% endif %}
+                {% if 'carreras' in tipos_import_visibles %}
                 <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
                     <span class="small fw-semibold"><i class="bi bi-mortarboard me-1"></i> Carreras</span>
                     <span class="badge bg-secondary rounded-pill">{{ counts.carreras }}</span>
                 </div>
+                {% endif %}
+                {% if 'jefes_departamento' in tipos_import_visibles %}
                 <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
                     <span class="small fw-semibold"><i class="bi bi-person-vcard me-1"></i> Jefes Depto.</span>
                     <span class="badge bg-secondary rounded-pill">{{ counts.jefes_departamento }}</span>
                 </div>
+                {% endif %}
+                {% if 'planes' in tipos_import_visibles %}
                 <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
                     <span class="small fw-semibold"><i class="bi bi-journal-code me-1"></i> Planes de Estudio</span>
                     <span class="badge bg-secondary rounded-pill">{{ counts.planes }}</span>
                 </div>
+                {% endif %}
+                {% if 'modalidades' in tipos_import_visibles %}
                 <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
                     <span class="small fw-semibold"><i class="bi bi-bezier2 me-1"></i> Modalidades</span>
                     <span class="badge bg-secondary rounded-pill">{{ counts.modalidades }}</span>
                 </div>
+                {% endif %}
+                {% if 'tipos_documento' in tipos_import_visibles %}
                 <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
                     <span class="small fw-semibold"><i class="bi bi-file-earmark-text me-1"></i> Tipos de Doc.</span>
                     <span class="badge bg-secondary rounded-pill">{{ counts.tipos_documento }}</span>
                 </div>
+                {% endif %}
+                {% if 'profesores' in tipos_import_visibles %}
                 <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
                     <span class="small fw-semibold"><i class="bi bi-person-badge me-1"></i> Profesores / Sinodales</span>
                     <span class="badge bg-secondary rounded-pill">{{ counts.profesores }}</span>
                 </div>
+                {% endif %}
+                {% if 'alumnos' in tipos_import_visibles %}
                 <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
                     <span class="small fw-semibold"><i class="bi bi-people me-1"></i> Alumnos</span>
                     <span class="badge bg-secondary rounded-pill">{{ counts.alumnos }}</span>
                 </div>
+                {% endif %}
             </div>
         </div>
         
@@ -93,32 +109,48 @@
             <div class="card-header bg-dark p-0 border-0">
                 <ul class="nav nav-tabs border-0" id="importTabs" role="tablist" style="background: rgba(0,0,0,.35);">
                     <li class="nav-item">
-                        <button class="nav-link text-white py-3 px-4 border-0 fw-semibold active" id="tab-todo" data-bs-toggle="tab" data-bs-target="#panel-todo" type="button" role="tab"><i class="bi bi-globe2 me-1"></i> Todo el Sistema</button>
+                        <button class="nav-link text-white py-3 px-4 border-0 fw-semibold active" id="tab-todo" data-bs-toggle="tab" data-bs-target="#panel-todo" type="button" role="tab"><i class="bi bi-globe2 me-1"></i> {% if import_solo_oficina %}Paquete Oficina{% else %}Todo el Sistema{% endif %}</button>
                     </li>
+                    {% if 'departamentos' in tipos_import_visibles %}
                     <li class="nav-item">
                         <button class="nav-link text-white py-3 px-3 border-0 fw-semibold" id="tab-departamentos" data-bs-toggle="tab" data-bs-target="#panel-departamentos" type="button" role="tab"><i class="bi bi-building me-1"></i> Deptos.</button>
                     </li>
+                    {% endif %}
+                    {% if 'carreras' in tipos_import_visibles %}
                     <li class="nav-item">
                         <button class="nav-link text-white py-3 px-3 border-0 fw-semibold" id="tab-carreras" data-bs-toggle="tab" data-bs-target="#panel-carreras" type="button" role="tab"><i class="bi bi-mortarboard me-1"></i> Carreras</button>
                     </li>
+                    {% endif %}
+                    {% if 'jefes_departamento' in tipos_import_visibles %}
                     <li class="nav-item">
                         <button class="nav-link text-white py-3 px-3 border-0 fw-semibold" id="tab-jefes_departamento" data-bs-toggle="tab" data-bs-target="#panel-jefes_departamento" type="button" role="tab"><i class="bi bi-person-vcard me-1"></i> Jefes Depto.</button>
                     </li>
+                    {% endif %}
+                    {% if 'planes' in tipos_import_visibles %}
                     <li class="nav-item">
                         <button class="nav-link text-white py-3 px-3 border-0 fw-semibold" id="tab-planes" data-bs-toggle="tab" data-bs-target="#panel-planes" type="button" role="tab"><i class="bi bi-journal-code me-1"></i> Planes</button>
                     </li>
+                    {% endif %}
+                    {% if 'modalidades' in tipos_import_visibles %}
                     <li class="nav-item">
                         <button class="nav-link text-white py-3 px-3 border-0 fw-semibold" id="tab-modalidades" data-bs-toggle="tab" data-bs-target="#panel-modalidades" type="button" role="tab"><i class="bi bi-bezier2 me-1"></i> Modalidades</button>
                     </li>
+                    {% endif %}
+                    {% if 'tipos_documento' in tipos_import_visibles %}
                     <li class="nav-item">
                         <button class="nav-link text-white py-3 px-3 border-0 fw-semibold" id="tab-tipos_documento" data-bs-toggle="tab" data-bs-target="#panel-tipos_documento" type="button" role="tab"><i class="bi bi-file-earmark-text me-1"></i> Documentos</button>
                     </li>
+                    {% endif %}
+                    {% if 'profesores' in tipos_import_visibles %}
                     <li class="nav-item">
                         <button class="nav-link text-white py-3 px-3 border-0 fw-semibold" id="tab-profesores" data-bs-toggle="tab" data-bs-target="#panel-profesores" type="button" role="tab"><i class="bi bi-person-badge me-1"></i> Profesores</button>
                     </li>
+                    {% endif %}
+                    {% if 'alumnos' in tipos_import_visibles %}
                     <li class="nav-item">
                         <button class="nav-link text-white py-3 px-3 border-0 fw-semibold" id="tab-alumnos" data-bs-toggle="tab" data-bs-target="#panel-alumnos" type="button" role="tab"><i class="bi bi-people me-1"></i> Alumnos</button>
                     </li>
+                    {% endif %}
                 </ul>
             </div>
 
@@ -202,10 +234,15 @@
                     <div class="tab-pane fade show active" id="panel-todo" role="tabpanel">
                         <div class="row">
                             <div class="col-md-7">
-                                <h5 class="fw-bold text-primary mb-2">Importar / Exportar Libro de Trabajo Completo</h5>
+                                <h5 class="fw-bold text-primary mb-2">{% if import_solo_oficina %}Importar / Exportar catálogos de Oficina{% else %}Importar / Exportar Libro de Trabajo Completo{% endif %}</h5>
                                 <p class="text-muted small mb-4">
-                                    Permite descargar o cargar una hoja de cálculo unificada que contiene las 7 pestañas estructuradas ordenadas por dependencias: 
+                                    {% if import_solo_oficina %}
+                                    Descarga o carga un Excel unificado con las pestañas:
+                                    <strong>Planes ➔ Tipos de Documento ➔ Profesores ➔ Alumnos</strong>.
+                                    {% else %}
+                                    Permite descargar o cargar una hoja de cálculo unificada que contiene las 7 pestañas estructuradas ordenadas por dependencias:
                                     <strong>Departamentos ➔ Carreras ➔ Planes ➔ Modalidades ➔ Documentos ➔ Profesores ➔ Alumnos</strong>.
+                                    {% endif %}
                                 </p>
                                 
                                 <div class="alert alert-info py-2 px-3 small border-info rounded-3 mb-4" style="background: rgba(13,110,253,.05);">
