@@ -331,7 +331,7 @@
 <div class="content-card">
     <div class="card-header-custom">
         <i class="bi bi-bell"></i> Notificaciones Recientes
-        <a href="{% url 'alumnos:notificaciones' %}" class="ms-auto text-primary small fw-normal">Ver todas</a>
+        <a href="#" class="ms-auto text-primary small fw-normal js-open-notif-panel">Ver todas</a>
     </div>
     {% for notif in notificaciones_recientes %}
     <div class="doc-item {% if not notif.leida %}bg-primary bg-opacity-10{% endif %}">

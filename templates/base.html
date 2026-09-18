@@ -236,6 +236,81 @@
             display: flex; align-items: center; justify-content: center;
         }
 
+        /* ── Panel flotante de notificaciones ── */
+        .notif-panel {
+            width: min(380px, calc(100vw - 1.5rem));
+            max-height: min(70vh, 520px);
+            padding: 0;
+            border: 1px solid rgba(0,0,0,.08);
+            border-radius: .75rem;
+            overflow: hidden;
+            box-shadow: 0 12px 40px rgba(27, 57, 106, .18);
+        }
+        .notif-panel-header {
+            padding: .85rem 1rem;
+            background: linear-gradient(135deg, #1B396A 0%, #2a5298 100%);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .5rem;
+        }
+        .notif-panel-header h6 {
+            margin: 0;
+            font-weight: 700;
+            font-size: .9rem;
+        }
+        .notif-panel-body {
+            overflow-y: auto;
+            max-height: calc(min(70vh, 520px) - 52px);
+            background: #f8fafc;
+        }
+        .notif-item {
+            display: flex;
+            gap: .75rem;
+            padding: .85rem 1rem;
+            border-bottom: 1px solid #eef2f7;
+            background: #fff;
+            text-decoration: none;
+            color: inherit;
+            transition: background .15s;
+        }
+        .notif-item:hover { background: #f0f5fb; }
+        .notif-item.unread { background: #eef4ff; }
+        .notif-item-icon {
+            width: 36px; height: 36px;
+            border-radius: .5rem;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            font-size: 1rem;
+        }
+        .notif-item-title {
+            font-weight: 700;
+            font-size: .82rem;
+            color: var(--ita-azul);
+            line-height: 1.25;
+        }
+        .notif-item-msg {
+            font-size: .75rem;
+            color: #64748b;
+            margin-top: .2rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .notif-item-meta {
+            font-size: .65rem;
+            color: #94a3b8;
+            margin-top: .35rem;
+        }
+        .notif-empty {
+            text-align: center;
+            padding: 2.5rem 1rem;
+            color: #94a3b8;
+        }
+        .notif-empty i { font-size: 2rem; opacity: .35; }
+
         /* ── PÁGINAS ─────────────────────────────────── */
         .page-content {
             padding: 1.75rem;
@@ -714,7 +789,7 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% if 'notificaciones' in request.path %}active{% endif %}" href="{% url 'alumnos:notificaciones' %}">
+                    <a class="nav-link js-open-notif-panel" href="#" role="button">
                         <i class="bi bi-bell"></i> Notificaciones
                         {% if notificaciones_no_leidas %}
                         <span class="badge bg-danger ms-1 notif-count-badge" style="font-size:.6rem;">{{ notificaciones_no_leidas }}</span>
@@ -741,7 +816,7 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% if 'notificaciones' in request.path %}active{% endif %}" href="{% url 'oficina_titulacion:notificaciones' %}">
+                    <a class="nav-link js-open-notif-panel" href="#" role="button">
                         <i class="bi bi-bell"></i> Notificaciones
                         {% if notificaciones_no_leidas %}
                         <span class="badge bg-danger ms-1 notif-count-badge" style="font-size:.6rem;">{{ notificaciones_no_leidas }}</span>
@@ -757,6 +832,19 @@
                     <a class="nav-link" href="{% url 'oficina_titulacion:grupos_protocolo' %}">
                         <i class="bi bi-people"></i> Protocolo
                     </a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle {% if 'planes' in request.path or 'documentos' in request.path or 'profesores' in request.path or 'usuarios' in request.path or 'importar-exportar' in request.path %}active{% endif %}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-folder-plus"></i> Catálogos
+                    </a>
+                    <ul class="dropdown-menu shadow-sm border-0">
+                        <li><a class="dropdown-item" href="{% url 'administracion:planes' %}"><i class="bi bi-journal-text me-2 text-muted"></i>Planes de Estudio</a></li>
+                        <li><a class="dropdown-item" href="{% url 'administracion:documentos' %}"><i class="bi bi-file-earmark-text me-2 text-muted"></i>Tipos de Documentos</a></li>
+                        <li><a class="dropdown-item" href="{% url 'administracion:profesores' %}"><i class="bi bi-person-badge me-2 text-muted"></i>Profesores / Sinodales</a></li>
+                        <li><a class="dropdown-item" href="{% url 'administracion:usuarios' %}?rol=ALUMNO"><i class="bi bi-mortarboard me-2 text-muted"></i>Alumnos</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'administracion:importar_exportar' %}"><i class="bi bi-cloud-arrow-up me-2 text-muted"></i>Importar / Exportar</a></li>
+                    </ul>
                 </li>
                 {% endif %}
 
@@ -826,24 +914,31 @@
                 <i class="bi bi-building me-1"></i>{{ institucion.siglas|default:"ITA" }} — TecNM
             </span>
             {% if user.is_authenticated %}
-            {% if user.es_oficina_titulacion %}
-            <a href="{% url 'oficina_titulacion:notificaciones' %}" class="btn btn-sm btn-light position-relative">
-            {% elif user.rol == 'FINANZAS' %}
-            <a href="{% url 'finanzas:notificaciones' %}" class="btn btn-sm btn-light position-relative">
-            {% elif user.rol == 'CENTRO_COMPUTO' %}
-            <a href="{% url 'centro_computo:notificaciones' %}" class="btn btn-sm btn-light position-relative">
-            {% elif user.rol == 'CENTRO_INFORMACION' %}
-            <a href="{% url 'centro_informacion:notificaciones' %}" class="btn btn-sm btn-light position-relative">
-            {% else %}
-            <a href="{% url 'alumnos:notificaciones' %}" class="btn btn-sm btn-light position-relative">
-            {% endif %}
-                <i class="bi bi-bell"></i>
-                {% if notificaciones_no_leidas %}
-                <span class="notif-badge notif-count-badge">{{ notificaciones_no_leidas }}</span>
-                {% else %}
-                <span class="notif-badge notif-count-badge" style="display:none;">0</span>
-                {% endif %}
-            </a>
+            <div class="dropdown">
+                <button type="button" id="notifBellBtn"
+                        class="btn btn-sm btn-light position-relative"
+                        data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                        aria-expanded="false" aria-label="Notificaciones">
+                    <i class="bi bi-bell"></i>
+                    {% if notificaciones_no_leidas %}
+                    <span class="notif-badge notif-count-badge">{{ notificaciones_no_leidas }}</span>
+                    {% else %}
+                    <span class="notif-badge notif-count-badge" style="display:none;">0</span>
+                    {% endif %}
+                </button>
+                <div class="dropdown-menu dropdown-menu-end notif-panel shadow" id="notifDropdownPanel">
+                    <div class="notif-panel-header">
+                        <h6><i class="bi bi-bell me-1"></i> Notificaciones</h6>
+                        <span class="badge bg-white text-primary notif-panel-count" style="font-size:.65rem;">…</span>
+                    </div>
+                    <div class="notif-panel-body" id="notifPanelBody">
+                        <div class="notif-empty py-4">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                            <p class="small mt-2 mb-0">Cargando…</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
             {% endif %}
         </div>
     </div>
@@ -884,43 +979,61 @@
     const resultsContainer = document.querySelector('.search-results');
     if (!resultsContainer) return;
 
+    function getSearchForm() {
+        // Prefer a GET form that owns the q input
+        const forms = Array.from(document.querySelectorAll('form')).filter(function(f) {
+            return f.querySelector('input[name="q"]') && (f.method || 'get').toLowerCase() !== 'post';
+        });
+        return forms[0] || document.querySelector('form input[name="q"]')?.closest('form');
+    }
+
     // ── Búsqueda con debounce ──
     document.querySelectorAll('input[name="q"]').forEach(function(input) {
+        const form = input.closest('form');
+        if (form && (form.method || 'get').toLowerCase() === 'post') return;
         input.addEventListener('input', function() {
             clearTimeout(timer);
-            const form = this.closest('form');
-            timer = setTimeout(function() { fetchResults(form); }, 400);
+            const f = this.closest('form');
+            timer = setTimeout(function() { window.fetchResults(f); }, 300);
         });
     });
 
     // ── Prevenir submit normal del form de búsqueda ──
     document.querySelectorAll('form').forEach(function(form) {
-        if (form.querySelector('input[name="q"]')) {
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-                clearTimeout(timer);
-                fetchResults(form);
-            });
-        }
-    });
-
-    // ── Selects de filtro (estado) también por AJAX ──
-    document.querySelectorAll('select[name="estado"]').forEach(function(sel) {
-        sel.removeAttribute('onchange');
-        sel.addEventListener('change', function() {
-            const form = this.closest('form');
-            fetchResults(form);
+        if (!form.querySelector('input[name="q"]')) return;
+        if ((form.method || 'get').toLowerCase() === 'post') return;
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            clearTimeout(timer);
+            window.fetchResults(form);
         });
     });
 
-    function fetchResults(form) {
+    // ── Selects de filtro también por AJAX ──
+    document.querySelectorAll('form').forEach(function(form) {
+        if (!form.querySelector('input[name="q"]')) return;
+        if ((form.method || 'get').toLowerCase() === 'post') return;
+        form.querySelectorAll('select').forEach(function(sel) {
+            sel.removeAttribute('onchange');
+            sel.addEventListener('change', function() {
+                window.fetchResults(form);
+            });
+        });
+    });
+
+    window.fetchResults = function(form) {
+        form = form || getSearchForm();
+        if (!form) return;
+        const container = document.querySelector('.search-results');
+        if (!container) return;
+
         const url = new URL(window.location.href);
         url.search = '';
         new FormData(form).forEach(function(v, k) { if (v) url.searchParams.set(k, v); });
         url.searchParams.delete('page');
 
-        resultsContainer.style.opacity = '.45';
-        resultsContainer.style.transition = 'opacity .15s';
+        container.style.opacity = '.45';
+        container.style.transition = 'opacity .15s';
 
         fetch(url.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function(r) { return r.text(); })
@@ -928,18 +1041,20 @@
                 var doc = new DOMParser().parseFromString(html, 'text/html');
                 var fresh = doc.querySelector('.search-results');
                 if (fresh) {
-                    resultsContainer.innerHTML = fresh.innerHTML;
+                    container.innerHTML = fresh.innerHTML;
                     bindPaginationLinks();
                 }
-                resultsContainer.style.opacity = '1';
+                container.style.opacity = '1';
                 history.replaceState(null, '', url.toString());
             })
-            .catch(function() { resultsContainer.style.opacity = '1'; });
-    }
+            .catch(function() { container.style.opacity = '1'; });
+    };
 
     function fetchPage(pageUrl) {
-        resultsContainer.style.opacity = '.45';
-        resultsContainer.style.transition = 'opacity .15s';
+        const container = document.querySelector('.search-results');
+        if (!container) return;
+        container.style.opacity = '.45';
+        container.style.transition = 'opacity .15s';
 
         fetch(pageUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function(r) { return r.text(); })
@@ -947,32 +1062,37 @@
                 var doc = new DOMParser().parseFromString(html, 'text/html');
                 var fresh = doc.querySelector('.search-results');
                 if (fresh) {
-                    resultsContainer.innerHTML = fresh.innerHTML;
+                    container.innerHTML = fresh.innerHTML;
                     bindPaginationLinks();
                 }
-                resultsContainer.style.opacity = '1';
+                container.style.opacity = '1';
                 history.replaceState(null, '', pageUrl);
-                resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             })
-            .catch(function() { resultsContainer.style.opacity = '1'; });
+            .catch(function() { container.style.opacity = '1'; });
     }
 
     function bindPaginationLinks() {
-        resultsContainer.querySelectorAll('.page-link').forEach(function(link) {
-            if (link.getAttribute('href') === '#') return;
-            link.addEventListener('click', function(e) {
+        const container = document.querySelector('.search-results');
+        if (!container) return;
+        container.querySelectorAll('.pagination a.page-link').forEach(function(a) {
+            a.addEventListener('click', function(e) {
                 e.preventDefault();
-                fetchPage(this.href);
+                if (a.getAttribute('href')) fetchPage(a.href);
             });
         });
     }
 
     bindPaginationLinks();
 })();
+</script>
+<!-- Script global para prevenir múltiples envíos de formularios (doble clic) -->
+<script>
 // Script global para prevenir múltiples envíos de formularios (doble clic)
 document.addEventListener("DOMContentLoaded", function() {
     document.querySelectorAll("form").forEach(function(form) {
         form.addEventListener("submit", function(e) {
+            // Formularios AJAX (validación de docs, etc.) se manejan aparte
+            if (form.classList.contains('form-validar-doc')) return;
             // Si el formulario descarga un archivo en otra pestaña, no lo bloqueamos
             if (form.target === "_blank") return;
             
@@ -1043,8 +1163,115 @@ document.addEventListener("DOMContentLoaded", function() {
     let globalTimestamp = null;
     let currentUnreadCount = parseInt("{{ notificaciones_no_leidas|default:'0' }}");
     const checkUrl = "{% url 'administracion:api_realtime_check' %}";
+    const notifApiUrl = "{% url 'administracion:api_notificaciones' %}";
     const toastEl = document.getElementById('realtimeToast');
-    const rtToast = new bootstrap.Toast(toastEl);
+    const rtToast = toastEl ? new bootstrap.Toast(toastEl) : null;
+    const bellBtn = document.getElementById('notifBellBtn');
+    const panelBody = document.getElementById('notifPanelBody');
+    const panelCount = document.querySelector('.notif-panel-count');
+    let notifLoadedOnce = false;
+
+    function escapeHtml(str) {
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function updateNotifBadges(count) {
+        currentUnreadCount = count;
+        document.querySelectorAll('.notif-count-badge, .notif-badge').forEach(badge => {
+            badge.innerText = count;
+            badge.style.display = count > 0 ? (badge.classList.contains('notif-badge') ? 'flex' : 'inline-block') : 'none';
+        });
+        if (panelCount) {
+            panelCount.textContent = count > 0 ? (count + ' nuevas') : 'Al día';
+        }
+    }
+
+    function renderNotificaciones(items) {
+        if (!panelBody) return;
+        if (!items.length) {
+            panelBody.innerHTML = `
+                <div class="notif-empty">
+                    <i class="bi bi-bell-slash d-block mb-2"></i>
+                    <p class="mb-0 small">Sin notificaciones</p>
+                </div>`;
+            return;
+        }
+        panelBody.innerHTML = items.map(function(n) {
+            const tag = n.url ? 'a' : 'div';
+            const href = n.url ? ` href="${escapeHtml(n.url)}"` : '';
+            const unread = n.leida ? '' : ' unread';
+            return `
+                <${tag} class="notif-item${unread}"${href}>
+                    <div class="notif-item-icon bg-${escapeHtml(n.color)}-subtle">
+                        <i class="bi ${escapeHtml(n.icono)} text-${escapeHtml(n.color)}"></i>
+                    </div>
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <div class="notif-item-title">${escapeHtml(n.titulo)}</div>
+                            <span class="badge bg-${escapeHtml(n.color)} flex-shrink-0" style="font-size:.55rem;">${escapeHtml(n.tipo_display)}</span>
+                        </div>
+                        <div class="notif-item-msg">${escapeHtml(n.mensaje)}</div>
+                        <div class="notif-item-meta"><i class="bi bi-clock me-1"></i>${escapeHtml(n.fecha)}</div>
+                    </div>
+                </${tag}>`;
+        }).join('');
+    }
+
+    function loadNotificaciones(force) {
+        if (!panelBody) return Promise.resolve();
+        if (!force && notifLoadedOnce && panelBody.querySelector('.notif-item')) {
+            return Promise.resolve();
+        }
+        panelBody.innerHTML = `
+            <div class="notif-empty py-4">
+                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                <p class="small mt-2 mb-0">Cargando…</p>
+            </div>`;
+        return fetch(notifApiUrl + '?marcar_leidas=1&limit=40', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status !== 'success') return;
+                notifLoadedOnce = true;
+                renderNotificaciones(data.notificaciones || []);
+                updateNotifBadges(data.unread || 0);
+            })
+            .catch(() => {
+                panelBody.innerHTML = `
+                    <div class="notif-empty">
+                        <i class="bi bi-exclamation-triangle d-block mb-2"></i>
+                        <p class="mb-0 small">No se pudieron cargar</p>
+                    </div>`;
+            });
+    }
+
+    function openNotifPanel(e) {
+        if (e) e.preventDefault();
+        if (!bellBtn) return;
+        const navCollapse = document.querySelector('.navbar-collapse.show');
+        if (navCollapse) {
+            const c = bootstrap.Collapse.getInstance(navCollapse);
+            if (c) c.hide();
+        }
+        const dd = bootstrap.Dropdown.getOrCreateInstance(bellBtn);
+        dd.show();
+        loadNotificaciones(true);
+    }
+
+    if (bellBtn) {
+        bellBtn.addEventListener('show.bs.dropdown', function() {
+            loadNotificaciones(true);
+        });
+    }
+    document.querySelectorAll('.js-open-notif-panel').forEach(function(el) {
+        el.addEventListener('click', openNotifPanel);
+    });
     
     function checkRealtime() {
         // Evitar polling si la ventana no esta visible para ahorrar recursos
@@ -1060,11 +1287,13 @@ document.addEventListener("DOMContentLoaded", function() {
                 
                 // 1. Actualizar contadores de notificaciones (campana y menú lateral)
                 if (newCount !== currentUnreadCount) {
-                    currentUnreadCount = newCount;
-                    document.querySelectorAll('.notif-count-badge, .notif-badge').forEach(badge => {
-                        badge.innerText = newCount;
-                        badge.style.display = newCount > 0 ? 'inline-block' : 'none';
-                    });
+                    updateNotifBadges(newCount);
+                    // Si el panel está abierto y hay nuevas, refrescar lista
+                    if (bellBtn && bellBtn.getAttribute('aria-expanded') === 'true') {
+                        loadNotificaciones(true);
+                    } else {
+                        notifLoadedOnce = false;
+                    }
                 }
                 
                 // 2. Establecer baseline en la primera carga
@@ -1076,7 +1305,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 // 3. Detectar cambios (evitando mostrar si el initial era 0.0)
                 if (newTs > globalTimestamp && globalTimestamp > 0) {
                     globalTimestamp = newTs;
-                    rtToast.show();
+                    if (rtToast) rtToast.show();
                     // Opcional: recargar tablas automáticamente si estamos en la vista de búsqueda AJAX
                     const btnSearch = document.querySelector('form input[name="q"]');
                     if (btnSearch && typeof fetchResults === "function") {
@@ -1091,6 +1320,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Consultar cada 8 segundos
     setInterval(checkRealtime, 8000);
+    if (panelCount) {
+        panelCount.textContent = currentUnreadCount > 0 ? (currentUnreadCount + ' nuevas') : 'Al día';
+    }
 });
 </script>
 {% endif %}

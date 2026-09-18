@@ -14,10 +14,10 @@ from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.shortcuts import redirect, get_object_or_404, render
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 
-from expediente.mixins import AdminRequeridoMixin, JefeProyectoRequeridoMixin, FormMessageMixin
+from expediente.mixins import AdminRequeridoMixin, AdminOOficinaRequeridoMixin, JefeProyectoRequeridoMixin, FormMessageMixin
 from administracion.models import Carrera, Departamento, Usuario, Rol, ConfiguracionInstitucional, JefeDepartamento, SolicitudCambioJefe
 from administracion.forms import UsuarioCreateForm, UsuarioUpdateForm, ConfiguracionInstitucionalForm, JefeDepartamentoForm
 from expediente.models import (
@@ -205,6 +205,53 @@ class CheckRealTimeUpdatesView(View):
         })
 
 
+class NotificacionesApiView(View):
+    """Lista JSON de notificaciones del usuario y marca como leídas al abrir el panel."""
+
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'status': 'unauthorized'}, status=401)
+
+        from alumnos.models import Notificacion
+        from expediente.notifications import marcar_notificaciones_leidas
+
+        marcar = request.GET.get('marcar_leidas', '1') == '1'
+        try:
+            limit = min(int(request.GET.get('limit', 40) or 40), 80)
+        except (TypeError, ValueError):
+            limit = 40
+
+        qs = Notificacion.objects.filter(destinatario=request.user).order_by('-fecha')
+        unread = qs.filter(leida=False).count()
+        items = []
+        for n in qs[:limit]:
+            msg = n.mensaje or ''
+            if msg.startswith('DGP_INSTRUCCIONES'):
+                msg = 'Instrucciones del proceso DGP / cédula. Abre el detalle para ver los pasos.'
+            items.append({
+                'id': n.id,
+                'titulo': n.titulo,
+                'mensaje': msg,
+                'tipo': n.tipo,
+                'tipo_display': n.get_tipo_display(),
+                'color': n.get_tipo_color(),
+                'icono': n.get_tipo_icono(),
+                'leida': n.leida,
+                'fecha': timezone.localtime(n.fecha).strftime('%d/%m/%Y %H:%M'),
+                'url': n.url_relacionada or '',
+            })
+
+        if marcar and unread:
+            marcar_notificaciones_leidas(request.user)
+            unread = 0
+
+        return JsonResponse({
+            'status': 'success',
+            'unread': unread,
+            'notificaciones': items,
+        })
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # VISTAS PARA JEFES DE DEPARTAMENTO
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -296,12 +343,10 @@ class DashboardAdminView(AdminRequeridoMixin, TemplateView):
         estado_filtro = self.request.GET.get('estado', '')
 
         if busqueda:
-            qs = qs.filter(
-                Q(first_name__unaccent__icontains=busqueda) |
-                Q(last_name__unaccent__icontains=busqueda) |
-                Q(username__unaccent__icontains=busqueda) |
-                Q(numero_control__unaccent__icontains=busqueda)
-            )
+            from expediente.search_utils import q_busca
+            qs = qs.filter(q_busca(
+                busqueda, 'first_name', 'last_name', 'username', 'numero_control',
+            ))
         if carrera_id:
             qs = qs.filter(carrera_id=carrera_id)
         if estado_filtro:
@@ -329,7 +374,7 @@ class DashboardAdminView(AdminRequeridoMixin, TemplateView):
 
 
 # ─── USUARIOS ────────────────────────────────────────────────
-class UsuarioListView(AdminRequeridoMixin, ListView):
+class UsuarioListView(AdminOOficinaRequeridoMixin, ListView):
     model = Usuario
     template_name = 'administracion/usuarios/lista.html'
     context_object_name = 'usuarios'
@@ -337,38 +382,48 @@ class UsuarioListView(AdminRequeridoMixin, ListView):
 
     def get_queryset(self):
         qs = Usuario.objects.select_related('carrera').order_by('rol', 'last_name')
-        rol = self.request.GET.get('rol')
+        if not self.request.user.es_admin:
+            qs = qs.filter(rol=Rol.ALUMNO)
+        else:
+            rol = self.request.GET.get('rol')
+            if rol:
+                qs = qs.filter(rol=rol)
         busqueda = self.request.GET.get('q')
-        if rol:
-            qs = qs.filter(rol=rol)
         if busqueda:
-            qs = qs.filter(
-                Q(first_name__unaccent__icontains=busqueda) |
-                Q(last_name__unaccent__icontains=busqueda) |
-                Q(username__unaccent__icontains=busqueda) |
-                Q(email__unaccent__icontains=busqueda)
-            )
+            from expediente.search_utils import q_busca
+            qs = qs.filter(q_busca(
+                busqueda, 'first_name', 'last_name', 'username', 'email',
+            ))
         return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['rol_filtro'] = self.request.GET.get('rol', '')
+        ctx['rol_filtro'] = Rol.ALUMNO if not self.request.user.es_admin else self.request.GET.get('rol', '')
         ctx['busqueda'] = self.request.GET.get('q', '')
-        from administracion.models import Rol
         from expediente.models import PlanEstudios
-        ctx['roles'] = Rol.choices
+        ctx['roles'] = Rol.choices if self.request.user.es_admin else [(Rol.ALUMNO, 'Alumno')]
         ctx['carreras_count'] = Carrera.objects.count()
         ctx['planes_count'] = PlanEstudios.objects.count()
+        ctx['solo_alumnos'] = not self.request.user.es_admin
         return ctx
 
 
-class UsuarioCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
+class UsuarioCreateView(AdminOOficinaRequeridoMixin, FormMessageMixin, CreateView):
     model = Usuario
     form_class = UsuarioCreateForm
     template_name = 'administracion/usuarios/form.html'
     success_url = reverse_lazy('administracion:usuarios')
 
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        if not self.request.user.es_admin:
+            form.fields['rol'].choices = [(Rol.ALUMNO, 'Alumno')]
+            form.fields['rol'].initial = Rol.ALUMNO
+        return form
+
     def form_valid(self, form):
+        if not self.request.user.es_admin:
+            form.instance.rol = Rol.ALUMNO
         usuario = form.save(commit=False)
         
         # Generar contraseña segura automáticamente garantizando requisitos
@@ -448,11 +503,25 @@ Instituto Tecnológico de Apizaco — TecNM.
         return redirect(self.success_url)
 
 
-class UsuarioUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
+class UsuarioUpdateView(AdminOOficinaRequeridoMixin, FormMessageMixin, UpdateView):
     model = Usuario
     form_class = UsuarioUpdateForm
     template_name = 'administracion/usuarios/form.html'
     success_url = reverse_lazy('administracion:usuarios')
+
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if not request.user.es_admin and self.object.rol != Rol.ALUMNO:
+            messages.error(request, 'Solo puedes editar cuentas de alumnos.')
+            return redirect('administracion:usuarios')
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        if not self.request.user.es_admin:
+            form.fields['rol'].choices = [(Rol.ALUMNO, 'Alumno')]
+            form.fields['rol'].disabled = True
+        return form
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -615,6 +684,8 @@ class UsuarioUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
         return edit_url
 
     def form_valid(self, form):
+        if not self.request.user.es_admin:
+            form.instance.rol = Rol.ALUMNO
         usuario = form.save()
         
         # Desactivar Jefe de Academia anterior automáticamente si aplica
@@ -643,13 +714,16 @@ class UsuarioUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
     def get_success_url(self):
         return reverse_lazy('administracion:usuarios')
 
-class UsuarioDeleteView(AdminRequeridoMixin, DeleteView):
+class UsuarioDeleteView(AdminOOficinaRequeridoMixin, DeleteView):
     model = Usuario
     template_name = 'administracion/usuarios/eliminar.html'
     success_url = reverse_lazy('administracion:usuarios')
 
     def dispatch(self, request, *args, **kwargs):
         usuario = self.get_object()
+        if not request.user.es_admin and usuario.rol != Rol.ALUMNO:
+            messages.error(request, 'Solo puedes eliminar cuentas de alumnos.')
+            return redirect('administracion:usuarios')
         if usuario.pk == request.user.pk:
             messages.error(request, 'No puedes eliminar tu propia cuenta.')
             return redirect('administracion:usuarios')
@@ -802,12 +876,12 @@ class DashboardJefeProyectoView(JefeProyectoRequeridoMixin, TemplateView):
         modalidad_id = self.request.GET.get('modalidad', '')
 
         if busqueda:
-            qs = qs.filter(
-                Q(alumno__first_name__unaccent__icontains=busqueda) |
-                Q(alumno__last_name__unaccent__icontains=busqueda) |
-                Q(alumno__username__unaccent__icontains=busqueda) |
-                Q(alumno__numero_control__unaccent__icontains=busqueda)
-            )
+            from expediente.search_utils import q_busca
+            qs = qs.filter(q_busca(
+                busqueda,
+                'alumno__first_name', 'alumno__last_name',
+                'alumno__username', 'alumno__numero_control',
+            ))
         if carrera_id:
             qs = qs.filter(alumno__carrera_id=carrera_id)
         if modalidad_id:
@@ -851,12 +925,12 @@ class ExpedienteListaJefeView(JefeProyectoRequeridoMixin, ListView):
             qs = qs.filter(estado=estado)
         busqueda = self.request.GET.get('q', '').strip()
         if busqueda:
-            qs = qs.filter(
-                Q(alumno__first_name__unaccent__icontains=busqueda) |
-                Q(alumno__last_name__unaccent__icontains=busqueda) |
-                Q(alumno__username__unaccent__icontains=busqueda) |
-                Q(alumno__numero_control__unaccent__icontains=busqueda)
-            )
+            from expediente.search_utils import q_busca
+            qs = qs.filter(q_busca(
+                busqueda,
+                'alumno__first_name', 'alumno__last_name',
+                'alumno__username', 'alumno__numero_control',
+            ))
 
         carrera_id = self.request.GET.get('carrera', '')
         modalidad_id = self.request.GET.get('modalidad', '')

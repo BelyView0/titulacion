@@ -74,7 +74,7 @@
 <div class="content-card mb-4">
     <div class="card-header-custom">
         <i class="bi bi-bell"></i> Notificaciones recientes
-        <a href="{% url 'oficina_titulacion:notificaciones' %}" class="ms-auto text-primary small fw-normal">Ver todas</a>
+        <a href="#" class="ms-auto text-primary small fw-normal js-open-notif-panel">Ver todas</a>
     </div>
     {% for notif in notificaciones_recientes %}
     <div class="p-3 border-bottom {% if not notif.leida %}bg-warning bg-opacity-10{% endif %}">

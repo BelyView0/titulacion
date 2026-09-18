@@ -89,9 +89,9 @@
 </div>
 
 <div class="mt-3">
-    <a href="{% url 'finanzas:notificaciones' %}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-bell"></i> Bandeja de notificaciones
-        {% if notificaciones_no_leidas %}<span class="badge bg-danger">{{ notificaciones_no_leidas }}</span>{% endif %}
+    <a href="#" class="btn btn-outline-secondary btn-sm js-open-notif-panel">
+        <i class="bi bi-bell"></i> Notificaciones
+        {% if notificaciones_no_leidas %}<span class="badge bg-danger notif-count-badge">{{ notificaciones_no_leidas }}</span>{% endif %}
     </a>
 </div>
 {% endblock %}

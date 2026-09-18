@@ -28,6 +28,7 @@ urlpatterns = [
 
     # Tiempo Real / API
     path('api/realtime/check/', views.CheckRealTimeUpdatesView.as_view(), name='api_realtime_check'),
+    path('api/notificaciones/', views.NotificacionesApiView.as_view(), name='api_notificaciones'),
 
     # Jefes de Departamento
     path('jefes/', views_jefe.JefeDepartamentoListView.as_view(), name='jefes'),
