@@ -304,10 +304,22 @@
                     <div class="fw-bold">{{ usuario.departamento.nombre }}</div>
                 </div>
                 {% endif %}
-                {% if usuario.generacion %}
+                {% if usuario.periodo_inicio_anio %}
                 <div class="col-md-6">
-                    <small class="text-muted fw-semibold">Generación</small>
-                    <div class="fw-bold">{{ usuario.generacion }}</div>
+                    <small class="text-muted fw-semibold">Periodo de inicio</small>
+                    <div class="fw-bold">{{ usuario.periodo_inicio_display }}</div>
+                </div>
+                {% endif %}
+                {% if usuario.periodo_egreso_anio %}
+                <div class="col-md-6">
+                    <small class="text-muted fw-semibold">Periodo de egreso</small>
+                    <div class="fw-bold">{{ usuario.periodo_egreso_display }}</div>
+                </div>
+                {% endif %}
+                {% if usuario.semestres_cursados %}
+                <div class="col-md-6">
+                    <small class="text-muted fw-semibold">Semestres cursados</small>
+                    <div class="fw-bold">{{ usuario.semestres_cursados }}</div>
                 </div>
                 {% endif %}
             </div>

@@ -34,9 +34,13 @@ ESTADOS_ENVIO_DOCUMENTOS = (
 
 
 def _obligatorios_sin_cargar(expediente):
-    """Obligatorios aún sin archivo útil (pendientes o sin archivo)."""
+    """Obligatorios aplicables aún sin archivo útil (pendientes o sin archivo)."""
     from django.db.models import Q
-    return expediente.documentos.filter(tipo_documento__es_obligatorio=True).filter(
+    qs = expediente.documentos.filter(tipo_documento__es_obligatorio=True)
+    alumno = expediente.alumno
+    if not getattr(alumno, 'requiere_documentos_extensos', False):
+        qs = qs.filter(tipo_documento__solo_mas_de_12_semestres=False)
+    return qs.filter(
         Q(estado=EstadoDocumento.PENDIENTE) | Q(archivo='') | Q(archivo__isnull=True)
     )
 from expediente.notifications import registrar_cambio_estado
@@ -98,13 +102,8 @@ class ExpedienteCreateView(AlumnoRequeridoMixin, CreateView):
             expediente.plan_estudios = expediente.modalidad.plan_estudios
         expediente.save()
 
-        tipos = TipoDocumento.objects.filter(modalidad=expediente.modalidad).order_by('orden')
-        for tipo in tipos:
-            Documento.objects.get_or_create(
-                expediente=expediente,
-                tipo_documento=tipo,
-                defaults={'estado': EstadoDocumento.PENDIENTE},
-            )
+        from expediente.documentos_semestres import sincronizar_documentos_expediente
+        sincronizar_documentos_expediente(expediente)
 
         registrar_cambio_estado(
             expediente=expediente,
@@ -173,6 +172,8 @@ class ExpedienteDetalleView(ExpedientePropioMixin, TemplateView):
         expediente = self.get_expediente()
         if not expediente:
             return ctx
+        from expediente.documentos_semestres import sincronizar_documentos_expediente
+        sincronizar_documentos_expediente(expediente)
         ctx['expediente'] = expediente
         ctx['documentos'] = expediente.documentos.select_related(
             'tipo_documento'

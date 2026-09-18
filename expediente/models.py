@@ -69,6 +69,11 @@ class TipoDocumento(models.Model):
         help_text='Describe cómo debe ser el documento (formato, requisitos, etc.)'
     )
     es_obligatorio = models.BooleanField(default=True, verbose_name='¿Es obligatorio?')
+    solo_mas_de_12_semestres = models.BooleanField(
+        default=False,
+        verbose_name='Exclusivo para más de 12 semestres',
+        help_text='Solo se agregará al expediente de alumnos que cursaron más de 12 semestres.',
+    )
     orden = models.PositiveIntegerField(default=0, verbose_name='Orden de presentación')
     formatos_admitidos = models.JSONField(
         default=list,

@@ -87,7 +87,10 @@ class DescargarPlantillaView(AdminRequeridoMixin, View):
                     p.plan_estudios.nombre if (p and p.plan_estudios) else '',
                     p.semestre_egreso if p else '',
                     str(p.promedio) if (p and p.promedio) else '',
-                    u.telefono, u.genero, u.generacion or ''
+                    u.telefono, u.genero,
+                    u.periodo_inicio_ciclo or '', u.periodo_inicio_anio or '',
+                    u.periodo_egreso_ciclo or '', u.periodo_egreso_anio or '',
+                    u.semestres_cursados or '',
                 ])
         elif key == 'jefes_departamento':
             for j in JefeDepartamento.objects.select_related('departamento').all().order_by('departamento__clave'):
@@ -750,14 +753,62 @@ Instituto Tecnológico de Apizaco — TecNM.
         promedio = row[9] if len(row) > 9 and row[9] is not None else None
         telefono = str(row[10]).strip() if len(row) > 10 and row[10] else ''
         
+        from administracion.models import CicloPeriodo, calcular_semestres_cursados
+
         genero_raw = str(row[11]).strip().upper() if len(row) > 11 and row[11] else 'O'
         genero = 'O'
         if genero_raw in ['M', 'MASCULINO', 'H', 'HOMBRE']:
             genero = Genero.MASCULINO
-        elif genero_raw in ['F', 'FEMENINO', 'M', 'MUJER']:
+        elif genero_raw in ['F', 'FEMENINO', 'MUJER']:
             genero = Genero.FEMENINO
 
-        generacion = int(row[12]) if len(row) > 12 and row[12] is not None else None
+        # Compat: col 12 puede ser año de ingreso (legado) o ciclo inicio
+        ciclo_ini = CicloPeriodo.AGO_DIC
+        anio_ini = None
+        ciclo_egr = CicloPeriodo.ENE_JUN
+        anio_egr = None
+        if len(row) > 12 and row[12] is not None and str(row[12]).strip():
+            raw12 = str(row[12]).strip().upper()
+            if raw12 in ('ENE_JUN', 'ENE-JUN', 'ENERO-JUNIO', 'ENERO – JUNIO'):
+                ciclo_ini = CicloPeriodo.ENE_JUN
+            elif raw12 in ('AGO_DIC', 'AGO-DIC', 'AGOSTO-DICIEMBRE', 'AGOSTO – DICIEMBRE'):
+                ciclo_ini = CicloPeriodo.AGO_DIC
+            else:
+                try:
+                    anio_ini = int(float(raw12))
+                except (TypeError, ValueError):
+                    anio_ini = None
+        if len(row) > 13 and row[13] is not None and str(row[13]).strip():
+            raw13 = str(row[13]).strip().upper()
+            try:
+                anio_ini = int(float(raw13))
+            except (TypeError, ValueError):
+                if raw13 in ('ENE_JUN', 'ENE-JUN', 'ENERO-JUNIO'):
+                    ciclo_ini = CicloPeriodo.ENE_JUN
+                elif raw13 in ('AGO_DIC', 'AGO-DIC', 'AGOSTO-DICIEMBRE'):
+                    ciclo_ini = CicloPeriodo.AGO_DIC
+        if len(row) > 14 and row[14] is not None and str(row[14]).strip():
+            raw14 = str(row[14]).strip().upper()
+            if raw14 in ('ENE_JUN', 'ENE-JUN', 'ENERO-JUNIO'):
+                ciclo_egr = CicloPeriodo.ENE_JUN
+            elif raw14 in ('AGO_DIC', 'AGO-DIC', 'AGOSTO-DICIEMBRE'):
+                ciclo_egr = CicloPeriodo.AGO_DIC
+            else:
+                try:
+                    anio_egr = int(float(raw14))
+                except (TypeError, ValueError):
+                    pass
+        if len(row) > 15 and row[15] is not None and str(row[15]).strip():
+            try:
+                anio_egr = int(float(str(row[15]).strip()))
+            except (TypeError, ValueError):
+                pass
+        # Si solo viene año legado en col 12, úsalo como inicio AGO_DIC
+        if anio_ini is None and len(row) > 12 and row[12] is not None:
+            try:
+                anio_ini = int(float(str(row[12]).strip()))
+            except (TypeError, ValueError):
+                pass
 
         # 1. Validar Carrera y Plan
         try:
@@ -796,7 +847,10 @@ Instituto Tecnológico de Apizaco — TecNM.
                 carrera=carrera,
                 telefono=telefono,
                 genero=genero,
-                generacion=generacion,
+                periodo_inicio_ciclo=ciclo_ini if anio_ini else '',
+                periodo_inicio_anio=anio_ini,
+                periodo_egreso_ciclo=ciclo_egr if anio_egr else '',
+                periodo_egreso_anio=anio_egr,
                 correo_institucional=correo_institucional,
                 debe_cambiar_password=True  # Forzar cambio de contraseña en su primer login
             )
@@ -830,7 +884,9 @@ Instituto Tecnológico de Apizaco — TecNM.
             if (user.first_name != first_name or user.last_name != last_name or
                 user.apellido_materno != apellido_materno or user.email != email or
                 user.carrera != carrera or user.telefono != telefono or
-                user.genero != genero or user.generacion != generacion or
+                user.genero != genero or
+                user.periodo_inicio_anio != anio_ini or
+                user.periodo_egreso_anio != anio_egr or
                 user.numero_control != control):
                 
                 user.first_name = first_name
@@ -840,13 +896,21 @@ Instituto Tecnológico de Apizaco — TecNM.
                 user.carrera = carrera
                 user.telefono = telefono
                 user.genero = genero
-                user.generacion = generacion
+                if anio_ini:
+                    user.periodo_inicio_ciclo = ciclo_ini
+                    user.periodo_inicio_anio = anio_ini
+                if anio_egr:
+                    user.periodo_egreso_ciclo = ciclo_egr
+                    user.periodo_egreso_anio = anio_egr
                 user.numero_control = control
                 user.correo_institucional = correo_institucional
                 user.save()
                 cambio = True
 
-        # 4. Sincronizar PerfilAlumno
+                expediente = getattr(user, 'expediente', None)
+                if expediente is not None:
+                    from expediente.documentos_semestres import sincronizar_documentos_expediente
+                    sincronizar_documentos_expediente(expediente)
         perfil, p_created = PerfilAlumno.objects.get_or_create(
             usuario=user,
             defaults={

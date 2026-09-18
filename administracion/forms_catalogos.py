@@ -39,13 +39,14 @@ class TipoDocumentoForm(forms.ModelForm):
         model = TipoDocumento
         fields = [
             'modalidad', 'nombre', 'descripcion_ayuda', 'es_obligatorio',
-            'formatos', 'tamano_max_mb',
+            'solo_mas_de_12_semestres', 'formatos', 'tamano_max_mb',
         ]
         widgets = {
             'modalidad': forms.Select(attrs={'class': 'form-select'}),
             'nombre': forms.TextInput(attrs={'class': 'form-control'}),
             'descripcion_ayuda': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'es_obligatorio': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'solo_mas_de_12_semestres': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'tamano_max_mb': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
         }
 

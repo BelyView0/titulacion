@@ -5,7 +5,11 @@ from datetime import datetime
 
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import Usuario, Carrera, Departamento, Profesor, Rol, ConfiguracionInstitucional, JefeDepartamento, ContactoArea, choices_siget, normalizar_rol
+from .models import (
+    Usuario, Carrera, Departamento, Profesor, Rol, ConfiguracionInstitucional,
+    JefeDepartamento, ContactoArea, choices_siget, normalizar_rol, CicloPeriodo,
+    calcular_semestres_cursados,
+)
 
 
 class UsuarioCreateForm(forms.ModelForm):
@@ -16,32 +20,39 @@ class UsuarioCreateForm(forms.ModelForm):
         fields = [
             'first_name', 'last_name', 'apellido_materno',
             'email', 'correo_institucional', 'rol', 'carrera', 'departamento',
-            'numero_control', 'telefono', 'genero', 'generacion',
+            'numero_control', 'telefono', 'genero',
+            'periodo_inicio_ciclo', 'periodo_inicio_anio',
+            'periodo_egreso_ciclo', 'periodo_egreso_anio',
         ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Campos siempre obligatorios
         for f in ['first_name', 'last_name', 'apellido_materno',
                   'correo_institucional', 'rol', 'telefono', 'numero_control',
-                  'genero', 'generacion']:
+                  'genero']:
             self.fields[f].required = True
 
         self.fields['carrera'].required = False
         self.fields['departamento'].required = False
         self.fields['email'].required = False
+        for f in (
+            'periodo_inicio_ciclo', 'periodo_inicio_anio',
+            'periodo_egreso_ciclo', 'periodo_egreso_anio',
+        ):
+            self.fields[f].required = False
 
-        # Valor por defecto de generación: año actual - 4.5 años
-        self.fields['generacion'].initial = int(datetime.now().year - 4.5)
+        anio_ref = int(datetime.now().year - 4.5)
+        self.fields['periodo_inicio_ciclo'].initial = CicloPeriodo.AGO_DIC
+        self.fields['periodo_inicio_anio'].initial = anio_ref
+        self.fields['periodo_egreso_ciclo'].initial = CicloPeriodo.ENE_JUN
+        self.fields['periodo_egreso_anio'].initial = datetime.now().year
 
-        # Labels claros
         self.fields['first_name'].label = 'Nombre(s)'
         self.fields['last_name'].label = 'Apellido paterno'
         self.fields['apellido_materno'].label = 'Apellido materno'
         self.fields['carrera'].label = 'Carrera'
         self.fields['departamento'].label = 'Departamento'
         self.fields['rol'].choices = choices_siget()
-
 
     def clean(self):
         cleaned_data = super().clean()
@@ -55,11 +66,35 @@ class UsuarioCreateForm(forms.ModelForm):
         if password and password_confirm and password != password_confirm:
             self.add_error('password_confirm', 'Las contraseñas no coinciden.')
 
-        # Validación condicional por rol
         if rol == Rol.ALUMNO and not carrera:
             self.add_error('carrera', 'La carrera es obligatoria para los alumnos.')
         if rol in (Rol.JEFE_PROYECTO, Rol.JEFE_ACADEMIA) and not departamento:
             self.add_error('departamento', 'El departamento es obligatorio para Jefe de Academia.')
+
+        if rol == Rol.ALUMNO:
+            for f in (
+                'periodo_inicio_ciclo', 'periodo_inicio_anio',
+                'periodo_egreso_ciclo', 'periodo_egreso_anio',
+            ):
+                if not cleaned_data.get(f):
+                    self.add_error(f, 'Obligatorio para alumnos.')
+            sem = calcular_semestres_cursados(
+                cleaned_data.get('periodo_inicio_ciclo'),
+                cleaned_data.get('periodo_inicio_anio'),
+                cleaned_data.get('periodo_egreso_ciclo'),
+                cleaned_data.get('periodo_egreso_anio'),
+            )
+            if (
+                cleaned_data.get('periodo_inicio_ciclo')
+                and cleaned_data.get('periodo_inicio_anio')
+                and cleaned_data.get('periodo_egreso_ciclo')
+                and cleaned_data.get('periodo_egreso_anio')
+                and sem is None
+            ):
+                self.add_error(
+                    'periodo_egreso_anio',
+                    'El periodo de egreso debe ser posterior o igual al de inicio.',
+                )
 
         correo_institucional = cleaned_data.get('correo_institucional')
         if correo_institucional:
@@ -87,7 +122,6 @@ class UsuarioCreateForm(forms.ModelForm):
     def clean_numero_control(self):
         numero_control = self.cleaned_data.get('numero_control')
         if numero_control:
-            # Validar que no exista ya un usuario con este numero de control o username
             if Usuario.objects.filter(numero_control=numero_control).exists():
                 raise ValidationError(f'Ya existe un registro con el número de control o empleado "{numero_control}".')
             if Usuario.objects.filter(username=numero_control).exists():
@@ -103,7 +137,10 @@ class UsuarioUpdateForm(forms.ModelForm):
         fields = [
             'first_name', 'last_name', 'apellido_materno',
             'email', 'correo_institucional', 'rol', 'carrera', 'departamento',
-            'numero_control', 'telefono', 'genero', 'generacion', 'is_active',
+            'numero_control', 'telefono', 'genero',
+            'periodo_inicio_ciclo', 'periodo_inicio_anio',
+            'periodo_egreso_ciclo', 'periodo_egreso_anio',
+            'is_active',
         ]
 
     def __init__(self, *args, **kwargs):
@@ -111,12 +148,17 @@ class UsuarioUpdateForm(forms.ModelForm):
         
         for f in ['first_name', 'last_name', 'apellido_materno',
                   'correo_institucional', 'rol', 'telefono', 'numero_control',
-                  'genero', 'generacion']:
+                  'genero']:
             self.fields[f].required = True
 
         self.fields['carrera'].required = False
         self.fields['departamento'].required = False
         self.fields['email'].required = False
+        for f in (
+            'periodo_inicio_ciclo', 'periodo_inicio_anio',
+            'periodo_egreso_ciclo', 'periodo_egreso_anio',
+        ):
+            self.fields[f].required = False
 
         self.fields['first_name'].label = 'Nombre(s)'
         self.fields['last_name'].label = 'Apellido paterno'
@@ -136,6 +178,31 @@ class UsuarioUpdateForm(forms.ModelForm):
             self.add_error('carrera', 'La carrera es obligatoria para los alumnos.')
         if rol in (Rol.JEFE_PROYECTO, Rol.JEFE_ACADEMIA) and not departamento:
             self.add_error('departamento', 'El departamento es obligatorio para Jefe de Academia.')
+
+        if rol == Rol.ALUMNO:
+            for f in (
+                'periodo_inicio_ciclo', 'periodo_inicio_anio',
+                'periodo_egreso_ciclo', 'periodo_egreso_anio',
+            ):
+                if not cleaned_data.get(f):
+                    self.add_error(f, 'Obligatorio para alumnos.')
+            sem = calcular_semestres_cursados(
+                cleaned_data.get('periodo_inicio_ciclo'),
+                cleaned_data.get('periodo_inicio_anio'),
+                cleaned_data.get('periodo_egreso_ciclo'),
+                cleaned_data.get('periodo_egreso_anio'),
+            )
+            if (
+                cleaned_data.get('periodo_inicio_ciclo')
+                and cleaned_data.get('periodo_inicio_anio')
+                and cleaned_data.get('periodo_egreso_ciclo')
+                and cleaned_data.get('periodo_egreso_anio')
+                and sem is None
+            ):
+                self.add_error(
+                    'periodo_egreso_anio',
+                    'El periodo de egreso debe ser posterior o igual al de inicio.',
+                )
 
         correo_institucional = cleaned_data.get('correo_institucional')
         if correo_institucional:

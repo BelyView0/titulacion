@@ -631,6 +631,12 @@ class UsuarioUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
             if viejos.exists():
                 messages.info(self.request, f'El Jefe de Academia anterior para {usuario.departamento.nombre} ha sido desactivado automáticamente para mantener solo uno activo.')
 
+        if usuario.rol == Rol.ALUMNO:
+            expediente = getattr(usuario, 'expediente', None)
+            if expediente is not None:
+                from expediente.documentos_semestres import sincronizar_documentos_expediente
+                sincronizar_documentos_expediente(expediente)
+
         messages.success(self.request, 'Datos del usuario actualizados exitosamente.')
         return redirect('administracion:usuario_editar', pk=self.object.pk)
 
@@ -1158,15 +1164,15 @@ class EstadisticasJefeView(JefeProyectoRequeridoMixin, TemplateView):
         titulados_mujeres = qs_concluidos.filter(alumno__genero='F').count()
         titulados_sin_dato = total_concluidos - titulados_hombres - titulados_mujeres
 
-        # ─── RE-04: Estadísticas por generación ───────────────────
+        # ─── RE-04: Estadísticas por año de ingreso (periodo inicio) ──
         por_generacion = (
-            qs.filter(alumno__generacion__isnull=False)
-            .values('alumno__generacion')
+            qs.filter(alumno__periodo_inicio_anio__isnull=False)
+            .values('alumno__periodo_inicio_anio')
             .annotate(
                 total=Count('id'),
                 concluidos=Count('id', filter=Q(estado=EstadoExpediente.CONCLUIDO))
             )
-            .order_by('-alumno__generacion')
+            .order_by('-alumno__periodo_inicio_anio')
         )
 
         # ─── RE-05: Por tipo de opción de titulación (modalidad) ──

@@ -40,9 +40,31 @@
                     <div class="col-md-6">{% include '_field.html' with field=form.correo_institucional %}</div>
                 </div>
                 <div class="row g-3 mb-3">
-                    <div class="col-md-4">{% include '_field.html' with field=form.telefono %}</div>
-                    <div class="col-md-4">{% include '_field.html' with field=form.genero %}</div>
-                    <div class="col-md-4">{% include '_field.html' with field=form.generacion %}</div>
+                    <div class="col-md-6">{% include '_field.html' with field=form.telefono %}</div>
+                    <div class="col-md-6">{% include '_field.html' with field=form.genero %}</div>
+                </div>
+
+                <div id="campos-periodos-alumno" class="mb-3" style="display:none;">
+                    <hr class="my-3 opacity-25">
+                    <p class="text-muted fw-semibold small mb-2 text-uppercase" style="letter-spacing:.08em">
+                        <i class="bi bi-calendar3 me-1"></i> Periodos académicos
+                    </p>
+                    <div class="row g-3 mb-2">
+                        <div class="col-md-6">{% include '_field.html' with field=form.periodo_inicio_ciclo %}</div>
+                        <div class="col-md-6">{% include '_field.html' with field=form.periodo_inicio_anio %}</div>
+                    </div>
+                    <div class="row g-3 mb-2">
+                        <div class="col-md-6">{% include '_field.html' with field=form.periodo_egreso_ciclo %}</div>
+                        <div class="col-md-6">{% include '_field.html' with field=form.periodo_egreso_anio %}</div>
+                    </div>
+                    {% if object and object.semestres_cursados %}
+                    <div class="alert alert-secondary py-2 small mb-0">
+                        Semestres cursados calculados: <strong>{{ object.semestres_cursados }}</strong>
+                        {% if object.requiere_documentos_extensos %}
+                        <span class="badge bg-warning-subtle text-warning-emphasis ms-1">&gt;12 — docs extensos</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                 </div>
 
                 <hr class="my-3 opacity-25">
@@ -642,8 +664,13 @@
     const rolSelect = document.getElementById('id_rol');
     const campoCarrera = document.getElementById('campo-carrera');
     const campoDepartamento = document.getElementById('campo-departamento');
+    const camposPeriodos = document.getElementById('campos-periodos-alumno');
     const inputCarrera = document.getElementById('id_carrera');
     const inputDepartamento = document.getElementById('id_departamento');
+    const inputsPeriodo = [
+        'id_periodo_inicio_ciclo', 'id_periodo_inicio_anio',
+        'id_periodo_egreso_ciclo', 'id_periodo_egreso_anio',
+    ].map(id => document.getElementById(id));
 
     const labelCarrera = campoCarrera ? campoCarrera.querySelector('label') : null;
     const labelDepartamento = campoDepartamento ? campoDepartamento.querySelector('label') : null;
@@ -671,12 +698,16 @@
         const rol = rolSelect ? rolSelect.value : '';
         campoCarrera.style.display = 'none';
         campoDepartamento.style.display = 'none';
+        if (camposPeriodos) camposPeriodos.style.display = 'none';
         setRequired(inputCarrera, labelCarrera, false);
         setRequired(inputDepartamento, labelDepartamento, false);
+        inputsPeriodo.forEach(inp => { if (inp) inp.required = false; });
 
         if (rol === 'ALUMNO') {
             campoCarrera.style.display = '';
+            if (camposPeriodos) camposPeriodos.style.display = '';
             setRequired(inputCarrera, labelCarrera, true);
+            inputsPeriodo.forEach(inp => { if (inp) inp.required = true; });
         } else if (rol === 'JEFE_ACADEMIA' || rol === 'JEFE_PROYECTO') {
             campoDepartamento.style.display = '';
             setRequired(inputDepartamento, labelDepartamento, true);

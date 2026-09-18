@@ -23,7 +23,7 @@
                 
                 <div class="row g-3">
                     {% for field in form %}
-                    {% if field.name in "acepta_solo_pdf,es_fotografia" %}
+                    {% if field.name in "acepta_solo_pdf,es_fotografia,es_obligatorio,solo_mas_de_12_semestres,activo" %}
                     <div class="col-md-6">
                     {% else %}
                     <div class="col-md-12">

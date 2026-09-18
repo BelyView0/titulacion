@@ -368,7 +368,7 @@
             </div>
             {% endif %}
             {% for documento in documentos %}
-            <div class="doc-item">
+            <div class="doc-item{% if not documento.tipo_documento.es_obligatorio %} doc-item-opcional{% endif %}{% if documento.tipo_documento.solo_mas_de_12_semestres %} doc-item-extenso{% endif %}">
                 <div class="doc-icon
                     {% if documento.estado == 'APROBADO' %}
                         bg-success bg-opacity-10
@@ -391,11 +391,21 @@
                         {{ documento.tipo_documento.nombre }}
                         {% if documento.tipo_documento.es_obligatorio %}
                         <span class="text-danger ms-1" title="Obligatorio">*</span>
+                        {% else %}
+                        <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle ms-1" style="font-size:.65rem;">Opcional</span>
+                        {% endif %}
+                        {% if documento.tipo_documento.solo_mas_de_12_semestres %}
+                        <span class="badge bg-warning-subtle text-warning-emphasis border ms-1" style="font-size:.65rem;">&gt;12 semestres</span>
                         {% endif %}
                     </div>
                     <div class="doc-instruccion text-truncate">
                         {{ documento.tipo_documento.descripcion_ayuda|truncatechars:80 }}
                     </div>
+                    {% if not documento.tipo_documento.es_obligatorio %}
+                    <div class="doc-nota-opcional">
+                        <i class="bi bi-info-circle me-1"></i>Solo en caso de que aplique (documento opcional)
+                    </div>
+                    {% endif %}
                     {% if documento.estado == 'CARGADO' or documento.estado == 'EN_REVISION' %}
                     <div class="mt-1">
                         {% with val=documento.validacion_oficina %}

@@ -14,6 +14,30 @@ class Genero(models.TextChoices):
     OTRO = 'O', 'Otro / Prefiero no decir'
 
 
+class CicloPeriodo(models.TextChoices):
+    ENE_JUN = 'ENE_JUN', 'Enero – Junio'
+    AGO_DIC = 'AGO_DIC', 'Agosto – Diciembre'
+
+
+def orden_periodo(ciclo, anio):
+    """Índice lineal de un periodo académico (ENE_JUN=0, AGO_DIC=1 dentro del año)."""
+    if not ciclo or not anio:
+        return None
+    mitad = 0 if ciclo == CicloPeriodo.ENE_JUN else 1
+    return int(anio) * 2 + mitad
+
+
+def calcular_semestres_cursados(ciclo_inicio, anio_inicio, ciclo_egreso, anio_egreso):
+    """Cuenta semestres inclusive entre ingreso y egreso (ej. AGO_DIC 2021 → ENE_JUN 2026 = 10)."""
+    ini = orden_periodo(ciclo_inicio, anio_inicio)
+    fin = orden_periodo(ciclo_egreso, anio_egreso)
+    if ini is None or fin is None:
+        return None
+    if fin < ini:
+        return None
+    return fin - ini + 1
+
+
 class Rol(models.TextChoices):
     ADMINISTRADOR = 'ADMIN', 'Administrador del Sistema'
     OFICINA_TITULACION = 'OFICINA_TITULACION', 'Oficina de Titulación'
@@ -166,10 +190,34 @@ class Usuario(AbstractUser):
         blank=True,
         verbose_name='Género'
     )
-    generacion = models.PositiveIntegerField(
+    periodo_inicio_ciclo = models.CharField(
+        max_length=10,
+        choices=CicloPeriodo.choices,
+        blank=True,
+        verbose_name='Periodo de inicio (ciclo)',
+        help_text='Ej: Agosto – Diciembre',
+    )
+    periodo_inicio_anio = models.PositiveIntegerField(
         null=True, blank=True,
-        verbose_name='Generación (año de ingreso)',
-        help_text='Ej: 2022'
+        verbose_name='Periodo de inicio (año)',
+        help_text='Ej: 2021',
+    )
+    periodo_egreso_ciclo = models.CharField(
+        max_length=10,
+        choices=CicloPeriodo.choices,
+        blank=True,
+        verbose_name='Periodo de egreso (ciclo)',
+        help_text='Ej: Enero – Junio',
+    )
+    periodo_egreso_anio = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name='Periodo de egreso (año)',
+        help_text='Ej: 2026',
+    )
+    semestres_cursados = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name='Semestres cursados',
+        help_text='Calculado a partir de los periodos de inicio y egreso.',
     )
     foto_perfil = models.ImageField(
         upload_to='perfiles/', null=True, blank=True,
@@ -258,7 +306,30 @@ class Usuario(AbstractUser):
     def save(self, *args, **kwargs):
         if self.numero_control:
             self.username = self.numero_control
+        self.semestres_cursados = calcular_semestres_cursados(
+            self.periodo_inicio_ciclo,
+            self.periodo_inicio_anio,
+            self.periodo_egreso_ciclo,
+            self.periodo_egreso_anio,
+        )
         super().save(*args, **kwargs)
+
+    @property
+    def periodo_inicio_display(self):
+        if not self.periodo_inicio_ciclo or not self.periodo_inicio_anio:
+            return '—'
+        return f'{self.get_periodo_inicio_ciclo_display()} {self.periodo_inicio_anio}'
+
+    @property
+    def periodo_egreso_display(self):
+        if not self.periodo_egreso_ciclo or not self.periodo_egreso_anio:
+            return '—'
+        return f'{self.get_periodo_egreso_ciclo_display()} {self.periodo_egreso_anio}'
+
+    @property
+    def requiere_documentos_extensos(self):
+        """True si cursó más de 12 semestres (documentos exclusivos del catálogo)."""
+        return bool(self.semestres_cursados and self.semestres_cursados > 12)
 
     @property
     def es_admin(self):

@@ -33,6 +33,7 @@
                     <th>Nombre del Documento</th>
                     <th>Validación Requerida</th>
                     <th>Obligatorio</th>
+                    <th>>12 sem.</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -46,6 +47,9 @@
                     <td class="fw-semibold text-dark">
                         {% if d.es_fotografia %}<i class="bi bi-camera me-1 text-secondary"></i>{% else %}<i class="bi bi-file-earmark-pdf me-1 text-danger"></i>{% endif %}
                         {{ d.nombre }}
+                        {% if d.solo_mas_de_12_semestres %}
+                        <span class="badge bg-warning-subtle text-warning-emphasis border ms-1" style="font-size:.65rem;">&gt;12 semestres</span>
+                        {% endif %}
                     </td>
                     <td>
                         {% if d.requiere_validacion_oficina %}
@@ -58,7 +62,14 @@
                         {% if d.es_obligatorio %}
                         <span class="badge bg-danger-subtle text-danger">Sí</span>
                         {% else %}
-                        <span class="badge bg-light text-dark border">Opcional</span>
+                        <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle">Opcional</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if d.solo_mas_de_12_semestres %}
+                        <span class="badge bg-warning-subtle text-warning-emphasis">Sí</span>
+                        {% else %}
+                        <span class="text-muted small">No</span>
                         {% endif %}
                     </td>
                     <td>
@@ -67,7 +78,7 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="text-center text-muted py-4">Sin documentos registrados.</td></tr>
+                <tr><td colspan="7" class="text-center text-muted py-4">Sin documentos registrados.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
