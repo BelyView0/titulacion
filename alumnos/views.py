@@ -9,7 +9,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy, reverse
 from django.contrib import messages
 from django.shortcuts import redirect, get_object_or_404
-from django.http import JsonResponse, FileResponse, Http404
+from django.http import JsonResponse, FileResponse, Http404, HttpResponseForbidden
 from django.utils import timezone
 from datetime import datetime
 
@@ -623,73 +623,22 @@ class SolicitarReprogramacionCitaView(ExpedientePropioMixin, View):
 
 
 
-class DescargarOficioJuradoAlumnoView(AlumnoRequeridoMixin if 'Alumno' in 'DescargarOficioJuradoAlumnoView' else OficinaTitulacionRequeridoMixin, View):
-    def get(self, request, pk=None):
-        from expediente.models import Expediente, AsignacionJurado
-        from django.http import HttpResponse, Http404
-        from django.shortcuts import get_object_or_404
-        if 'Alumno' in 'DescargarOficioJuradoAlumnoView':
-            expediente = get_object_or_404(Expediente, alumno=request.user)
-        else:
-            expediente = get_object_or_404(Expediente, pk=pk)
-        try:
-            asignacion = expediente.jurado
-        except AsignacionJurado.DoesNotExist:
-            raise Http404("No hay jurado asignado.")
-        if not asignacion.oficio_pdf:
-            from administracion.pdf_oficio import generar_oficio_jurado_pdf
-            try:
-                pdf_bytes = generar_oficio_jurado_pdf(asignacion)
-                from django.core.files.base import ContentFile
-                asignacion.oficio_pdf.save(f"Oficio_Jurado_{expediente.alumno.username}.pdf", ContentFile(pdf_bytes))
-            except Exception as e:
-                raise Http404(f"Error generando el oficio: {e}")
+class DescargarOficioJuradoAlumnoView(AlumnoRequeridoMixin, View):
+    """Oficio de jurado: solo Oficina (firma física)."""
 
-        if asignacion.oficio_pdf:
-            response = HttpResponse(asignacion.oficio_pdf.read(), content_type="application/pdf")
-            filename = f"Oficio_Jurado_{expediente.alumno.username}.pdf"
-            response["Content-Disposition"] = f'attachment; filename="{filename}"'
-            return response
-        else:
-            raise Http404("El PDF del oficio de jurado aún no se ha generado.")
+    def get(self, request, *args, **kwargs):
+        return HttpResponseForbidden(
+            'La descarga del Oficio de Jurado está disponible únicamente para Oficina de Titulación.'
+        )
 
 
+class DescargarDocumentosProtocoloAlumnoView(AlumnoRequeridoMixin, View):
+    """Documentos de protocolo: solo Oficina (firma física)."""
 
-
-class DescargarDocumentosProtocoloAlumnoView(AlumnoRequeridoMixin if 'Alumno' in 'DescargarDocumentosProtocoloAlumnoView' else OficinaTitulacionRequeridoMixin, View):
-    def get(self, request, pk=None):
-        from expediente.models import Expediente
-        from django.http import HttpResponse, Http404
-        from django.shortcuts import get_object_or_404
-        if 'Alumno' in 'DescargarDocumentosProtocoloAlumnoView':
-            expediente = get_object_or_404(Expediente, alumno=request.user)
-        else:
-            expediente = get_object_or_404(Expediente, pk=pk)
-        try:
-            asignacion = expediente.jurado
-        except Exception:
-            raise Http404("No hay jurado asignado.")
-        if not asignacion.documentos_protocolo_pdf:
-            from administracion.pdf_oficio import generar_documentos_protocolo_pdf
-            from django.core.files.base import ContentFile
-            try:
-                acto = expediente.acto_protocolario
-            except Exception:
-                acto = None
-            try:
-                pdf_bytes_docs = generar_documentos_protocolo_pdf(asignacion, acto)
-                filename_docs = f"Documentos_Protocolo_{expediente.alumno.username}.pdf"
-                asignacion.documentos_protocolo_pdf.save(filename_docs, ContentFile(pdf_bytes_docs), save=True)
-            except Exception as e:
-                pass
-
-        if asignacion.documentos_protocolo_pdf:
-            response = HttpResponse(asignacion.documentos_protocolo_pdf.read(), content_type="application/pdf")
-            filename = f"Documentos_Protocolo_{expediente.alumno.username}.pdf"
-            response["Content-Disposition"] = f'attachment; filename="{filename}"'
-            return response
-        else:
-            raise Http404("El PDF de los documentos de protocolo aún no se ha generado y falló la generación automática.")
+    def get(self, request, *args, **kwargs):
+        return HttpResponseForbidden(
+            'La descarga de Documentos de Protocolo está disponible únicamente para Oficina de Titulación.'
+        )
 
 
 class SubirActaExencionView(ExpedientePropioMixin, View):

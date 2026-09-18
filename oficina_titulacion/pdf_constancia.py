@@ -1,12 +1,26 @@
 """Generación de PDFs — Oficina de Titulación."""
 from io import BytesIO
+import os
 
+from django.conf import settings
 from django.core.files.base import ContentFile
 from django.template.loader import render_to_string
 from django.utils import timezone
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from xhtml2pdf import pisa
 
 from administracion.pdf_oficio import link_callback
+
+
+try:
+    _font_path = os.path.relpath(
+        os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NotoSans-Regular.ttf')
+    )
+    if 'Noto Sans' not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont('Noto Sans', _font_path))
+except Exception:
+    pass
 
 
 MESES_ES = (
@@ -251,23 +265,99 @@ def generar_constancia_no_adeudos_pdf(expediente):
 
 
 def generar_oficio_publicacion_pdf(expediente):
+    """Genera el Oficio de Autorización de Impresión (publicación)."""
+    import os
+    import re
+
     from administracion.models import ConfiguracionInstitucional
 
     config = ConfiguracionInstitucional.objects.first()
-    html = render_to_string('oficina_titulacion/pdf/oficio_publicacion.html', {
-        'expediente': expediente,
-        'config': config,
-        'alumno': expediente.alumno,
-    })
-    return _html_to_pdf(html)
+    alumno = expediente.alumno
+    ahora = timezone.localtime()
+
+    # Formato fecha del oficio oficial: 14/septiembre/2026
+    fecha_corta = f"{ahora.day}/{MESES_ES[ahora.month]}/{ahora.year}"
+
+    # Nombre en MAYÚSCULAS con acentos (como el oficio original)
+    alumno_nombre = (alumno.get_full_name() or '').upper()
+    carrera = (
+        (alumno.carrera.nombre if alumno.carrera_id else '') or '________________'
+    ).upper()
+    modalidad = (
+        (expediente.modalidad.nombre if expediente.modalidad_id else '')
+        or '________________'
+    ).upper()
+    titulo_trabajo = (expediente.titulo_trabajo or '________________').upper()
+
+    firmante_nombre = (
+        (config.director_nombre if config and config.director_nombre else '')
+        or 'Mtro. Benjamín Darío Ramírez Angulo'
+    ).upper()
+    cargo_cfg = (config.director_cargo if config and config.director_cargo else '').strip()
+    if not cargo_cfg or cargo_cfg.lower() in {'director(a)', 'director', 'directora'}:
+        cargo_cfg = 'Jefe de la División de Estudios Profesionales'
+    firmante_cargo = cargo_cfg.upper()
+
+    # Iniciales tipo BDRA/gvm a partir del nombre del firmante
+    partes = [p for p in re.split(r'\s+', firmante_nombre) if p and p.lower() not in {
+        'mtro.', 'mto.', 'dr.', 'dra.', 'ing.', 'lic.', 'mtra.', 'de', 'del', 'la', 'los', 'las'
+    }]
+    iniciales = ''.join(p[0] for p in partes[:4]) + '/gvm' if partes else 'BDRA/gvm'
+
+    ANCHO_PIE_PT = 530
+    temps = []
+    try:
+        encabezado_path = None
+        pie_path = None
+        pie_alto = None
+        if config and config.imagen_encabezado:
+            try:
+                encabezado_path = config.imagen_encabezado.path
+            except Exception:
+                encabezado_path = None
+        if config and config.imagen_pie_pagina:
+            try:
+                pie_path, pie_alto = _preparar_pie_ancho_pagina(
+                    config.imagen_pie_pagina.path, ancho_pt=ANCHO_PIE_PT,
+                )
+                if pie_path:
+                    temps.append(pie_path)
+            except Exception:
+                pie_path = None
+
+        html = render_to_string('oficina_titulacion/pdf/oficio_publicacion.html', {
+            'encabezado_path': encabezado_path,
+            'pie_path': pie_path,
+            'pie_ancho': ANCHO_PIE_PT,
+            'pie_alto': pie_alto or 80,
+            'fecha_corta': fecha_corta,
+            'alumno_nombre': alumno_nombre,
+            'carrera': carrera,
+            'numero_control': alumno.numero_control or alumno.username or '________',
+            'modalidad': modalidad,
+            'titulo_trabajo': titulo_trabajo,
+            'firmante_nombre': firmante_nombre,
+            'firmante_cargo': firmante_cargo,
+            'iniciales': iniciales,
+        })
+        return _html_to_pdf(html)
+    finally:
+        for ruta in temps:
+            try:
+                os.unlink(ruta)
+            except OSError:
+                pass
+
 
 
 def generar_certificacion_final_pdf(expediente):
     from administracion.models import ConfiguracionInstitucional
+    from administracion.pdf_texto import nombre_documento
 
     config = ConfiguracionInstitucional.objects.first()
     jurado = getattr(expediente, 'jurado', None)
-    
+    alumno = expediente.alumno
+
     encabezado_path = None
     if config and config.imagen_encabezado:
         encabezado_path = config.imagen_encabezado.path
@@ -275,7 +365,9 @@ def generar_certificacion_final_pdf(expediente):
     html = render_to_string('oficina_titulacion/pdf/certificacion_exencion.html', {
         'expediente': expediente,
         'config': config,
-        'alumno': expediente.alumno,
+        'alumno': alumno,
+        'alumno_nombre': nombre_documento(alumno.get_full_name()),
+        'carrera_nombre': (alumno.carrera.nombre if alumno.carrera_id else ''),
         'jurado': jurado,
         'encabezado_path': encabezado_path,
     })

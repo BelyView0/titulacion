@@ -8,11 +8,15 @@ from datetime import datetime, timedelta
 from django.contrib import messages
 from django.core.files.base import ContentFile
 from django.db.models import Count, Q
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import DetailView, ListView, TemplateView, View
+
+import zipfile
+from io import BytesIO
+from pathlib import Path
 
 from administracion.models import Carrera
 from expediente.mixins import OficinaTitulacionRequeridoMixin
@@ -67,6 +71,29 @@ def _parse_datetime(value):
         except ValueError:
             continue
     return None
+
+
+# Estados desde los que Oficina puede descargar el ZIP del expediente
+ESTADOS_ZIP_EXPEDIENTE = frozenset({
+    EstadoExpediente.EXPEDIENTE_APROBADO,
+    EstadoExpediente.OFICIO_GENERADO,
+    EstadoExpediente.OFICIO_CITA_PROGRAMADA,
+    EstadoExpediente.OFICIO_FIRMADO,
+    EstadoExpediente.PAGO_PENDIENTE,
+    EstadoExpediente.PAGO_VALIDADO,
+    EstadoExpediente.ADEUDOS_EN_REVISION,
+    EstadoExpediente.DOCUMENTOS_OFICIALES_LISTOS,
+    EstadoExpediente.JURADO_ASIGNADO,
+    EstadoExpediente.PROTOCOLO_PROGRAMADO,
+    EstadoExpediente.ACTO_REALIZADO,
+    EstadoExpediente.CONCLUIDO,
+    EstadoExpediente.EMPASTADO_PENDIENTE,
+    EstadoExpediente.EMPASTADO_RECIBIDO,
+})
+
+
+def expediente_permite_zip(expediente):
+    return expediente.estado in ESTADOS_ZIP_EXPEDIENTE
 
 
 class DashboardOficinaView(OficinaTitulacionRequeridoMixin, TemplateView):
@@ -210,6 +237,7 @@ class ExpedienteDetalleView(OficinaTitulacionRequeridoMixin, DetailView):
             ctx['acto'] = expediente.acto_protocolario
         except ActoProtocolario.DoesNotExist:
             ctx['acto'] = None
+        ctx['puede_descargar_zip'] = expediente_permite_zip(expediente)
         return ctx
 
 
@@ -604,6 +632,68 @@ class GenerarOficioPublicacionView(OficinaTitulacionRequeridoMixin, View):
         )
         messages.success(request, 'Oficio de publicación generado.')
         return redirect('oficina_titulacion:expediente_detalle', pk=pk)
+
+
+class DescargarExpedienteZipView(OficinaTitulacionRequeridoMixin, View):
+    """ZIP con todos los documentos cargados: {control}_documentoN.ext"""
+
+    def get(self, request, pk):
+        expediente = get_object_or_404(
+            Expediente.objects.select_related('alumno'),
+            pk=pk,
+        )
+        if not expediente_permite_zip(expediente):
+            messages.error(
+                request,
+                'El ZIP solo está disponible cuando el expediente ya fue aprobado.',
+            )
+            return redirect('oficina_titulacion:expediente_detalle', pk=pk)
+
+        documentos = (
+            expediente.documentos
+            .select_related('tipo_documento')
+            .filter(archivo__isnull=False)
+            .exclude(archivo='')
+            .order_by('tipo_documento__orden', 'pk')
+        )
+        if not documentos.exists():
+            messages.error(request, 'No hay documentos con archivo para empaquetar.')
+            return redirect('oficina_titulacion:expediente_detalle', pk=pk)
+
+        alumno = expediente.alumno
+        control = (alumno.numero_control or alumno.username or f'exp{expediente.pk}').strip()
+        control_safe = ''.join(c for c in control if c.isalnum() or c in '-_') or f'exp{expediente.pk}'
+
+        buffer = BytesIO()
+        escritos = 0
+        with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for idx, doc in enumerate(documentos, start=1):
+                try:
+                    doc.archivo.open('rb')
+                    data = doc.archivo.read()
+                except Exception:
+                    continue
+                finally:
+                    try:
+                        doc.archivo.close()
+                    except Exception:
+                        pass
+                if not data:
+                    continue
+                ext = Path(doc.archivo.name).suffix.lower() or '.pdf'
+                zf.writestr(f'{control_safe}_documento{idx}{ext}', data)
+                escritos += 1
+
+        if escritos == 0:
+            messages.error(request, 'No se pudieron leer los archivos del expediente.')
+            return redirect('oficina_titulacion:expediente_detalle', pk=pk)
+
+        buffer.seek(0)
+        response = HttpResponse(buffer.getvalue(), content_type='application/zip')
+        response['Content-Disposition'] = (
+            f'attachment; filename="{control_safe}_expediente.zip"'
+        )
+        return response
 
 
 class ProgramarCitaOficioView(OficinaTitulacionRequeridoMixin, View):
@@ -1309,7 +1399,6 @@ class ValidarConstanciaYConcluirView(OficinaTitulacionRequeridoMixin, View):
             messages.error(request, 'El alumno no está en la etapa correcta para concluir el expediente.')
         return redirect('oficina_titulacion:expediente_detalle', pk=expediente.pk)
 
-from django.http import Http404
 
 class DescargarOficioJuradoOficinaView(OficinaTitulacionRequeridoMixin, View):
     def get(self, request, pk):

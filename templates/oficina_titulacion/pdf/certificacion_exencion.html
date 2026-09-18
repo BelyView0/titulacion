@@ -9,7 +9,7 @@
             margin: 1cm 1.5cm 1cm 1.5cm;
         }
         body { 
-            font-family: Arial, sans-serif; 
+            font-family: 'Noto Sans', Helvetica, Arial, sans-serif; 
             font-size: 8.5pt; 
             text-align: justify; 
             line-height: 1.1; 
@@ -104,10 +104,10 @@
                 <p>
                     De acuerdo con el instructivo vigente de Titulación, que no tiene como requisito la sustentación del 
                     Examen Profesional para efecto de obtención de Título, en las opciones <u><strong>VIII,IX</strong></u> y Titulación Integral, 
-                    el jurado <strong>HACE CONSTAR:</strong> que el(la) <u><strong>C. {{ alumno.get_full_name|title }}</strong></u> 
+                    el jurado <strong>HACE CONSTAR:</strong> que el(la) <u><strong>C. {{ alumno_nombre }}</strong></u> 
                     Número de control <u><strong>{{ alumno.numero_control|default:alumno.username }}</strong></u> egresado(a) del 
                     Instituto Tecnológico de <u><strong>Apizaco</strong></u> con Clave <u><strong>{{ alumno.carrera.clave|default:"29DIT0037U" }}</strong></u> 
-                    que cursó la carrera de <u><strong>{{ alumno.carrera.nombre|title }}</strong></u> cumplió satisfactoriamente con lo estipulado en la opción: <u><strong>{{ expediente.modalidad.nombre|default:"Titulación Integral, Examen Global por Áreas de Conocimiento" }}</strong></u>. 
+                    que cursó la carrera de <u><strong>{{ carrera_nombre|default:alumno.carrera.nombre }}</strong></u> cumplió satisfactoriamente con lo estipulado en la opción: <u><strong>{{ expediente.modalidad.nombre|default:"Titulación Integral, Examen Global por Áreas de Conocimiento" }}</strong></u>. 
                     El (la) Presidente (a) del Jurado le hizo saber a él (la) sustentante el Código de Ética Profesional y le tomó 
                     la Protesta de Ley y una vez escrita y leída la firmaron las personas que en el acto protocolario 
                     intervinieron, para los efectos legales a que haya lugar, se asienta la presente en la ciudad de 

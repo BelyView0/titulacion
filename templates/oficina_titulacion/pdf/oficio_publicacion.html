@@ -1,15 +1,150 @@
 <!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>Oficio de autorización de publicación</title></head>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Autorización de Impresión</title>
+<style>
+  @page {
+    size: letter;
+    margin: 1.2cm 2cm 3.6cm 2cm;
+    @frame footer_frame {
+      -pdf-frame-content: footer_content;
+      bottom: 0.3cm;
+      left: 1.5cm;
+      width: 18.59cm;
+      height: 3.2cm;
+    }
+  }
+  body {
+    font-family: 'Noto Sans', Helvetica, Arial, sans-serif;
+    font-size: 11pt;
+    color: #000;
+    line-height: 1.35;
+  }
+  .fecha {
+    text-align: right;
+    margin: 8px 0 28px;
+  }
+  .destinatario {
+    margin-bottom: 18px;
+    font-weight: bold;
+    text-transform: uppercase;
+    line-height: 1.35;
+  }
+  .presente {
+    margin-top: 10px;
+    font-weight: bold;
+    letter-spacing: 3px;
+  }
+  .cuerpo {
+    text-align: justify;
+    margin-bottom: 10px;
+  }
+  .cuerpo p { margin: 0 0 10px 0; }
+  .titulo-centro {
+    text-align: center;
+    font-weight: bold;
+    font-size: 12pt;
+    text-transform: uppercase;
+    margin: 22px 0;
+  }
+  .cierre {
+    margin-top: 14px;
+  }
+  .atentamente {
+    margin-top: 28px;
+    font-weight: bold;
+    letter-spacing: 3px;
+  }
+  .lema {
+    font-style: italic;
+    font-weight: bold;
+    font-size: 10pt;
+    margin: 6px 0 0 0;
+  }
+  .firma-nombre {
+    margin-top: 55px;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  .firma-cargo {
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 10.5pt;
+  }
+  .ccp {
+    margin-top: 28px;
+    font-size: 9pt;
+  }
+</style>
+</head>
 <body>
-<h2 style="text-align:center;">{{ config.nombre_institucion }}</h2>
-<h3 style="text-align:center;">OFICIO DE AUTORIZACIÓN DE PUBLICACIÓN</h3>
-<p>El presente oficio autoriza la publicación del trabajo titulado:</p>
-<p><strong>{{ expediente.titulo_trabajo }}</strong></p>
-<p>del(la) C. <strong>{{ alumno.get_full_name }}</strong>, número de control
-<strong>{{ alumno.numero_control }}</strong>, carrera <strong>{{ alumno.carrera }}</strong>,
-modalidad <strong>{{ expediente.modalidad }}</strong>.</p>
-<p style="text-align:right;">Apizaco, Tlax., a {% now "j \d\e F \d\e Y" %}</p>
-<p><strong>{{ config.director_nombre }}</strong><br>{{ config.director_cargo }}</p>
+
+<div id="footer_content">
+  {% if pie_path %}
+  <table cellpadding="0" cellspacing="0" border="0" width="100%">
+    <tr>
+      <td align="center">
+        <img src="{{ pie_path }}" width="{{ pie_ancho }}" height="{{ pie_alto }}" alt="Pie">
+      </td>
+    </tr>
+  </table>
+  {% endif %}
+</div>
+
+{% if encabezado_path %}
+<div style="margin-bottom:6px;">
+  <img src="{{ encabezado_path }}" style="max-width:100%;" alt="Encabezado">
+</div>
+{% else %}
+<div style="text-align:right; font-size:9pt; margin-bottom:8px;">
+  <strong>Instituto Tecnológico de Apizaco</strong><br/>
+  División de Estudios Profesionales
+</div>
+{% endif %}
+
+<div class="fecha">Tzompantepec, Tlaxcala, <strong>{{ fecha_corta }}</strong></div>
+
+<div class="destinatario">
+  {{ alumno_nombre }}<br/>
+  EGRESADO(A) DE LA CARRERA DE {{ carrera }} CON NÚMERO DE CONTROL {{ numero_control }}.
+  <div class="presente">P R E S E N T E .</div>
+</div>
+
+<div class="cuerpo">
+  <p>
+    Por este medio, me permito informar a usted que por aprobación de la comisión revisora
+    asignada para valorar el trabajo que mediante la opción
+    <strong>{{ modalidad }}</strong>
+    y cuyo tema es:
+    <strong>"{{ titulo_trabajo }}"</strong>,
+    conforme a lo establecido en el procedimiento para la obtención del Título Profesional
+    en el Instituto Tecnológico, la División de Estudios Profesionales a mi cargo le otorga la:
+  </p>
+</div>
+
+<div class="titulo-centro">AUTORIZACIÓN DE IMPRESIÓN</div>
+
+<div class="cuerpo">
+  <p>
+    Debiendo entregar <strong>1 USB</strong> del mismo, apropiadamente empastados, a la brevedad,
+    para presentar su Acto de Recepción Profesional.
+  </p>
+</div>
+
+<div class="cierre">Sin otro particular por el momento me despido.</div>
+
+<div class="atentamente">A T E N T A M E N T E</div>
+<div class="lema">Excelencia en Educación Tecnológica®</div>
+<div class="lema">Pensar para Servir, Servir para Triunfar®</div>
+
+<div class="firma-nombre">{{ firmante_nombre }}</div>
+<div class="firma-cargo">{{ firmante_cargo }}</div>
+
+<div class="ccp">
+  ccp. Archivo<br/>
+  {{ iniciales }}
+</div>
+
 </body>
 </html>

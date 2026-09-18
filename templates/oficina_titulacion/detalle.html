@@ -34,6 +34,11 @@
                     <button type="submit" class="btn btn-primary btn-sm w-100">Generar oficio publicación</button>
                 </form>
                 {% endif %}
+                {% if puede_descargar_zip %}
+                <a href="{% url 'oficina_titulacion:descargar_zip' expediente.pk %}" class="btn btn-outline-success btn-sm">
+                    <i class="bi bi-file-earmark-zip me-1"></i>Descargar ZIP del expediente
+                </a>
+                {% endif %}
                 {% if expediente.oficio_publicacion_pdf %}
                 <a href="{{ expediente.oficio_publicacion_pdf.url }}" target="_blank" class="btn btn-outline-primary btn-sm">Ver oficio PDF</a>
                 {% endif %}

@@ -7,7 +7,19 @@ from django.conf import settings
 from administracion.models import ConfiguracionInstitucional
 from xhtml2pdf import pisa
 from io import BytesIO
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 import os
+
+
+try:
+    _font_path = os.path.relpath(
+        os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NotoSans-Regular.ttf')
+    )
+    if 'Noto Sans' not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont('Noto Sans', _font_path))
+except Exception:
+    pass
 
 
 def link_callback(uri, rel):
@@ -84,16 +96,22 @@ def generar_documentos_protocolo_pdf(jurado, acto):
     """
     Recibe el jurado y el acto protocolario y genera el PDF con la Guía, Juramento y Código de Ética.
     """
+    from administracion.pdf_texto import nombre_documento, static_dir
+
     expediente = jurado.expediente
     alumno = expediente.alumno
-    
+    static = static_dir()
+
     context = {
         'jurado': jurado,
         'acto': acto,
         'fecha_acto': acto.fecha_acto if acto else jurado.fecha_acto,
         'expediente': expediente,
         'alumno': alumno,
+        'alumno_nombre': nombre_documento(alumno.get_full_name()),
+        'carrera_nombre': (alumno.carrera.nombre if alumno.carrera_id else ''),
         'modalidad': expediente.modalidad,
+        'STATIC_ROOT': str(static),
     }
 
     html_string = render_to_string('administracion/jefe/documentos_protocolo.html', context)

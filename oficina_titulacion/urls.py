@@ -14,6 +14,7 @@ urlpatterns = [
     path('expedientes/<int:pk>/aprobar/', views.AprobarExpedienteView.as_view(), name='aprobar_expediente'),
     path('expedientes/<int:pk>/marcar-certificado/', views.MarcarCertificadoListoView.as_view(), name='marcar_certificado'),
     path('expedientes/<int:pk>/generar-oficio/', views.GenerarOficioPublicacionView.as_view(), name='generar_oficio'),
+    path('expedientes/<int:pk>/descargar-zip/', views.DescargarExpedienteZipView.as_view(), name='descargar_zip'),
     path('expedientes/<int:pk>/programar-cita-oficio/', views.ProgramarCitaOficioView.as_view(), name='programar_cita_oficio'),
     path('expedientes/<int:pk>/no-inconveniencia/', views.GenerarNoInconvenienciaView.as_view(), name='generar_no_inconveniencia'),
     path('expedientes/<int:pk>/registrar-empastado/', views.RegistrarRecepcionEmpastadoView.as_view(), name='registrar_empastado'),

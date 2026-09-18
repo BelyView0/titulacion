@@ -302,7 +302,7 @@
                 <span class="ms-auto small text-muted">(Solo lectura)</span>
             </div>
             {% for doc in documentos %}
-            <div class="doc-item">
+            <div class="doc-item{% if not doc.tipo_documento.es_obligatorio %} doc-item-opcional{% endif %}{% if doc.tipo_documento.solo_mas_de_12_semestres %} doc-item-extenso{% endif %}">
                 <div class="doc-icon
                     {% if doc.estado == 'APROBADO' %}bg-success bg-opacity-10
                     {% elif doc.estado == 'RECHAZADO' %}bg-danger bg-opacity-10
@@ -316,6 +316,11 @@
                         {{ doc.tipo_documento.nombre }}
                         {% if doc.tipo_documento.es_obligatorio %}
                         <span class="text-danger ms-1" title="Obligatorio">*</span>
+                        {% else %}
+                        <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle ms-1" style="font-size:.65rem;">Opcional</span>
+                        {% endif %}
+                        {% if doc.tipo_documento.solo_mas_de_12_semestres %}
+                        <span class="badge bg-warning-subtle text-warning-emphasis border ms-1" style="font-size:.65rem;">&gt;12 semestres</span>
                         {% endif %}
                     </div>
                     <div class="d-flex gap-1 mt-1 flex-wrap">

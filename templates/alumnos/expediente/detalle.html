@@ -322,7 +322,7 @@
         </div>
         {% endif %}
 
-        {% if expediente.constancia_no_adeudos or expediente.constancia_no_inconveniencia or expediente.jurado.oficio_pdf %}
+        {% if expediente.constancia_no_adeudos or expediente.constancia_no_inconveniencia %}
         <div class="content-card p-3 mt-3">
             <div class="card-header-custom mb-2"><i class="bi bi-file-earmark-pdf"></i> Documentos oficiales</div>
             {% if expediente.constancia_no_adeudos %}
@@ -333,14 +333,6 @@
             {% if expediente.constancia_no_inconveniencia %}
             <a href="{{ expediente.constancia_no_inconveniencia.url }}" target="_blank" class="btn btn-outline-primary btn-sm w-100 mb-2">
                 <i class="bi bi-download me-1"></i>Constancia de no Inconveniencia para el Acto de Recepción Profesional
-            </a>
-            {% endif %}
-            {% if expediente.jurado.oficio_pdf %}
-            <a href="{% url 'alumnos:descargar_oficio_jurado' %}" target="_blank" class="btn btn-outline-danger btn-sm w-100 mb-2">
-                <i class="bi bi-file-earmark-pdf me-1"></i>Descargar Oficio de Jurado
-            </a>
-            <a href="{% url 'alumnos:descargar_documentos_protocolo' %}" target="_blank" class="btn btn-outline-secondary btn-sm w-100">
-                <i class="bi bi-file-earmark-pdf me-1"></i>Documentos Protocolo
             </a>
             {% endif %}
         </div>
@@ -404,6 +396,11 @@
                     {% if not documento.tipo_documento.es_obligatorio %}
                     <div class="doc-nota-opcional">
                         <i class="bi bi-info-circle me-1"></i>Solo en caso de que aplique (documento opcional)
+                    </div>
+                    {% endif %}
+                    {% if documento.tipo_documento.solo_mas_de_12_semestres %}
+                    <div class="doc-nota-extenso">
+                        <i class="bi bi-exclamation-triangle me-1"></i>Documento adicional por más de 12 semestres cursados
                     </div>
                     {% endif %}
                     {% if documento.estado == 'CARGADO' or documento.estado == 'EN_REVISION' %}

@@ -11,12 +11,8 @@
       left: 50pt; width: 512pt; top: 30pt; height: 80pt;
     }
   }
-  @font-face {
-    font-family: 'Noto Sans';
-    src: url('{{ STATIC_ROOT }}/fonts/NotoSans-Regular.ttf');
-  }
   body {
-    font-family: 'Noto Sans', sans-serif;
+    font-family: 'Noto Sans', Helvetica, Arial, sans-serif;
     font-size: 11pt;
     color: #000;
     line-height: 1.5;
@@ -96,9 +92,9 @@
   
   <p style="text-indent: 1cm;">a).- Con la autoridad que nos concede el Artículo Cuadragésimo del Reglamento General de los Institutos Tecnológicos, celebraremos el Acto Protocolario que presentará él (la)</p>
   
-  <p class="center bold" style="margin: 15px 0;">C. {{ alumno.get_full_name|upper }}</p>
+  <p class="center bold" style="margin: 15px 0;">C. {{ alumno_nombre }}</p>
   
-  <p>Pasante de la carrera de: <strong>{{ alumno.carrera.nombre|upper }}</strong>.</p>
+  <p>Pasante de la carrera de: <strong>{{ carrera_nombre|upper }}</strong>.</p>
   
   <p>Mediante la opción: <strong>.- {{ modalidad.nombre }}</strong>.</p>
   
@@ -174,7 +170,7 @@
 </div>
 
 <div class="firma-section center" style="margin-top: 3cm; font-size: 12pt;">
-  <div class="bold" style="margin-bottom: 20px;">C. {{ alumno.get_full_name }}</div>
+  <div class="bold" style="margin-bottom: 20px;">C. {{ alumno_nombre }}</div>
   <div>Apizaco, Tlax., a {{ fecha_acto|date:"d" }} de {{ fecha_acto|date:"F" }} de {{ fecha_acto|date:"Y" }}.</div>
 </div>
 
