@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from django.contrib import messages
 from django.core.files.base import ContentFile
 from django.db.models import Count, Q
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -176,12 +176,14 @@ class ExpedienteListaView(OficinaTitulacionRequeridoMixin, ListView):
 
         busqueda = self.request.GET.get('q', '').strip()
         if busqueda:
-            qs = qs.filter(
-                Q(alumno__first_name__unaccent__icontains=busqueda)
-                | Q(alumno__last_name__unaccent__icontains=busqueda)
-                | Q(alumno__username__unaccent__icontains=busqueda)
-                | Q(alumno__numero_control__unaccent__icontains=busqueda)
-            )
+            from expediente.search_utils import q_busca
+            qs = qs.filter(q_busca(
+                busqueda,
+                'alumno__first_name',
+                'alumno__last_name',
+                'alumno__username',
+                'alumno__numero_control',
+            ))
 
         carrera_id = self.request.GET.get('carrera', '')
         if carrera_id:
@@ -244,6 +246,36 @@ class ExpedienteDetalleView(OficinaTitulacionRequeridoMixin, DetailView):
 class ValidarDocumentoView(OficinaTitulacionRequeridoMixin, View):
     """Validación única de documento por Oficina de Titulación."""
 
+    def _wants_json(self, request):
+        return (
+            request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            or 'application/json' in (request.headers.get('Accept') or '')
+        )
+
+    def _respond(self, request, *, ok, message, documento=None, status=200):
+        if self._wants_json(request):
+            payload = {'ok': ok, 'message': message}
+            if documento is not None:
+                documento.refresh_from_db()
+                val = documento.validacion_oficina
+                payload.update({
+                    'documento_id': documento.pk,
+                    'estado': documento.estado,
+                    'estado_display': documento.get_estado_display(),
+                    'estado_color': documento.get_estado_color(),
+                    'puede_revisar': documento.puede_revisar_oficina(),
+                    'validacion_display': val.get_estado_display() if val else '',
+                })
+            return JsonResponse(payload, status=status if not ok else 200)
+        if ok:
+            messages.success(request, message)
+        else:
+            messages.error(request, message)
+        return redirect(
+            'oficina_titulacion:expediente_detalle',
+            pk=documento.expediente.pk if documento else request.POST.get('expediente_id'),
+        )
+
     def post(self, request, pk):
         documento = get_object_or_404(Documento, pk=pk)
         accion = request.POST.get('accion')
@@ -255,12 +287,14 @@ class ValidarDocumentoView(OficinaTitulacionRequeridoMixin, View):
             'CORRECCION': EstadoValidacion.REQUIERE_CORRECCION,
         }
         if accion not in estado_map:
-            messages.error(request, 'Acción no válida.')
-            return redirect('oficina_titulacion:expediente_detalle', pk=documento.expediente.pk)
+            return self._respond(request, ok=False, message='Acción no válida.', documento=documento, status=400)
 
         if not documento.puede_revisar_oficina():
-            messages.error(request, 'Este documento no está listo para revisión.')
-            return redirect('oficina_titulacion:expediente_detalle', pk=documento.expediente.pk)
+            return self._respond(
+                request, ok=False,
+                message='Este documento no está listo para revisión.',
+                documento=documento, status=400,
+            )
 
         validacion, _ = ValidacionDocumento.objects.get_or_create(
             documento=documento,
@@ -316,8 +350,7 @@ class ValidarDocumentoView(OficinaTitulacionRequeridoMixin, View):
         )
         verificar_avance_expediente(documento.expediente)
 
-        messages.success(request, f'Documento {participio}.')
-        return redirect('oficina_titulacion:expediente_detalle', pk=documento.expediente.pk)
+        return self._respond(request, ok=True, message=f'Documento {participio}.', documento=documento)
 
 
 class AprobarExpedienteView(OficinaTitulacionRequeridoMixin, View):
