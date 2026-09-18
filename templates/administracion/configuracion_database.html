@@ -9,11 +9,36 @@
             <div class="card-header-custom mb-3">
                 <i class="bi bi-database-gear me-2"></i> Conexión a la base de datos
             </div>
-            <p class="text-muted small mb-4">
-                Configure SQLite (instalación local) o PostgreSQL (producción). Los cambios se guardan en
-                <code>config/database.json</code> y requieren reiniciar el servicio del sistema.
+            <p class="text-muted small mb-3">
+                Configure SQLite (instalación local) o PostgreSQL (producción).
+                La configuración se guarda en <code>config/database.json</code>.
             </p>
-            <form method="post" novalidate>
+
+            <div class="alert alert-info small mb-4">
+                <strong><i class="bi bi-info-circle me-1"></i>Migración automática de datos</strong>
+                <ul class="mb-0 mt-2 ps-3">
+                    <li>Primero se <strong>prueba la conexión</strong> a la nueva base de datos.</li>
+                    <li>Solo si la conexión es segura se <strong>migran los datos actuales</strong> al destino.</li>
+                    <li>La nueva configuración <strong>no se guarda</strong> si falla la conexión o la migración; se mantiene la BD actual.</li>
+                    <li>El destino debe estar <strong>vacío</strong> (sin datos de la aplicación). Si vuelve a SQLite y ya existe un <code>db.sqlite3</code> con datos viejos, renómbrelo o elimínelo antes.</li>
+                    <li>Los archivos en <code>media/</code> (PDFs, fotos, etc.) <strong>no se copian</strong>; solo viajan las rutas en la base de datos.</li>
+                    <li>Al terminar con éxito debe <strong>reiniciar el servicio</strong> del sistema.</li>
+                </ul>
+            </div>
+
+            {% if config_actual %}
+            <p class="small text-muted mb-3">
+                Motor actual:
+                <strong>{% if config_actual.engine == 'postgresql' %}PostgreSQL{% else %}SQLite{% endif %}</strong>
+                {% if config_actual.engine == 'postgresql' %}
+                — {{ config_actual.name }}@{{ config_actual.host }}:{{ config_actual.port }}
+                {% else %}
+                — <code>{{ config_actual.name }}</code>
+                {% endif %}
+            </p>
+            {% endif %}
+
+            <form method="post" novalidate id="form-database-config">
                 {% csrf_token %}
                 {% for field in form %}
                 <div class="mb-3">
@@ -24,9 +49,14 @@
                 </div>
                 {% endfor %}
                 <div class="d-flex flex-wrap gap-2 pt-3 border-top">
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-plug me-1"></i>Guardar y probar conexión</button>
+                    <button type="submit" class="btn btn-primary" id="btn-db-migrate">
+                        <i class="bi bi-arrow-left-right me-1"></i>Probar, migrar datos y guardar
+                    </button>
                     <a href="{% url 'administracion:dashboard' %}" class="btn btn-outline-secondary">Volver al panel</a>
                 </div>
+                <p class="text-muted small mt-2 mb-0">
+                    No cierre esta ventana mientras corre la migración; puede tardar según el volumen de datos.
+                </p>
             </form>
         </div>
 
@@ -39,4 +69,18 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function() {
+    const form = document.getElementById('form-database-config');
+    const btn = document.getElementById('btn-db-migrate');
+    if (!form || !btn) return;
+    form.addEventListener('submit', function() {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Probando y migrando…';
+    });
+})();
+</script>
 {% endblock %}

@@ -7,7 +7,11 @@ class DatabaseConfigForm(forms.Form):
         ('sqlite', 'SQLite (desarrollo / instalación nueva)'),
         ('postgresql', 'PostgreSQL'),
     ]
-    engine = forms.ChoiceField(choices=ENGINE_CHOICES, label='Motor de base de datos')
+    engine = forms.ChoiceField(
+        choices=ENGINE_CHOICES,
+        label='Motor de base de datos',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
     name = forms.CharField(
         label='Nombre de BD / ruta SQLite',
         required=False,

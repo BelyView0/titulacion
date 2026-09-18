@@ -6,7 +6,8 @@ from django.shortcuts import redirect
 from django.urls import reverse_lazy
 
 from administracion.forms_database import DatabaseConfigForm
-from titulacion.db_config import load_database_config, save_database_config, test_database_connection
+from titulacion.db_config import load_database_config, normalize_database_config
+from titulacion.db_migrate import DatabaseMigrationError, apply_database_config_change
 from expediente.mixins import AdminRequeridoMixin
 from administracion.models import ConfiguracionInstitucional
 from administracion.setup_checks import evaluar_configuracion_sistema, sincronizar_sistema_configurado
@@ -27,24 +28,46 @@ class ConfiguracionDatabaseView(AdminRequeridoMixin, FormView):
     def get_initial(self):
         return load_database_config()
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['config_actual'] = load_database_config()
+        return ctx
+
     def form_valid(self, form):
         config = form.cleaned_data.copy()
         if config['engine'] == 'sqlite':
             from django.conf import settings
             config['name'] = str(settings.BASE_DIR / 'db.sqlite3')
+        config = normalize_database_config(config)
+
         try:
-            test_database_connection(config)
+            result = apply_database_config_change(config)
+        except DatabaseMigrationError as e:
+            messages.error(
+                self.request,
+                f'No se migró ni se cambió la configuración. {e}',
+            )
+            return self.form_invalid(form)
         except Exception as e:
             messages.error(
                 self.request,
-                f'No se pudo conectar a la base de datos: {e}. Verifique los datos.'
+                f'Error al aplicar la configuración de base de datos: {e}. '
+                'Se mantuvo la base de datos actual.',
             )
             return self.form_invalid(form)
-        save_database_config(config)
-        messages.success(
-            self.request,
-            'Configuración guardada. Reinicie el servicio del sistema para aplicar los cambios.'
-        )
+
+        if result.get('migrated'):
+            messages.success(
+                self.request,
+                f"{result.get('message', 'Datos migrados.')} "
+                'Reinicie el servicio del sistema para que todos los procesos '
+                'usen la nueva base de datos.',
+            )
+        else:
+            messages.success(
+                self.request,
+                result.get('message', 'Configuración de base de datos guardada.'),
+            )
         return super().form_valid(form)
 
 
