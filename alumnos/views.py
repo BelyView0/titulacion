@@ -632,13 +632,31 @@ class DescargarOficioJuradoAlumnoView(AlumnoRequeridoMixin, View):
         )
 
 
-class DescargarDocumentosProtocoloAlumnoView(AlumnoRequeridoMixin, View):
-    """Documentos de protocolo: solo Oficina (firma física)."""
+class DescargarDocumentosProtocoloAlumnoView(ExpedientePropioMixin, View):
+    """Descarga de la Guía y Documentos de Protocolo para el Alumno."""
 
     def get(self, request, *args, **kwargs):
-        return HttpResponseForbidden(
-            'La descarga de Documentos de Protocolo está disponible únicamente para Oficina de Titulación.'
-        )
+        expediente = self.get_expediente()
+        if expediente.estado not in [EstadoExpediente.PROTOCOLO_PROGRAMADO, EstadoExpediente.ACTO_PROGRAMADO, EstadoExpediente.ACTO_REALIZADO, EstadoExpediente.CONCLUIDO]:
+            messages.error(request, 'Aún no puedes descargar los documentos de protocolo.')
+            return redirect('alumnos:dashboard')
+
+        from administracion.pdf_oficio import generar_documentos_protocolo_pdf
+        from django.http import HttpResponse
+
+        try:
+            jurado = expediente.jurado
+            acto = expediente.acto_protocolario
+            if not jurado or not acto:
+                raise Exception('Falta jurado o acto protocolario.')
+
+            pdf_bytes = generar_documentos_protocolo_pdf(jurado, acto)
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="Guia_Protocolo_{expediente.alumno.username}.pdf"'
+            return response
+        except Exception as e:
+            messages.error(request, 'Ocurrió un error al generar la Guía de Protocolo. Por favor, contacta a la Oficina de Titulación.')
+            return redirect('alumnos:dashboard')
 
 
 class SubirActaExencionView(ExpedientePropioMixin, View):
