@@ -107,12 +107,13 @@
         .navbar-rol .navbar-nav .nav-link {
             color: rgba(255,255,255,.85);
             font-weight: 600;
-            font-size: .88rem;
-            padding: .65rem 1rem;
+            font-size: .84rem;
+            padding: .55rem .75rem;
             transition: all .2s;
             display: flex;
             align-items: center;
             gap: .45rem;
+            white-space: nowrap;
         }
 
         .navbar-rol .navbar-nav .nav-link:hover,
@@ -188,11 +189,19 @@
             color: #fff;
             font-size: .8rem;
             font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 150px;
         }
 
         .navbar-user-info .user-role {
             color: rgba(255,255,255,.5);
             font-size: .68rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 150px;
         }
 
         /* ── CONTENIDO PRINCIPAL ─────────────────────── */
@@ -646,17 +655,17 @@
     <div class="header-contenedor">
         <div class="header-logos">
             {% if institucion and institucion.logo_sep %}
-            <img src="{{ institucion.logo_sep.url }}" alt="SEP" class="logo-sep">
+            <img src="{{ institucion.logo_sep.url }}" alt="SEP" class="logo-sep" onerror="this.onerror=null; this.src='{% static 'img/logo-sep.png' %}';">
             {% else %}
             <img src="{% static 'img/logo-sep.png' %}" alt="SEP" class="logo-sep">
             {% endif %}
             {% if institucion and institucion.logo_tecnm %}
-            <img src="{{ institucion.logo_tecnm.url }}" alt="TecNM" class="logo-tecnm">
+            <img src="{{ institucion.logo_tecnm.url }}" alt="TecNM" class="logo-tecnm" onerror="this.onerror=null; this.src='{% static 'img/logo-tecnm.png' %}';">
             {% else %}
             <img src="{% static 'img/logo-tecnm.png' %}" alt="TecNM" class="logo-tecnm">
             {% endif %}
             {% if institucion and institucion.logo_sistema %}
-            <img src="{{ institucion.logo_sistema.url }}" alt="{{ institucion.nombre_institucion|default:'Instituto Tecnológico de Apizaco' }}" class="logo-ita">
+            <img src="{{ institucion.logo_sistema.url }}" alt="{{ institucion.nombre_institucion|default:'Instituto Tecnológico de Apizaco' }}" class="logo-ita" onerror="this.onerror=null; this.src='{% static 'img/logo-ita.png' %}';">
             {% else %}
             <img src="{% static 'img/logo-ita.png' %}" alt="Instituto Tecnológico de Apizaco" class="logo-ita">
             {% endif %}
@@ -675,13 +684,13 @@
     <div class="container-fluid px-4">
         <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'dashboard' %}" style="text-decoration:none;">
             {% if institucion and institucion.logo_sistema %}
-            <img src="{{ institucion.logo_sistema.url }}" alt="{{ institucion.nombre_institucion|default:'Instituto Tecnológico de Apizaco' }}"
-                 style="height:38px; width:auto; object-fit:contain;">
+            <img src="{{ institucion.logo_sistema.url }}" alt="Logo"
+                 style="height:36px; width:auto; object-fit:contain;" onerror="this.onerror=null; this.src='{% static 'img/logo-ita.png' %}';">
             {% else %}
-            <img src="{% static 'img/logo-ita.png' %}" alt="Instituto Tecnológico de Apizaco"
-                 style="height:38px; width:auto; object-fit:contain;">
+            <img src="{% static 'img/logo-ita.png' %}" alt="Logo"
+                 style="height:36px; width:auto; object-fit:contain;">
             {% endif %}
-            <span style="color:rgba(255,255,255,.55); font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em;">SIGET</span>
+            <span style="color:rgba(255,255,255,.65); font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em;">SIGET</span>
         </a>
         <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navRol" aria-label="Toggle navigation">
             <i class="bi bi-list text-white fs-4"></i>
@@ -881,8 +890,8 @@
                             {% else %}
                                 <div class="avatar">{{ user.first_name|first|upper }}{{ user.last_name|first|upper }}</div>
                             {% endif %}
-                            <div class="d-none d-lg-block">
-                                <div class="user-name">{{ user.get_full_name|truncatechars:22 }}</div>
+                            <div class="d-none d-xl-block text-start">
+                                <div class="user-name">{{ user.get_full_name|truncatechars:20 }}</div>
                                 <div class="user-role">{{ user.get_rol_display }}</div>
                             </div>
                         </div>
