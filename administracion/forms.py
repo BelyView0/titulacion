@@ -23,13 +23,13 @@ class UsuarioCreateForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Campos siempre obligatorios
         for f in ['first_name', 'last_name', 'apellido_materno',
-                  'correo_institucional', 'rol', 'telefono', 'numero_control',
+                  'email', 'rol', 'telefono', 'numero_control',
                   'genero', 'generacion']:
             self.fields[f].required = True
 
         self.fields['carrera'].required = False
         self.fields['departamento'].required = False
-        self.fields['email'].required = False
+        self.fields['correo_institucional'].required = False
 
         # Valor por defecto de generación: año actual - 4.5 años
         self.fields['generacion'].initial = int(datetime.now().year - 4.5)
@@ -108,13 +108,13 @@ class UsuarioUpdateForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         
         for f in ['first_name', 'last_name', 'apellido_materno',
-                  'correo_institucional', 'rol', 'telefono', 'numero_control',
+                  'email', 'rol', 'telefono', 'numero_control',
                   'genero', 'generacion']:
             self.fields[f].required = True
 
         self.fields['carrera'].required = False
         self.fields['departamento'].required = False
-        self.fields['email'].required = False
+        self.fields['correo_institucional'].required = False
 
         self.fields['first_name'].label = 'Nombre(s)'
         self.fields['last_name'].label = 'Apellido paterno'
@@ -375,6 +375,8 @@ class UsuarioPerfilBasicoForm(forms.ModelForm):
         self.fields['email'].label = 'Correo Personal'
         self.fields['correo_institucional'].label = 'Correo Institucional'
         self.fields['telefono'].label = 'Teléfono'
+        self.fields['email'].required = True
+        self.fields['correo_institucional'].required = False
         
         # Si ya tiene correo institucional, es de solo lectura (según la regla de negocio)
         if self.instance and self.instance.correo_institucional:
