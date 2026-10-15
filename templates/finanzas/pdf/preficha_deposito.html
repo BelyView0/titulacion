@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page {
+    size: letter;
+    margin: 1.2cm 1.5cm;
+  }
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 9pt;
+    color: #000;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Etiqueta PREFICHA ITA / ESTUDIANTE */
+  .etiqueta-copia {
+    text-align: center;
+    font-size: 8pt;
+    font-weight: bold;
+    text-decoration: underline;
+    margin-bottom: 4px;
+  }
+
+  /* Borde exterior de la preficha */
+  .preficha {
+    border: 2px solid #000;
+  }
+
+  /* Encabezado con logos */
+  .header-row {
+    width: 100%;
+    border-collapse: collapse;
+    border-bottom: 2px solid #000;
+  }
+  .header-row td {
+    vertical-align: middle;
+    padding: 6px 10px;
+  }
+  .logo-izq {
+    width: 25%;
+    text-align: left;
+    border-right: 1px solid #000;
+  }
+  .titulo-centro {
+    width: 42%;
+    text-align: center;
+    border-right: 1px solid #000;
+  }
+  .titulo-texto {
+    font-size: 14pt;
+    font-weight: bold;
+    line-height: 1.25;
+  }
+  .logo-der {
+    width: 33%;
+    text-align: center;
+  }
+  /* sub-ita eliminado — texto ya incluido en imagen del logo */
+
+  /* Tabla de datos con bordes */
+  .datos {
+    width: 100%;
+    border-collapse: collapse;
+    border-bottom: 1px solid #000;
+  }
+  .datos tr {
+    border-bottom: 1px solid #000;
+  }
+  .datos td {
+    padding: 3px 6px;
+    font-size: 8.5pt;
+    vertical-align: middle;
+    border-right: 1px solid #000;
+  }
+  .lbl {
+    font-weight: bold;
+    width: 15%;
+    background: #f0f0f0;
+  }
+  .val {
+    width: 51%;
+  }
+  .lbl2 {
+    font-weight: bold;
+    width: 10%;
+    background: #f0f0f0;
+    border-left: 1px solid #000;
+  }
+  .val2 {
+    width: 16%;
+    border-right: none;
+  }
+
+  /* Referencia de pago */
+  .ref-row {
+    text-align: center;
+    font-size: 12pt;
+    font-weight: bold;
+    padding: 5px 6px;
+    border-bottom: 1px solid #000;
+  }
+
+  /* Datos bancarios */
+  .banco-row {
+    text-align: center;
+    font-size: 8.5pt;
+    padding: 2px 6px;
+    border-bottom: 1px solid #000;
+  }
+
+  /* Aviso legal fondo gris con subrayado */
+  .aviso-legal {
+    background: #d0d0d0;
+    padding: 4px 8px;
+    font-size: 7pt;
+    font-weight: bold;
+    text-align: center;
+    text-decoration: underline;
+    border-bottom: 1px solid #000;
+    line-height: 1.35;
+  }
+
+  /* Nota inferior itálica */
+  .nota-inferior {
+    padding: 3px 8px 5px;
+    font-size: 6.5pt;
+    font-style: italic;
+    text-align: justify;
+    line-height: 1.25;
+  }
+
+  /* Línea de corte */
+  .corte {
+    text-align: center;
+    font-size: 7pt;
+    margin: 8px 0 4px;
+    color: #444;
+  }
+  hr.dashed {
+    border: none;
+    border-top: 1px dashed #555;
+    margin: 2px 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="etiqueta-copia">PREFICHA ITA</div>
+{% include "finanzas/pdf/_preficha_seccion.html" %}
+
+<div class="corte">
+  <hr class="dashed">
+  — — — — — — — — — — CORTAR AQUÍ — — — — — — — — — —
+  <hr class="dashed">
+</div>
+
+<div class="etiqueta-copia">PREFICHA ESTUDIANTE</div>
+{% include "finanzas/pdf/_preficha_seccion.html" %}
+
+</body>
+</html>

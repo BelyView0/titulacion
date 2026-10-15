@@ -1,0 +1,77 @@
+{% comment %}
+Acciones de cita para el alumno (certificado u oficio).
+Variables: cita, titulo_cita
+{% endcomment %}
+<div class="mb-2">
+    <small class="text-muted fw-semibold">Cita — {{ titulo_cita }}</small>
+    <div class="small">{{ cita.fecha_hora|date:"d/m/Y H:i" }} — {{ cita.lugar }}</div>
+    <span class="badge bg-{% if cita.estado == 'CONFIRMADA_ALUMNO' %}success{% elif cita.estado == 'REPROGRAMACION_SOLICITADA' %}warning text-dark{% else %}info{% endif %} mt-1">
+        {{ cita.get_estado_display }}
+    </span>
+
+    {% if cita.estado == 'PROGRAMADA' or cita.estado == 'CONFIRMADA_ALUMNO' %}
+    <div class="d-grid gap-2 mt-2">
+        {% if cita.estado == 'PROGRAMADA' %}
+        <form method="post" action="{% url 'alumnos:confirmar_cita' cita.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success btn-sm w-100">
+                <i class="bi bi-check-lg me-1"></i>Confirmar asistencia
+            </button>
+        </form>
+        {% endif %}
+        <button type="button" class="btn btn-outline-danger btn-sm w-100"
+                data-bs-toggle="modal" data-bs-target="#modalReprogramarCita{{ cita.pk }}">
+            <i class="bi bi-calendar-x me-1"></i>No puedo asistir en esta fecha
+        </button>
+    </div>
+
+    <div class="modal fade" id="modalReprogramarCita{{ cita.pk }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning bg-opacity-10">
+                    <h6 class="modal-title fw-bold">
+                        <i class="bi bi-calendar-x me-2 text-warning"></i>Solicitar nueva fecha
+                    </h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="post" action="{% url 'alumnos:reprogramar_cita' cita.pk %}">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <p class="small mb-3">
+                            Indica el motivo por el cual no puedes asistir el
+                            <strong>{{ cita.fecha_hora|date:"d/m/Y" }}</strong> a las
+                            <strong>{{ cita.fecha_hora|date:"H:i" }}</strong>.
+                            Oficina de Titulación revisará tu solicitud y te asignará una nueva fecha.
+                        </p>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Motivo <span class="text-danger">*</span></label>
+                            <textarea name="propuesta_notas" class="form-control form-control-sm" rows="3" required
+                                      placeholder="Ej. Tengo un compromiso académico ese día..."></textarea>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label small fw-semibold">Fecha y hora alternativa (opcional)</label>
+                            <input type="datetime-local" name="propuesta_fecha" class="form-control form-control-sm">
+                            <div class="form-text">Si tienes disponibilidad en otra fecha, puedes proponerla.</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-warning btn-sm">
+                            <i class="bi bi-send me-1"></i>Enviar solicitud
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {% elif cita.estado == 'REPROGRAMACION_SOLICITADA' %}
+    <div class="alert alert-warning py-2 small mt-2 mb-0">
+        <i class="bi bi-hourglass-split me-1"></i>
+        Solicitud de reprogramación enviada. Oficina de Titulación te notificará la nueva fecha.
+        {% if cita.propuesta_alumno_fecha %}
+        <br><span class="text-muted">Tu propuesta: {{ cita.propuesta_alumno_fecha|date:"d/m/Y H:i" }}</span>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

@@ -18,12 +18,17 @@ urlpatterns = [
 
     # Configuración Institucional
     path('configuracion/', views.ConfiguracionUpdateView.as_view(), name='configuracion'),
+    path('configuracion/contactos/', views.ConfiguracionContactosView.as_view(), name='configuracion_contactos'),
     path('configuracion/email/', views.ConfiguracionEmailUpdateView.as_view(), name='configuracion_email'),
     path('configuracion/email/probar/', views.ProbarConfiguracionEmailView.as_view(), name='configuracion_email_probar'),
     path('configuracion/email/revelar/', views.RevelarPasswordSMTPView.as_view(), name='configuracion_email_revelar'),
+    path('configuracion/inicial/', __import__('administracion.views_setup', fromlist=['ConfiguracionInicialView']).ConfiguracionInicialView.as_view(), name='configuracion_inicial'),
+    path('configuracion/base-datos/', __import__('administracion.views_setup', fromlist=['ConfiguracionDatabaseView']).ConfiguracionDatabaseView.as_view(), name='configuracion_database'),
+    path('configuracion/completar/', __import__('administracion.views_setup', fromlist=['MarcarSistemaConfiguradoView']).MarcarSistemaConfiguradoView.as_view(), name='configuracion_completar'),
 
     # Tiempo Real / API
     path('api/realtime/check/', views.CheckRealTimeUpdatesView.as_view(), name='api_realtime_check'),
+    path('api/notificaciones/', views.NotificacionesApiView.as_view(), name='api_notificaciones'),
 
     # Jefes de Departamento
     path('jefes/', views_jefe.JefeDepartamentoListView.as_view(), name='jefes'),
@@ -78,7 +83,6 @@ urlpatterns = [
     path('jefe/expedientes/<int:pk>/', views.ExpedienteDetalleJefeView.as_view(), name='jefe_detalle'),
     path('jefe/expedientes/<int:pk>/jurado/', views.AsignacionJuradoJefeView.as_view(), name='jefe_jurado'),
     path('jefe/expedientes/<int:pk>/oficio/', views.DescargarOficioJuradoJefeView.as_view(), name='jefe_oficio'),
-    path('jefe/expedientes/<int:pk>/programar/', views.ActoProtocolarioView.as_view(), name='jefe_programar'),
     path('jefe/acto/<int:pk>/reprogramar/', views.ReprogramarActoView.as_view(), name='jefe_reprogramar'),
     path('jefe/calendario/', views.CalendarioJefeView.as_view(), name='jefe_calendario'),
     path('jefe/estadisticas/', views.EstadisticasJefeView.as_view(), name='jefe_estadisticas'),

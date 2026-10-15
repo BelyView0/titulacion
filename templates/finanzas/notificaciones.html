@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Notificaciones{% endblock %}
+{% block page_title %}Bandeja — Finanzas{% endblock %}
+
+{% block content %}
+<div class="content-card">
+    <div class="card-header-custom"><i class="bi bi-bell"></i> Notificaciones del sistema</div>
+    {% for notif in notificaciones %}
+    <div class="p-3 border-bottom">
+        <div class="d-flex justify-content-between gap-2">
+            <strong class="small">{{ notif.titulo }}</strong>
+            <span class="badge bg-{{ notif.get_tipo_color }}">{{ notif.get_tipo_display }}</span>
+        </div>
+        <p class="small mb-1">{{ notif.mensaje }}</p>
+        <small class="text-muted">{{ notif.fecha|date:"d/m/Y H:i" }}</small>
+    </div>
+    {% empty %}
+    <p class="p-3 text-muted mb-0">Sin notificaciones.</p>
+    {% endfor %}
+</div>
+{% endblock %}

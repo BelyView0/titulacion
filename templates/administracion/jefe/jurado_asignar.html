@@ -102,7 +102,8 @@
                                     <option value="">— Seleccionar presidente —</option>
                                     {% for s in sinodales %}
                                     <option value="{{ s.pk }}"
-                                            {% if jurado and jurado.presidente_id == s.pk %}selected{% endif %}>
+                                            {% if jurado and jurado.presidente_id == s.pk %}selected
+                                            {% elif not jurado and asesor_presidente_id == s.pk %}selected{% endif %}>
                                         {{ s.get_full_name }} ({{ s.departamentos.all|join:', '|default:'Sin Depto.' }})
                                     </option>
                                     {% endfor %}

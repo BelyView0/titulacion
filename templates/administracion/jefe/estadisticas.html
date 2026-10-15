@@ -194,11 +194,12 @@
     <div class="col-lg-6">
         <div class="content-card">
             <div class="card-header-custom">
-                <i class="bi bi-calendar-range"></i> Por Generación (año de ingreso)
+                <i class="bi bi-calendar-range"></i> Por año de ingreso
                 <span class="ms-auto badge bg-secondary fw-normal" style="font-size:.68rem;">RE-04</span>
             </div>
             <div class="p-3">
                 {% if por_generacion %}
+                <div class="table-responsive">
                 <table class="table table-sm table-hover mb-0" style="font-size:.85rem;">
                     <thead class="table-light">
                         <tr>
@@ -211,7 +212,7 @@
                     <tbody>
                         {% for gen in por_generacion %}
                         <tr>
-                            <td class="fw-bold">{{ gen.alumno__generacion }}</td>
+                            <td class="fw-bold">{{ gen.alumno__periodo_inicio_anio }}</td>
                             <td class="text-center"><span class="badge bg-primary rounded-pill">{{ gen.total }}</span></td>
                             <td class="text-center"><span class="badge bg-success rounded-pill">{{ gen.concluidos }}</span></td>
                             <td>
@@ -228,6 +229,7 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                </div>
                 {% else %}
                 <div class="text-center py-3 text-muted">
                     <i class="bi bi-calendar3" style="font-size:2rem; opacity:.3;"></i>

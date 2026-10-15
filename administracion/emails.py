@@ -109,17 +109,39 @@ def enviar_notificacion_jurado(asignacion):
 
 # ─── SISTEMA DE OTP (CONTRASEÑAS) ─────────────────────────────────────────────
 
-def enviar_codigo_otp(user, codigo, context='reset'):
+def correos_registrados(user):
+    """Correos personal e institucional del usuario, sin duplicados."""
+    vistos = set()
+    destinos = []
+    for correo in (user.email, getattr(user, 'correo_institucional', None)):
+        if not correo:
+            continue
+        clave = correo.strip().lower()
+        if clave and clave not in vistos:
+            vistos.add(clave)
+            destinos.append(correo.strip())
+    return destinos
+
+
+def enviar_codigo_otp(user, codigo, context='reset', destinatarios=None):
     """
-    Envía el código de 6 dígitos al correo del usuario.
+    Envía el código de 6 dígitos a los correos indicados (o a todos los registrados).
     context puede ser 'reset' (olvidé mi contraseña) o 'change' (cambio desde sesión).
     """
+    destinos = destinatarios if destinatarios is not None else correos_registrados(user)
+    destinos = [c for c in destinos if c]
+    if not destinos:
+        print('[EMAIL] No hay correo registrado para enviar OTP.')
+        return
+
     subject = 'Tu código de seguridad de 6 dígitos'
     
     if context == 'reset':
-        mensaje = f'Has solicitado restablecer tu contraseña. Tu código de seguridad es:\n\n{codigo}\n\nEste código expirará en 5 minutos.'
+        mensaje_corto = 'Has solicitado restablecer tu contraseña'
+        mensaje = f'{mensaje_corto}. Tu código de seguridad es:\n\n{codigo}\n\nEste código expirará en 5 minutos.'
     else:
-        mensaje = f'Has solicitado cambiar tu contraseña. Tu código de seguridad es:\n\n{codigo}\n\nEste código expirará en 5 minutos.'
+        mensaje_corto = 'Has solicitado cambiar tu contraseña'
+        mensaje = f'{mensaje_corto}. Tu código de seguridad es:\n\n{codigo}\n\nEste código expirará en 5 minutos.'
         
     text_content = (
         f'Hola {user.get_full_name() or user.numero_control},\n\n'
@@ -129,9 +151,10 @@ def enviar_codigo_otp(user, codigo, context='reset'):
     )
     
     context_data = {
-        'user_name': user.get_full_name() or user.numero_control,
-        'mensaje_corto': mensaje.split('.')[0],
-        'codigo': codigo
+        'user_name': user.get_full_name() or user.numero_control or user.username,
+        'mensaje_corto': mensaje_corto,
+        'codigo': codigo,
+        'minutos_validez': 5,
     }
     html_content = render_to_string('emails/otp_codigo.html', context_data)
 
@@ -139,14 +162,14 @@ def enviar_codigo_otp(user, codigo, context='reset'):
         subject=f'[ITA] Código de Seguridad: {codigo}',
         body=text_content,
         from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[user.email],
+        to=destinos,
     )
     email.attach_alternative(html_content, 'text/html')
 
     try:
         email.send(fail_silently=True)
     except Exception as e:
-        print(f'[EMAIL] Error enviando código OTP a {user.email}: {e}')
+        print(f'[EMAIL] Error enviando código OTP a {destinos}: {e}')
 
 def enviar_alerta_cambio_password(user):
     """

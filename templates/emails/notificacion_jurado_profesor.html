@@ -15,8 +15,8 @@
   <table style="width:100%;border-collapse:collapse;font-size:14px;">
     <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;width:120px;">Sustentante:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ alumno.get_full_name }}</td></tr>
     <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">No. Control:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ alumno.numero_control }}</td></tr>
-    <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">Carrera:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ expediente.alumno.carrera }}</td></tr>
-    <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">Modalidad:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ expediente.modalidad }}</td></tr>
+    <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">Carrera:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ alumno.carrera.nombre|default:"—" }}</td></tr>
+    <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">Modalidad:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ expediente.modalidad.nombre|default:expediente.modalidad }}</td></tr>
     <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">Tema:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ expediente.titulo_trabajo }}</td></tr>
     <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">Fecha del acto:</td><td style="padding:6px 0;font-weight:700;color:#1B396A;">{% if asignacion.fecha_acto %}{{ asignacion.fecha_acto|date:"d/m/Y" }} a las {{ asignacion.fecha_acto|time:"H:i" }} hrs{% else %}Por confirmar{% endif %}</td></tr>
     <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">Lugar:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ asignacion.lugar_acto|default:"Por confirmar" }}</td></tr>

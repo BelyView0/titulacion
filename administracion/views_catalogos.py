@@ -6,13 +6,13 @@ from django.db.models import Count, Prefetch, Case, When, Value, IntegerField
 from django.http import JsonResponse
 import json
 
-from expediente.mixins import AdminRequeridoMixin, FormMessageMixin
+from expediente.mixins import AdminRequeridoMixin, AdminOOficinaRequeridoMixin, FormMessageMixin
 from expediente.models import PlanEstudios, Modalidad, TipoDocumento
 from administracion.forms_catalogos import PlanEstudiosForm, ModalidadForm, TipoDocumentoForm
 
 # --- PLAN DE ESTUDIOS ---
 
-class PlanEstudiosListView(AdminRequeridoMixin, ListView):
+class PlanEstudiosListView(AdminOOficinaRequeridoMixin, ListView):
     model = PlanEstudios
     template_name = 'administracion/catalogos/planes_lista.html'
     context_object_name = 'planes'
@@ -20,7 +20,7 @@ class PlanEstudiosListView(AdminRequeridoMixin, ListView):
     def get_queryset(self):
         return PlanEstudios.objects.annotate(num_modalidades=Count('modalidades')).order_by('-nombre')
 
-class PlanEstudiosCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
+class PlanEstudiosCreateView(AdminOOficinaRequeridoMixin, FormMessageMixin, CreateView):
     model = PlanEstudios
     form_class = PlanEstudiosForm
     template_name = 'administracion/catalogos/form_generico.html'
@@ -37,7 +37,7 @@ class PlanEstudiosCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
         messages.success(self.request, 'Plan de estudios creado exitosamente.')
         return super().form_valid(form)
 
-class PlanEstudiosUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
+class PlanEstudiosUpdateView(AdminOOficinaRequeridoMixin, FormMessageMixin, UpdateView):
     model = PlanEstudios
     form_class = PlanEstudiosForm
     template_name = 'administracion/catalogos/form_generico.html'
@@ -54,7 +54,7 @@ class PlanEstudiosUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
         messages.success(self.request, 'Plan de estudios actualizado exitosamente.')
         return super().form_valid(form)
 
-class PlanEstudiosDeleteView(AdminRequeridoMixin, DeleteView):
+class PlanEstudiosDeleteView(AdminOOficinaRequeridoMixin, DeleteView):
     model = PlanEstudios
     template_name = 'administracion/catalogos/confirmar_eliminar.html'
     success_url = reverse_lazy('administracion:planes')
@@ -137,7 +137,7 @@ class ModalidadDeleteView(AdminRequeridoMixin, DeleteView):
 
 # --- TIPOS DE DOCUMENTOS ---
 
-class TipoDocumentoListView(AdminRequeridoMixin, ListView):
+class TipoDocumentoListView(AdminOOficinaRequeridoMixin, ListView):
     model = Modalidad
     template_name = 'administracion/catalogos/documentos_lista.html'
     context_object_name = 'modalidades'
@@ -157,7 +157,7 @@ class TipoDocumentoListView(AdminRequeridoMixin, ListView):
             )) \
             .order_by('-has_docs', 'plan_estudios__nombre', 'nombre')
 
-class TipoDocumentoCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
+class TipoDocumentoCreateView(AdminOOficinaRequeridoMixin, FormMessageMixin, CreateView):
     model = TipoDocumento
     form_class = TipoDocumentoForm
     template_name = 'administracion/catalogos/form_generico.html'
@@ -181,7 +181,7 @@ class TipoDocumentoCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView)
         messages.success(self.request, 'Tipo de documento creado exitosamente.')
         return super().form_valid(form)
 
-class TipoDocumentoUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
+class TipoDocumentoUpdateView(AdminOOficinaRequeridoMixin, FormMessageMixin, UpdateView):
     model = TipoDocumento
     form_class = TipoDocumentoForm
     template_name = 'administracion/catalogos/form_generico.html'
@@ -198,7 +198,7 @@ class TipoDocumentoUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView)
         messages.success(self.request, 'Tipo de documento actualizado exitosamente.')
         return super().form_valid(form)
 
-class TipoDocumentoDeleteView(AdminRequeridoMixin, DeleteView):
+class TipoDocumentoDeleteView(AdminOOficinaRequeridoMixin, DeleteView):
     model = TipoDocumento
     template_name = 'administracion/catalogos/confirmar_eliminar.html'
     success_url = reverse_lazy('administracion:documentos')
@@ -214,7 +214,7 @@ class TipoDocumentoDeleteView(AdminRequeridoMixin, DeleteView):
         messages.success(self.request, 'Tipo de documento eliminado exitosamente.')
         return super().form_valid(form)
 
-class TipoDocumentoReorderView(AdminRequeridoMixin, View):
+class TipoDocumentoReorderView(AdminOOficinaRequeridoMixin, View):
     def post(self, request, *args, **kwargs):
         try:
             data = json.loads(request.body)
@@ -301,7 +301,7 @@ class DepartamentoDeleteView(AdminRequeridoMixin, DeleteView):
 
 from django.db.models import Q
 
-class ProfesorListView(AdminRequeridoMixin, ListView):
+class ProfesorListView(AdminOOficinaRequeridoMixin, ListView):
     model = Profesor
     template_name = 'administracion/registros/profesores_lista.html'
     context_object_name = 'profesores'
@@ -320,7 +320,7 @@ class ProfesorListView(AdminRequeridoMixin, ListView):
         return qs
 
 
-class ProfesorCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
+class ProfesorCreateView(AdminOOficinaRequeridoMixin, FormMessageMixin, CreateView):
     model = Profesor
     form_class = ProfesorForm
     template_name = 'administracion/catalogos/form_generico.html'
@@ -338,7 +338,7 @@ class ProfesorCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
         return super().form_valid(form)
 
 
-class ProfesorUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
+class ProfesorUpdateView(AdminOOficinaRequeridoMixin, FormMessageMixin, UpdateView):
     model = Profesor
     form_class = ProfesorForm
     template_name = 'administracion/catalogos/form_generico.html'
@@ -356,7 +356,7 @@ class ProfesorUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
         return super().form_valid(form)
 
 
-class ProfesorDeleteView(AdminRequeridoMixin, DeleteView):
+class ProfesorDeleteView(AdminOOficinaRequeridoMixin, DeleteView):
     model = Profesor
     template_name = 'administracion/catalogos/confirmar_eliminar.html'
     success_url = reverse_lazy('administracion:profesores')

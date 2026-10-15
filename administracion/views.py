@@ -13,11 +13,11 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
-from django.shortcuts import redirect, get_object_or_404
-from django.http import HttpResponse
+from django.shortcuts import redirect, get_object_or_404, render
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 
-from expediente.mixins import AdminRequeridoMixin, JefeProyectoRequeridoMixin, FormMessageMixin
+from expediente.mixins import AdminRequeridoMixin, AdminOOficinaRequeridoMixin, JefeProyectoRequeridoMixin, FormMessageMixin
 from administracion.models import Carrera, Departamento, Usuario, Rol, ConfiguracionInstitucional, JefeDepartamento, SolicitudCambioJefe
 from administracion.forms import UsuarioCreateForm, UsuarioUpdateForm, ConfiguracionInstitucionalForm, JefeDepartamentoForm
 from expediente.models import (
@@ -44,6 +44,43 @@ class ConfiguracionUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView)
         return super().form_valid(form)
 
 
+class ConfiguracionContactosView(AdminRequeridoMixin, View):
+    """Edita contactos institucionales de áreas (no son usuarios del sistema)."""
+    template_name = 'administracion/configuracion_contactos.html'
+
+    def get(self, request):
+        from administracion.forms import ContactoAreaForm
+        from administracion.models import ContactoArea
+        from django.forms import modelformset_factory
+
+        ContactoAreaFormSet = modelformset_factory(
+            ContactoArea, form=ContactoAreaForm, extra=0, can_delete=False,
+        )
+        formset = ContactoAreaFormSet(queryset=ContactoArea.objects.all())
+        return render(request, self.template_name, {
+            'formset': formset,
+            'telefono_base': ConfiguracionInstitucional.objects.first(),
+        })
+
+    def post(self, request):
+        from administracion.forms import ContactoAreaForm
+        from administracion.models import ContactoArea
+        from django.forms import modelformset_factory
+
+        ContactoAreaFormSet = modelformset_factory(
+            ContactoArea, form=ContactoAreaForm, extra=0, can_delete=False,
+        )
+        formset = ContactoAreaFormSet(request.POST, queryset=ContactoArea.objects.all())
+        if formset.is_valid():
+            formset.save()
+            messages.success(request, 'Contactos de áreas actualizados.')
+            return redirect('administracion:configuracion_contactos')
+        return render(request, self.template_name, {
+            'formset': formset,
+            'telefono_base': ConfiguracionInstitucional.objects.first(),
+        })
+
+
 class ConfiguracionEmailUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
     model = ConfiguracionInstitucional
     from .forms import ConfiguracionEmailForm
@@ -61,43 +98,61 @@ class ConfiguracionEmailUpdateView(AdminRequeridoMixin, FormMessageMixin, Update
         return response
 
 class ProbarConfiguracionEmailView(AdminRequeridoMixin, View):
-    """Envía un correo de prueba usando la configuración SMTP actual guardada"""
+    """Envía un correo de prueba usando la configuración SMTP actual guardada."""
+
     def post(self, request, *args, **kwargs):
         from django.core.mail import EmailMultiAlternatives
         from django.template.loader import render_to_string
         from django.conf import settings
-        
-        user_email = request.user.email
-        if not user_email:
-            messages.error(request, 'No tienes un correo electrónico registrado en tu perfil para enviar la prueba.')
-            return redirect('administracion:configuracion_email')
-            
-        try:
-            from administracion.models import ConfiguracionInstitucional
-            config = ConfiguracionInstitucional.objects.first()
-            destinatarios = [user_email]
-            
-            # Si el correo remitente configurado es diferente al del usuario, lo agregamos también
-            if config and config.email_remitente and config.email_remitente != user_email:
-                destinatarios.append(config.email_remitente)
 
+        config = ConfiguracionInstitucional.objects.first()
+        if not config or not config.smtp_listo():
+            messages.error(
+                request,
+                'Guarda primero el servidor SMTP, correo remitente y contraseña de aplicación.'
+            )
+            return redirect('administracion:configuracion_email')
+
+        destinatario = (
+            request.POST.get('email_prueba')
+            or request.user.correo_institucional
+            or request.user.email
+            or config.email_remitente
+        )
+        if not destinatario:
+            messages.error(
+                request,
+                'Indica un correo de prueba o registra un correo personal/institucional en tu perfil.'
+            )
+            return redirect('administracion:configuracion_email')
+
+        try:
             html_content = render_to_string('emails/notificacion_generica.html', {
                 'titulo': 'Verificación de Configuración de Correo',
                 'saludo': f'¡Hola {request.user.get_full_name()}!',
-                'mensaje': 'Si has recibido este correo, significa que la configuración SMTP funciona correctamente y el sistema ya puede enviar correos usando este servidor.'
+                'mensaje': (
+                    'Si recibiste este correo, la configuración SMTP funciona correctamente '
+                    'y el sistema ya puede enviar notificaciones y códigos de verificación.'
+                ),
             })
             msg = EmailMultiAlternatives(
-                subject='[ITA Titulación] Verificación de Configuración de Correo',
-                body='¡Hola! Si has recibido este correo, significa que la configuración SMTP funciona correctamente y el sistema ya puede enviar correos usando este servidor.',
+                subject='[SIGET] Verificación de configuración de correo',
+                body='Prueba de configuración SMTP del Sistema de Titulación ITA.',
                 from_email=settings.DEFAULT_FROM_EMAIL,
-                to=destinatarios
+                to=[destinatario],
             )
-            msg.attach_alternative(html_content, "text/html")
+            msg.attach_alternative(html_content, 'text/html')
             msg.send(fail_silently=False)
-            messages.success(request, f'Correo de prueba enviado exitosamente a tu dirección registrada ({user_email}).')
+            messages.success(
+                request,
+                f'Correo de prueba enviado a {destinatario}. Revisa tu bandeja (y spam).'
+            )
         except Exception as e:
-            messages.error(request, f'Falló el envío del correo de prueba. Revisa tus credenciales o conexión: {str(e)}')
-            
+            messages.error(
+                request,
+                f'No se pudo enviar el correo de prueba: {e}'
+            )
+
         return redirect('administracion:configuracion_email')
 
 
@@ -147,6 +202,53 @@ class CheckRealTimeUpdatesView(View):
             'status': 'success',
             'global_timestamp': global_ts,
             'unread_notifications': unread_count
+        })
+
+
+class NotificacionesApiView(View):
+    """Lista JSON de notificaciones del usuario y marca como leídas al abrir el panel."""
+
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'status': 'unauthorized'}, status=401)
+
+        from alumnos.models import Notificacion
+        from expediente.notifications import marcar_notificaciones_leidas
+
+        marcar = request.GET.get('marcar_leidas', '1') == '1'
+        try:
+            limit = min(int(request.GET.get('limit', 40) or 40), 80)
+        except (TypeError, ValueError):
+            limit = 40
+
+        qs = Notificacion.objects.filter(destinatario=request.user).order_by('-fecha')
+        unread = qs.filter(leida=False).count()
+        items = []
+        for n in qs[:limit]:
+            msg = n.mensaje or ''
+            if msg.startswith('DGP_INSTRUCCIONES'):
+                msg = 'Instrucciones del proceso DGP / cédula. Abre el detalle para ver los pasos.'
+            items.append({
+                'id': n.id,
+                'titulo': n.titulo,
+                'mensaje': msg,
+                'tipo': n.tipo,
+                'tipo_display': n.get_tipo_display(),
+                'color': n.get_tipo_color(),
+                'icono': n.get_tipo_icono(),
+                'leida': n.leida,
+                'fecha': timezone.localtime(n.fecha).strftime('%d/%m/%Y %H:%M'),
+                'url': n.url_relacionada or '',
+            })
+
+        if marcar and unread:
+            marcar_notificaciones_leidas(request.user)
+            unread = 0
+
+        return JsonResponse({
+            'status': 'success',
+            'unread': unread,
+            'notificaciones': items,
         })
 
 
@@ -205,7 +307,23 @@ class DashboardAdminView(AdminRequeridoMixin, TemplateView):
     template_name = 'administracion/dashboard.html'
 
     def get_context_data(self, **kwargs):
+        from administracion.setup_checks import (
+            evaluar_configuracion_sistema,
+            sincronizar_sistema_configurado,
+            get_alertas_informativas,
+        )
+
         ctx = super().get_context_data(**kwargs)
+        evaluacion = sincronizar_sistema_configurado()
+        ctx['configuracion_pendiente'] = evaluacion['pendiente']
+        ctx['pasos_configuracion'] = evaluacion['pasos']
+        ctx['progreso_configuracion'] = evaluacion['progreso']
+        ctx['pasos_pendientes'] = evaluacion['pendientes']
+
+        if evaluacion['pendiente']:
+            return ctx
+
+        ctx['alertas_sistema'] = get_alertas_informativas()
         ctx['total_alumnos'] = Usuario.objects.filter(rol='ALUMNO').count()
         ctx['total_expedientes'] = Expediente.objects.count()
         ctx['expedientes_activos'] = Expediente.objects.exclude(
@@ -225,12 +343,10 @@ class DashboardAdminView(AdminRequeridoMixin, TemplateView):
         estado_filtro = self.request.GET.get('estado', '')
 
         if busqueda:
-            qs = qs.filter(
-                Q(first_name__unaccent__icontains=busqueda) |
-                Q(last_name__unaccent__icontains=busqueda) |
-                Q(username__unaccent__icontains=busqueda) |
-                Q(numero_control__unaccent__icontains=busqueda)
-            )
+            from expediente.search_utils import q_busca
+            qs = qs.filter(q_busca(
+                busqueda, 'first_name', 'last_name', 'username', 'numero_control',
+            ))
         if carrera_id:
             qs = qs.filter(carrera_id=carrera_id)
         if estado_filtro:
@@ -254,82 +370,11 @@ class DashboardAdminView(AdminRequeridoMixin, TemplateView):
         ctx['carreras'] = Carrera.objects.filter(activa=True).annotate(
             num_expedientes=Count('usuario__expediente')
         )
-
-        # --- Alertas del sistema para el administrador ---
-        alertas = []
-
-        # Verificar roles criticos
-        roles_criticos = [
-            (Rol.JEFE_PROYECTO, 'Jefe de Proyecto / Administracion',
-             'Este usuario gestiona la asignacion de jurados y programa actos protocolarios.'),
-            (Rol.ACADEMICO, 'Jefe de Division de Estudios Profesionales',
-             'Este usuario valida documentos y supervisa el proceso academico de titulacion.'),
-            (Rol.ESCOLARES, 'Jefe de Servicios Escolares',
-             'Este usuario gestiona el trámite DGP, la validación de cédulas profesionales y la entrega final.'),
-        ]
-
-        for rol_value, rol_nombre, descripcion in roles_criticos:
-            if not Usuario.objects.filter(rol=rol_value, is_active=True).exists():
-                alertas.append({
-                    'tipo': 'danger',
-                    'icono': 'bi-person-x-fill',
-                    'titulo': f'Falta: {rol_nombre}',
-                    'mensaje': f'No hay ningun usuario con el rol "{rol_nombre}" registrado en el sistema. {descripcion}',
-                    'accion_url': reverse_lazy('administracion:usuario_crear'),
-                    'accion_texto': 'Crear usuario',
-                })
-
-        # Verificar carreras
-        if not Carrera.objects.filter(activa=True).exists():
-            alertas.append({
-                'tipo': 'warning',
-                'icono': 'bi-mortarboard-fill',
-                'titulo': 'Sin carreras registradas',
-                'mensaje': 'No hay carreras activas en el sistema. Los alumnos no podran registrar expedientes sin una carrera asignada.',
-                'accion_url': reverse_lazy('administracion:carrera_crear'),
-                'accion_texto': 'Crear carrera',
-            })
-
-        # Verificar departamentos
-        if not Departamento.objects.exists():
-            alertas.append({
-                'tipo': 'warning',
-                'icono': 'bi-building',
-                'titulo': 'Sin departamentos registrados',
-                'mensaje': 'No hay departamentos en el sistema. Los departamentos son necesarios para asignar jefes de proyecto.',
-                'accion_url': '/admin/administracion/departamento/add/',
-                'accion_texto': 'Crear departamento',
-            })
-
-        # Verificar jefes de departamento (para oficios)
-        if Departamento.objects.exists() and not JefeDepartamento.objects.exists():
-            alertas.append({
-                'tipo': 'info',
-                'icono': 'bi-person-badge',
-                'titulo': 'Sin jefes de departamento asignados',
-                'mensaje': 'No se han registrado jefes de departamento. Son necesarios para firmar oficios de asignacion de jurado.',
-                'accion_url': reverse_lazy('administracion:jefe_crear'),
-                'accion_texto': 'Asignar jefe',
-            })
-
-        # Verificar configuracion institucional (SMTP / Membretes)
-        config = ConfiguracionInstitucional.objects.first()
-        if not config or not config.email_remitente or not config.email_password:
-            alertas.append({
-                'tipo': 'danger',
-                'icono': 'bi-exclamation-triangle-fill',
-                'titulo': 'Configuracion Institucional Pendiente',
-                'mensaje': 'Alerta critica: El sistema no podra enviar correos electronicos ni notificaciones porque las credenciales SMTP no han sido configuradas. Configure el remitente y la contraseña de aplicacion inmediatamente.',
-                'accion_url': reverse_lazy('administracion:configuracion_institucional'),
-                'accion_texto': 'Configurar ahora',
-            })
-
-        ctx['alertas_sistema'] = alertas
         return ctx
 
 
 # ─── USUARIOS ────────────────────────────────────────────────
-class UsuarioListView(AdminRequeridoMixin, ListView):
+class UsuarioListView(AdminOOficinaRequeridoMixin, ListView):
     model = Usuario
     template_name = 'administracion/usuarios/lista.html'
     context_object_name = 'usuarios'
@@ -337,38 +382,48 @@ class UsuarioListView(AdminRequeridoMixin, ListView):
 
     def get_queryset(self):
         qs = Usuario.objects.select_related('carrera').order_by('rol', 'last_name')
-        rol = self.request.GET.get('rol')
+        if not self.request.user.es_admin:
+            qs = qs.filter(rol=Rol.ALUMNO)
+        else:
+            rol = self.request.GET.get('rol')
+            if rol:
+                qs = qs.filter(rol=rol)
         busqueda = self.request.GET.get('q')
-        if rol:
-            qs = qs.filter(rol=rol)
         if busqueda:
-            qs = qs.filter(
-                Q(first_name__unaccent__icontains=busqueda) |
-                Q(last_name__unaccent__icontains=busqueda) |
-                Q(username__unaccent__icontains=busqueda) |
-                Q(email__unaccent__icontains=busqueda)
-            )
+            from expediente.search_utils import q_busca
+            qs = qs.filter(q_busca(
+                busqueda, 'first_name', 'last_name', 'username', 'email',
+            ))
         return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['rol_filtro'] = self.request.GET.get('rol', '')
+        ctx['rol_filtro'] = Rol.ALUMNO if not self.request.user.es_admin else self.request.GET.get('rol', '')
         ctx['busqueda'] = self.request.GET.get('q', '')
-        from administracion.models import Rol
         from expediente.models import PlanEstudios
-        ctx['roles'] = Rol.choices
+        ctx['roles'] = Rol.choices if self.request.user.es_admin else [(Rol.ALUMNO, 'Alumno')]
         ctx['carreras_count'] = Carrera.objects.count()
         ctx['planes_count'] = PlanEstudios.objects.count()
+        ctx['solo_alumnos'] = not self.request.user.es_admin
         return ctx
 
 
-class UsuarioCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
+class UsuarioCreateView(AdminOOficinaRequeridoMixin, FormMessageMixin, CreateView):
     model = Usuario
     form_class = UsuarioCreateForm
     template_name = 'administracion/usuarios/form.html'
     success_url = reverse_lazy('administracion:usuarios')
 
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        if not self.request.user.es_admin:
+            form.fields['rol'].choices = [(Rol.ALUMNO, 'Alumno')]
+            form.fields['rol'].initial = Rol.ALUMNO
+        return form
+
     def form_valid(self, form):
+        if not self.request.user.es_admin:
+            form.instance.rol = Rol.ALUMNO
         usuario = form.save(commit=False)
         
         # Generar contraseña segura automáticamente garantizando requisitos
@@ -387,19 +442,19 @@ class UsuarioCreateView(AdminRequeridoMixin, FormMessageMixin, CreateView):
         usuario.debe_cambiar_password = True  # Forzar cambio de contraseña en su primer login por seguridad
         usuario.save()
 
-        # Desactivar Jefe de Proyecto anterior automáticamente si aplica
-        from administracion.models import Rol, Usuario as UserModel
-        if usuario.rol == Rol.JEFE_PROYECTO and usuario.departamento and usuario.is_active:
+        # Desactivar Jefe de Academia anterior automáticamente si aplica
+        from administracion.models import Rol, Usuario as UserModel, roles_jefe_academia
+        if usuario.rol in roles_jefe_academia() and usuario.departamento and usuario.is_active:
             viejos = UserModel.objects.filter(
-                rol=Rol.JEFE_PROYECTO, 
-                departamento=usuario.departamento, 
+                rol__in=roles_jefe_academia(),
+                departamento=usuario.departamento,
                 is_active=True
             ).exclude(pk=usuario.pk)
             for v in viejos:
                 v.is_active = False
                 v.save(update_fields=['is_active'])
             if viejos.exists():
-                messages.info(self.request, f'El Jefe de Proyecto anterior para {usuario.departamento.nombre} ha sido desactivado automáticamente para mantener solo uno activo.')
+                messages.info(self.request, f'El Jefe de Academia anterior para {usuario.departamento.nombre} ha sido desactivado automáticamente para mantener solo uno activo.')
 
         # Enviar correo de bienvenida y verificación (al correo institucional obligatoriamente)
         from django.core.mail import EmailMultiAlternatives
@@ -448,11 +503,25 @@ Instituto Tecnológico de Apizaco — TecNM.
         return redirect(self.success_url)
 
 
-class UsuarioUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
+class UsuarioUpdateView(AdminOOficinaRequeridoMixin, FormMessageMixin, UpdateView):
     model = Usuario
     form_class = UsuarioUpdateForm
     template_name = 'administracion/usuarios/form.html'
     success_url = reverse_lazy('administracion:usuarios')
+
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if not request.user.es_admin and self.object.rol != Rol.ALUMNO:
+            messages.error(request, 'Solo puedes editar cuentas de alumnos.')
+            return redirect('administracion:usuarios')
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        if not self.request.user.es_admin:
+            form.fields['rol'].choices = [(Rol.ALUMNO, 'Alumno')]
+            form.fields['rol'].disabled = True
+        return form
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -489,7 +558,7 @@ class UsuarioUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
 
                 ctx['documentos'] = expediente.documentos.select_related(
                     'tipo_documento'
-                ).prefetch_related('validaciones').order_by('tipo_documento__orden')
+                ).prefetch_related('validacion').order_by('tipo_documento__orden')
 
                 # Jurado
                 ctx['jurado'] = AsignacionJurado.objects.filter(
@@ -524,8 +593,8 @@ class UsuarioUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
                 destinatario=usuario
             ).order_by('-fecha')[:5]
 
-        # ── ESCOLARES / ACADEMICO / JEFE_PROYECTO: actividad relacionada ──
-        elif usuario.rol in [Rol.ESCOLARES, Rol.ACADEMICO, Rol.JEFE_PROYECTO]:
+        # ── Oficina de Titulación / Jefe de Academia: actividad relacionada ──
+        elif usuario.es_oficina_titulacion or usuario.es_jefe_academia:
             from expediente.models import (
                 ValidacionDocumento, HistorialExpediente, RecepcionEmpastado
             )
@@ -537,12 +606,12 @@ class UsuarioUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
                 realizado_por=usuario
             ).select_related('expediente').order_by('-fecha')[:10]
 
-            if usuario.rol == Rol.JEFE_PROYECTO:
+            if usuario.es_jefe_academia:
                 ctx['jurados_asignados'] = AsignacionJurado.objects.filter(
                     asignado_por=usuario
                 ).select_related('expediente', 'presidente', 'secretario').order_by('-fecha_oficio')[:10]
 
-            if usuario.rol == Rol.ACADEMICO:
+            if usuario.es_jefe_academia:
                 ctx['actos_programados'] = ActoProtocolario.objects.filter(
                     programado_por=usuario
                 ).select_related('expediente').order_by('-fecha_acto')[:10]
@@ -615,21 +684,29 @@ class UsuarioUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
         return edit_url
 
     def form_valid(self, form):
+        if not self.request.user.es_admin:
+            form.instance.rol = Rol.ALUMNO
         usuario = form.save()
         
-        # Desactivar Jefe de Proyecto anterior automáticamente si aplica
-        from administracion.models import Rol, Usuario as UserModel
-        if usuario.rol == Rol.JEFE_PROYECTO and usuario.departamento and usuario.is_active:
+        # Desactivar Jefe de Academia anterior automáticamente si aplica
+        from administracion.models import Rol, Usuario as UserModel, roles_jefe_academia
+        if usuario.rol in roles_jefe_academia() and usuario.departamento and usuario.is_active:
             viejos = UserModel.objects.filter(
-                rol=Rol.JEFE_PROYECTO, 
-                departamento=usuario.departamento, 
+                rol__in=roles_jefe_academia(),
+                departamento=usuario.departamento,
                 is_active=True
             ).exclude(pk=usuario.pk)
             for v in viejos:
                 v.is_active = False
                 v.save(update_fields=['is_active'])
             if viejos.exists():
-                messages.info(self.request, f'El Jefe de Proyecto anterior para {usuario.departamento.nombre} ha sido desactivado automáticamente para mantener solo uno activo.')
+                messages.info(self.request, f'El Jefe de Academia anterior para {usuario.departamento.nombre} ha sido desactivado automáticamente para mantener solo uno activo.')
+
+        if usuario.rol == Rol.ALUMNO:
+            expediente = getattr(usuario, 'expediente', None)
+            if expediente is not None:
+                from expediente.documentos_semestres import sincronizar_documentos_expediente
+                sincronizar_documentos_expediente(expediente)
 
         messages.success(self.request, 'Datos del usuario actualizados exitosamente.')
         return redirect('administracion:usuario_editar', pk=self.object.pk)
@@ -637,31 +714,42 @@ class UsuarioUpdateView(AdminRequeridoMixin, FormMessageMixin, UpdateView):
     def get_success_url(self):
         return reverse_lazy('administracion:usuarios')
 
-class UsuarioDeleteView(AdminRequeridoMixin, DeleteView):
+class UsuarioDeleteView(AdminOOficinaRequeridoMixin, DeleteView):
     model = Usuario
     template_name = 'administracion/usuarios/eliminar.html'
     success_url = reverse_lazy('administracion:usuarios')
 
     def dispatch(self, request, *args, **kwargs):
         usuario = self.get_object()
+        if not request.user.es_admin and usuario.rol != Rol.ALUMNO:
+            messages.error(request, 'Solo puedes eliminar cuentas de alumnos.')
+            return redirect('administracion:usuarios')
         if usuario.pk == request.user.pk:
             messages.error(request, 'No puedes eliminar tu propia cuenta.')
             return redirect('administracion:usuarios')
             
         # Se permite eliminar usuarios sin importar si tienen Expediente.
             
-        # Regla: Al menos un usuario de roles críticos / Jefe de Proyecto
-        roles_criticos = [Rol.ADMINISTRADOR, Rol.ACADEMICO, Rol.ESCOLARES]
+        # Regla: Al menos un usuario de roles críticos / Jefe de Academia
+        from administracion.models import roles_oficina_titulacion, roles_jefe_academia
+        roles_criticos = [Rol.ADMINISTRADOR, *roles_oficina_titulacion()]
         if usuario.rol in roles_criticos and usuario.is_active:
-            activos_count = Usuario.objects.filter(rol=usuario.rol, is_active=True).count()
+            if usuario.rol in roles_oficina_titulacion():
+                activos_count = Usuario.objects.filter(
+                    rol__in=roles_oficina_titulacion(), is_active=True
+                ).count()
+            else:
+                activos_count = Usuario.objects.filter(rol=usuario.rol, is_active=True).count()
             if activos_count <= 1:
                 messages.error(request, f'No se puede eliminar al único usuario activo con el rol de {usuario.get_rol_display()}. Debe agregar alguien más con este rol antes de eliminar o desactivar al actual.')
                 return redirect('administracion:usuarios')
                 
-        if usuario.rol == Rol.JEFE_PROYECTO and usuario.departamento and usuario.is_active:
-            activos_count = Usuario.objects.filter(rol=Rol.JEFE_PROYECTO, departamento=usuario.departamento, is_active=True).count()
+        if usuario.rol in roles_jefe_academia() and usuario.departamento and usuario.is_active:
+            activos_count = Usuario.objects.filter(
+                rol__in=roles_jefe_academia(), departamento=usuario.departamento, is_active=True
+            ).count()
             if activos_count <= 1:
-                messages.error(request, f'No se puede eliminar al único Jefe de Proyectos activo del departamento {usuario.departamento.nombre}. Asigne un nuevo Jefe de Proyecto primero (este se desactivará automáticamente al hacerlo).')
+                messages.error(request, f'No se puede eliminar al único Jefe de Academia activo del departamento {usuario.departamento.nombre}. Asigne un nuevo Jefe de Academia primero (este se desactivará automáticamente al hacerlo).')
                 return redirect('administracion:usuarios')
 
         return super().dispatch(request, *args, **kwargs)
@@ -788,12 +876,12 @@ class DashboardJefeProyectoView(JefeProyectoRequeridoMixin, TemplateView):
         modalidad_id = self.request.GET.get('modalidad', '')
 
         if busqueda:
-            qs = qs.filter(
-                Q(alumno__first_name__unaccent__icontains=busqueda) |
-                Q(alumno__last_name__unaccent__icontains=busqueda) |
-                Q(alumno__username__unaccent__icontains=busqueda) |
-                Q(alumno__numero_control__unaccent__icontains=busqueda)
-            )
+            from expediente.search_utils import q_busca
+            qs = qs.filter(q_busca(
+                busqueda,
+                'alumno__first_name', 'alumno__last_name',
+                'alumno__username', 'alumno__numero_control',
+            ))
         if carrera_id:
             qs = qs.filter(alumno__carrera_id=carrera_id)
         if modalidad_id:
@@ -837,12 +925,12 @@ class ExpedienteListaJefeView(JefeProyectoRequeridoMixin, ListView):
             qs = qs.filter(estado=estado)
         busqueda = self.request.GET.get('q', '').strip()
         if busqueda:
-            qs = qs.filter(
-                Q(alumno__first_name__unaccent__icontains=busqueda) |
-                Q(alumno__last_name__unaccent__icontains=busqueda) |
-                Q(alumno__username__unaccent__icontains=busqueda) |
-                Q(alumno__numero_control__unaccent__icontains=busqueda)
-            )
+            from expediente.search_utils import q_busca
+            qs = qs.filter(q_busca(
+                busqueda,
+                'alumno__first_name', 'alumno__last_name',
+                'alumno__username', 'alumno__numero_control',
+            ))
 
         carrera_id = self.request.GET.get('carrera', '')
         modalidad_id = self.request.GET.get('modalidad', '')
@@ -896,11 +984,13 @@ class ExpedienteDetalleJefeView(JefeProyectoRequeridoMixin, DetailView):
         ctx = super().get_context_data(**kwargs)
         expediente = self.object
         ctx['documentos'] = expediente.documentos.select_related(
-            'tipo_documento'
-        ).prefetch_related('validaciones').order_by('tipo_documento__orden')
+            'tipo_documento', 'validacion'
+        ).order_by('tipo_documento__orden')
         ctx['jurado'] = AsignacionJurado.objects.filter(
             expediente=expediente
         ).select_related('presidente', 'secretario', 'vocal_propietario', 'vocal_suplente').first()
+        
+        ctx['empastado_recibido'] = hasattr(expediente, 'empastado')
         
         # Visibilidad del acto para el Jefe
         try:
@@ -928,6 +1018,11 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
             filter_q = Q(alumno__carrera=user.carrera)
 
         expediente = get_object_or_404(Expediente, Q(pk=pk) & filter_q)
+        
+        if not hasattr(expediente, 'empastado') or expediente.empastado.estado != 'REVISADO':
+            messages.error(request, 'No se puede asignar jurado hasta que la Oficina de Titulación confirme la recepción del empastado físico.')
+            return redirect('administracion:jefe_detalle', pk=pk)
+            
         jurado = AsignacionJurado.objects.filter(expediente=expediente).first()
 
         # Obtener posibles sinodales desde el catálogo Profesor
@@ -940,6 +1035,7 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
             'expediente': expediente,
             'jurado': jurado,
             'sinodales': sinodales,
+            'asesor_presidente_id': expediente.asesor_id,
         }
         return HttpResponse(render_to_string(
             'administracion/jefe/jurado_asignar.html', context, request
@@ -953,6 +1049,10 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
             filter_q = Q(alumno__carrera=user.carrera)
 
         expediente = get_object_or_404(Expediente, Q(pk=pk) & filter_q)
+        
+        if not hasattr(expediente, 'empastado') or expediente.empastado.estado != 'REVISADO':
+            messages.error(request, 'No se puede asignar jurado hasta que la Oficina de Titulación confirme la recepción del empastado físico.')
+            return redirect('administracion:jefe_detalle', pk=pk)
 
         presidente_id = request.POST.get('presidente')
         secretario_id = request.POST.get('secretario')
@@ -987,7 +1087,7 @@ class AsignacionJuradoJefeView(JefeProyectoRequeridoMixin, View):
             jurado.asignado_por = request.user
             jurado.save()
 
-        messages.success(request, 'Asignación de jurado registrada exitosamente. Ahora puedes programar el acto.')
+        messages.success(request, 'Asignación de jurado registrada exitosamente. La Oficina de Titulación programará el acto.')
 
         # Actualizar estado del expediente
         registrar_cambio_estado(
@@ -1138,15 +1238,15 @@ class EstadisticasJefeView(JefeProyectoRequeridoMixin, TemplateView):
         titulados_mujeres = qs_concluidos.filter(alumno__genero='F').count()
         titulados_sin_dato = total_concluidos - titulados_hombres - titulados_mujeres
 
-        # ─── RE-04: Estadísticas por generación ───────────────────
+        # ─── RE-04: Estadísticas por año de ingreso (periodo inicio) ──
         por_generacion = (
-            qs.filter(alumno__generacion__isnull=False)
-            .values('alumno__generacion')
+            qs.filter(alumno__periodo_inicio_anio__isnull=False)
+            .values('alumno__periodo_inicio_anio')
             .annotate(
                 total=Count('id'),
                 concluidos=Count('id', filter=Q(estado=EstadoExpediente.CONCLUIDO))
             )
-            .order_by('-alumno__generacion')
+            .order_by('-alumno__periodo_inicio_anio')
         )
 
         # ─── RE-05: Por tipo de opción de titulación (modalidad) ──

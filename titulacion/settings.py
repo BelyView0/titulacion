@@ -1,19 +1,23 @@
 """
-Django settings for Sistema de Gestión de Titulación - ITA
-Instituto Tecnológico de Apizaco
+Django settings for Sistema de Gestión de Titulación - ITA (SIGET)
 """
 
+import os
 from pathlib import Path
+
+from titulacion.db_config import build_django_database
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-v-!#9q7$-wuprtdv))c9rg(-fh2%kv(h%j2l)(3ezq#=293a!'
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-v-!#9q7$-wuprtdv))c9rg(-fh2%kv(h%j2l)(3ezq#=293a!',
+)
 
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('1', 'true', 'yes')
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
 
-# ─── APLICACIONES ───────────────────────────────────────────────────────────
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -22,12 +26,13 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.postgres',
-    # Apps del sistema
     'administracion',
     'expediente',
     'alumnos',
-    'escolares',
-    'academico',
+    'oficina_titulacion',
+    'finanzas',
+    'centro_computo',
+    'centro_informacion',
 ]
 
 MIDDLEWARE = [
@@ -41,11 +46,12 @@ MIDDLEWARE = [
     'administracion.middleware.ForcePasswordChangeMiddleware',
     'administracion.middleware.ForceEmailVerificationMiddleware',
     'administracion.middleware.ForceEmailConfigMiddleware',
+    'administracion.middleware.ForceInitialSetupMiddleware',
+    'administracion.middleware.ForceUserActivityMiddleware',
 ]
 
 ROOT_URLCONF = 'titulacion.urls'
 
-# ─── TEMPLATES ───────────────────────────────────────────────────────────────
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -66,19 +72,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'titulacion.wsgi.application'
 
-# ─── BASE DE DATOS ────────────────────────────────────────────────────────────
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'titulacion_2026',
-        'USER': 'belyview',
-        'PASSWORD': '241203',
-        'HOST': 'localhost',
-        'PORT': '5432',
-    }
-}
+DATABASES = build_django_database()
 
-# ─── AUTENTICACIÓN ───────────────────────────────────────────────────────────
 AUTH_USER_MODEL = 'administracion.Usuario'
 
 LOGIN_URL = '/auth/login/'
@@ -86,24 +81,17 @@ LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/auth/login/'
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'titulacion.validators.ComplexPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'titulacion.validators.ComplexPasswordValidator'},
 ]
 
-# Token de recuperación de contraseña expira en 5 minutos (300 segundos)
 PASSWORD_RESET_TIMEOUT = 300
 
-# ─── INTERNACIONALIZACIÓN ────────────────────────────────────────────────────
 LANGUAGE_CODE = 'es-mx'
 TIME_ZONE = 'America/Mexico_City'
 USE_I18N = True
 USE_TZ = True
 
-# ─── ARCHIVOS ESTÁTICOS Y MEDIA ──────────────────────────────────────────────
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
@@ -112,17 +100,20 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# ─── CORREO ELECTRÓNICO ──────────────────────────────────────────────────────
 EMAIL_BACKEND = 'administracion.backends.DynamicEmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'belyersua24@gmail.com'
-EMAIL_HOST_PASSWORD = 'fsvz jdpr rkhm xrnb'
-DEFAULT_FROM_EMAIL = 'Sistema de Titulación ITA <belyersua24@gmail.com>'
-EMAIL_SUBJECT_PREFIX = '[ITA Titulación] '
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('1', 'true', 'yes')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'SIGET <noreply@localhost>')
+EMAIL_SUBJECT_PREFIX = '[SIGET] '
 
-# ─── TAMAÑO MÁXIMO ARCHIVOS ───────────────────────────────────────────────────
-# 10 MB por archivo (los PDFs del ITA deben ser < 2MB por documento)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
+
+# Pago de titulación — preficha de depósito
+PAGO_TITULACION_MONTO_DEFAULT = '2700.00'
+PAGO_TITULACION_BANCO = 'BANAMEX'
+PAGO_TITULACION_SUCURSAL = '0648'
+PAGO_TITULACION_CUENTA = '6530500'

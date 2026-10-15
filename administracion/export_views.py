@@ -44,13 +44,13 @@ def get_estadisticas_data(user):
     titulados_sin_dato = total_concluidos - titulados_hombres - titulados_mujeres
 
     por_generacion = list(
-        qs.filter(alumno__generacion__isnull=False)
-        .values('alumno__generacion')
+        qs.filter(alumno__periodo_inicio_anio__isnull=False)
+        .values('alumno__periodo_inicio_anio')
         .annotate(
             total=Count('id'),
             concluidos=Count('id', filter=Q(estado=EstadoExpediente.CONCLUIDO))
         )
-        .order_by('-alumno__generacion')
+        .order_by('-alumno__periodo_inicio_anio')
     )
 
     por_modalidad = list(
@@ -173,7 +173,7 @@ class ExportarEstadisticasExcelView(JefeProyectoRequeridoMixin, View):
         for cell in ws[ws.max_row]:
             cell.font = header_font; cell.fill = header_fill
         for gen in stats['por_generacion']:
-            ws.append([gen['alumno__generacion'], gen['total'], gen['concluidos']])
+            ws.append([gen['alumno__periodo_inicio_anio'], gen['total'], gen['concluidos']])
 
         # Hoja 2: Modalidades y Carreras
         ws2 = wb.create_sheet(title="Modalidades y Carreras")
@@ -344,7 +344,7 @@ class ExportarEstadisticasPPTXView(JefeProyectoRequeridoMixin, View):
             chart_data_gen = CategoryChartData()
             top_gen = stats['por_generacion'][:10] # Mostrar las últimas 10 generaciones
             top_gen.reverse() # Cronológico de izquierda a derecha
-            chart_data_gen.categories = [str(item['alumno__generacion']) for item in top_gen]
+            chart_data_gen.categories = [str(item['alumno__periodo_inicio_anio']) for item in top_gen]
             chart_data_gen.add_series('Iniciados', (item['total'] for item in top_gen))
             chart_data_gen.add_series('Concluidos', (item['concluidos'] for item in top_gen))
             

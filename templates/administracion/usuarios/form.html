@@ -40,9 +40,28 @@
                     <div class="col-md-6">{% include '_field.html' with field=form.correo_institucional %}</div>
                 </div>
                 <div class="row g-3 mb-3">
-                    <div class="col-md-4">{% include '_field.html' with field=form.telefono %}</div>
-                    <div class="col-md-4">{% include '_field.html' with field=form.genero %}</div>
-                    <div class="col-md-4">{% include '_field.html' with field=form.generacion %}</div>
+                    <div class="col-md-6">{% include '_field.html' with field=form.telefono %}</div>
+                    <div class="col-md-6">{% include '_field.html' with field=form.genero %}</div>
+                </div>
+
+                <div id="campos-periodos-alumno" class="mb-3" style="display:none;">
+                    <hr class="my-3 opacity-25">
+                    <p class="text-muted fw-semibold small mb-2 text-uppercase" style="letter-spacing:.08em">
+                        <i class="bi bi-calendar3 me-1"></i> Periodos académicos
+                    </p>
+                    <div class="row g-3 mb-2">
+                        <div class="col-md-6">{% include '_field.html' with field=form.periodo_inicio_ciclo %}</div>
+                        <div class="col-md-6">{% include '_field.html' with field=form.periodo_inicio_anio %}</div>
+                    </div>
+                    <div class="row g-3 mb-2">
+                        <div class="col-md-6">{% include '_field.html' with field=form.periodo_egreso_ciclo %}</div>
+                        <div class="col-md-6">{% include '_field.html' with field=form.periodo_egreso_anio %}</div>
+                    </div>
+                    <div id="preview-semestres" class="alert alert-secondary py-2 small mb-0">
+                        Semestres cursados calculados:
+                        <strong id="semestres-cursados-valor">{% if object and object.semestres_cursados %}{{ object.semestres_cursados }}{% else %}—{% endif %}</strong>
+                        <span id="badge-docs-extensos" class="badge bg-warning-subtle text-warning-emphasis ms-1"{% if not object or not object.requiere_documentos_extensos %} style="display:none"{% endif %}>&gt;12 — docs extensos</span>
+                    </div>
                 </div>
 
                 <hr class="my-3 opacity-25">
@@ -461,7 +480,7 @@
         {% endif %} {# fin ALUMNO #}
 
         {# ─── PERSONAL: Actividad del Usuario (solo lectura) ─────────── #}
-        {% if usuario_rol == 'ESCOLARES' or usuario_rol == 'ACADEMICO' or usuario_rol == 'JEFE_PROYECTO' %}
+        {% if object.es_oficina_titulacion or object.es_jefe_academia %}
 
         {% if validaciones_realizadas %}
         <div class="content-card p-4 mt-4">
@@ -642,8 +661,13 @@
     const rolSelect = document.getElementById('id_rol');
     const campoCarrera = document.getElementById('campo-carrera');
     const campoDepartamento = document.getElementById('campo-departamento');
+    const camposPeriodos = document.getElementById('campos-periodos-alumno');
     const inputCarrera = document.getElementById('id_carrera');
     const inputDepartamento = document.getElementById('id_departamento');
+    const inputsPeriodo = [
+        'id_periodo_inicio_ciclo', 'id_periodo_inicio_anio',
+        'id_periodo_egreso_ciclo', 'id_periodo_egreso_anio',
+    ].map(id => document.getElementById(id));
 
     const labelCarrera = campoCarrera ? campoCarrera.querySelector('label') : null;
     const labelDepartamento = campoDepartamento ? campoDepartamento.querySelector('label') : null;
@@ -671,22 +695,71 @@
         const rol = rolSelect ? rolSelect.value : '';
         campoCarrera.style.display = 'none';
         campoDepartamento.style.display = 'none';
+        if (camposPeriodos) camposPeriodos.style.display = 'none';
         setRequired(inputCarrera, labelCarrera, false);
         setRequired(inputDepartamento, labelDepartamento, false);
+        inputsPeriodo.forEach(inp => { if (inp) inp.required = false; });
 
         if (rol === 'ALUMNO') {
             campoCarrera.style.display = '';
+            if (camposPeriodos) camposPeriodos.style.display = '';
             setRequired(inputCarrera, labelCarrera, true);
-        } else if (rol === 'JEFE_PROYECTO') {
+            inputsPeriodo.forEach(inp => { if (inp) inp.required = true; });
+        } else if (rol === 'JEFE_ACADEMIA' || rol === 'JEFE_PROYECTO') {
             campoDepartamento.style.display = '';
             setRequired(inputDepartamento, labelDepartamento, true);
         }
     }
 
+    function ordenPeriodo(ciclo, anio) {
+        if (!ciclo || !anio) return null;
+        const mitad = ciclo === 'ENE_JUN' ? 0 : 1;
+        return parseInt(anio, 10) * 2 + mitad;
+    }
+
+    function calcularSemestres(cicloIni, anioIni, cicloEgr, anioEgr) {
+        const ini = ordenPeriodo(cicloIni, anioIni);
+        const fin = ordenPeriodo(cicloEgr, anioEgr);
+        if (ini === null || fin === null || Number.isNaN(ini) || Number.isNaN(fin) || fin < ini) {
+            return null;
+        }
+        return fin - ini + 1;
+    }
+
+    function actualizarSemestresPreview() {
+        const valorEl = document.getElementById('semestres-cursados-valor');
+        const badgeEl = document.getElementById('badge-docs-extensos');
+        if (!valorEl) return;
+
+        const getVal = (id) => {
+            const el = document.getElementById(id);
+            return el ? el.value.trim() : '';
+        };
+
+        const sem = calcularSemestres(
+            getVal('id_periodo_inicio_ciclo'),
+            getVal('id_periodo_inicio_anio'),
+            getVal('id_periodo_egreso_ciclo'),
+            getVal('id_periodo_egreso_anio')
+        );
+
+        valorEl.textContent = sem === null ? '—' : String(sem);
+        if (badgeEl) {
+            badgeEl.style.display = (sem !== null && sem > 12) ? '' : 'none';
+        }
+    }
+
+    inputsPeriodo.forEach(inp => {
+        if (!inp) return;
+        inp.addEventListener('change', actualizarSemestresPreview);
+        inp.addEventListener('input', actualizarSemestresPreview);
+    });
+
     if (rolSelect) {
         rolSelect.addEventListener('change', actualizarCampos);
         actualizarCampos();
     }
+    actualizarSemestresPreview();
 })();
 </script>
 {% endblock %}

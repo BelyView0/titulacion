@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Usuario, Carrera, Departamento, ConfiguracionInstitucional
+from .models import Usuario, Carrera, Departamento, ConfiguracionInstitucional, ContactoArea
 
 
 @admin.register(Carrera)
@@ -40,3 +40,10 @@ class ConfiguracionInstitucionalAdmin(admin.ModelAdmin):
         if ConfiguracionInstitucional.objects.exists():
             return False
         return super().has_add_permission(request)
+
+
+@admin.register(ContactoArea)
+class ContactoAreaAdmin(admin.ModelAdmin):
+    list_display = ('get_area_display', 'nombre_responsable', 'correo_departamento', 'extension', 'activo')
+    list_editable = ('nombre_responsable', 'correo_departamento', 'extension', 'activo')
+    list_filter = ('activo',)

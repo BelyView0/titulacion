@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page {
+    size: letter;
+    margin: 1.2cm 1.8cm 3.8cm 1.8cm;
+    @frame footer_frame {
+      -pdf-frame-content: footer_content;
+      bottom: 0.3cm;
+      left: 1.5cm;
+      width: 18.59cm;
+      height: 3.4cm;
+    }
+  }
+  body {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 11pt;
+    color: #000;
+    line-height: 1.4;
+  }
+  .titulo {
+    text-align: center;
+    font-size: 13pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin: 10px 0 16px;
+  }
+  .destinatario {
+    font-weight: bold;
+    text-transform: uppercase;
+    text-align: left;
+    margin: 0 0 10px;
+  }
+  .intro {
+    margin: 0 0 6px;
+    text-align: left;
+  }
+  .hacen-constar {
+    text-align: center;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin: 8px 0 12px;
+  }
+  .cuerpo {
+    text-align: justify;
+    margin: 0 0 12px;
+  }
+  .cuerpo p { margin: 0; }
+  .fecha-extiende {
+    text-align: left;
+    margin: 12px 0 20px;
+  }
+  .atentamente {
+    text-align: center;
+    font-weight: bold;
+    letter-spacing: 2px;
+    margin: 0 0 4px;
+  }
+  .lema {
+    text-align: center;
+    font-style: italic;
+    font-size: 9.5pt;
+    margin: 0 0 14px;
+  }
+  table.firmas {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 6px 0 0;
+  }
+  table.firmas th,
+  table.firmas td {
+    width: 33.33%;
+    border: 1px solid #000;
+    vertical-align: middle;
+    text-align: center;
+    padding: 4px 3px;
+    font-size: 8pt;
+  }
+  table.firmas th {
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 7.5pt;
+  }
+  .nombre-celda {
+    text-align: center;
+    font-size: 7.5pt;
+    padding-top: 5px;
+    padding-bottom: 5px;
+  }
+  .nota {
+    margin-top: 14px;
+    font-size: 8.5pt;
+    text-align: left;
+  }
+</style>
+</head>
+<body>
+
+<div id="footer_content">
+  {% if pie_path %}
+  <table cellpadding="0" cellspacing="0" border="0" width="100%">
+    <tr>
+      <td align="center">
+        <img src="{{ pie_path }}" width="{{ pie_ancho }}" height="{{ pie_alto }}" alt="Pie de página">
+      </td>
+    </tr>
+  </table>
+  {% endif %}
+</div>
+
+{% if encabezado_path %}
+<div style="text-align:center;margin-bottom:6px;">
+  <img src="{{ encabezado_path }}" style="max-width:100%;" alt="Encabezado">
+</div>
+{% elif config and config.imagen_encabezado %}
+<div style="text-align:center;margin-bottom:6px;">
+  <img src="{{ config.imagen_encabezado.path }}" style="max-width:100%;" alt="Encabezado">
+</div>
+{% endif %}
+
+<div class="titulo">CONSTANCIA DE NO ADEUDOS</div>
+
+<div class="destinatario">A QUIEN CORRESPONDA</div>
+
+<p class="intro">Los que suscriben, Jefes de Departamento del Instituto Tecnológico de Apizaco</p>
+<div class="hacen-constar">HACEN CONSTAR</div>
+
+<div class="cuerpo">
+  <p>
+    que el (la) C. <strong>{{ alumno.get_full_name|upper }}</strong>
+    alumno (a) de este Instituto, con número de control
+    <strong>{{ alumno.numero_control|default:alumno.username }}</strong>
+    de la carrera de <strong>{{ alumno.carrera.nombre|upper|default:"—" }}</strong>,
+    <strong>NO</strong> tiene adeudos pendientes.
+  </p>
+</div>
+
+<div class="fecha-extiende">
+  A petición del (la) interesado (a) se extiende la presente, en la Ciudad de Apizaco,
+  Tlaxcala a los {{ dia_texto }} días del mes de {{ mes_texto }} del {{ anio }}.
+</div>
+
+<div class="atentamente">A T E N T A M E N T E</div>
+<div class="lema">
+  <em><strong>Excelencia en Educación Tecnológica®</strong></em><br/>
+  <em><strong>Pensar para Servir, Servir para Triunfar®</strong></em>
+</div>
+
+<table class="firmas" cellpadding="0" cellspacing="0">
+  <tr>
+    {% for firma in firmas %}
+    <th>{{ firma.area }}</th>
+    {% endfor %}
+  </tr>
+  <tr>
+    {% for firma in firmas %}
+    <td align="center" valign="middle" height="145">
+      &nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;
+    </td>
+    {% endfor %}
+  </tr>
+  <tr>
+    {% for firma in firmas %}
+    <td class="nombre-celda">Nombre: {{ firma.responsable }}</td>
+    {% endfor %}
+  </tr>
+  <tr>
+    {% for firma in firmas %}
+    <td align="center" valign="bottom" height="72">
+      &nbsp;<br/>&nbsp;<br/>&nbsp;<br/>
+      <strong>Firma</strong>
+    </td>
+    {% endfor %}
+  </tr>
+</table>
+
+<div class="nota">
+  <strong>Nota:</strong> La presente constancia deberá utilizarse exclusivamente para los
+  <strong>trámites de titulación</strong> que el interesado promueva.
+</div>
+
+</body>
+</html>
