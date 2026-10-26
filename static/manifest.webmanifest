@@ -1,0 +1,26 @@
+
+{
+  "id": "/",
+  "name": "Sistema Institucional de Titulación",
+  "short_name": "Titulación ITA",
+  "description": "Sistema de Gestión de Titulación del Instituto Tecnológico de Apizaco.",
+  "lang": "es-MX",
+  "start_url": "/auth/login/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F4F6F9",
+  "theme_color": "#1B396A",
+  "orientation": "portrait",
+"icons": [
+  {
+    "src": "/static/img/icon-192.png",
+    "sizes": "192x192",
+    "type": "image/png"
+  },
+  {
+    "src": "/static/img/icon-512.png",
+    "sizes": "512x512",
+    "type": "image/png"
+  }
+]
+}

@@ -1,0 +1,81 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#1B396A">
+    <title>Sin conexión | Titulación ITA</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background: #F4F6F9;
+            color: #1a1a2e;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+
+        main {
+            width: 100%;
+            max-width: 440px;
+            padding: 32px 24px;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, .08);
+        }
+
+        img {
+            width: 100px;
+            height: 100px;
+            object-fit: contain;
+            margin-bottom: 16px;
+        }
+
+        h1 {
+            color: #1B396A;
+            font-size: 1.6rem;
+        }
+
+        p {
+            line-height: 1.6;
+            color: #555;
+        }
+
+        button {
+            margin-top: 12px;
+            padding: 12px 20px;
+            border: 0;
+            border-radius: 8px;
+            background: #1B396A;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <img src="/static/img/logo-ita.png" alt="Logotipo del ITA">
+        <h1>Sin conexión a internet</h1>
+        <p>
+            No podemos conectar con el Sistema Institucional de Titulación.
+            Comprueba tu conexión e inténtalo nuevamente.
+        </p>
+        <p>
+            Por seguridad, tus expedientes y documentos no están disponibles
+            sin conexión.
+        </p>
+        <button type="button" onclick="window.location.reload()">
+            Intentar de nuevo
+        </button>
+    </main>
+</body>
+</html>

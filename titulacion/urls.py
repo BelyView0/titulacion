@@ -6,6 +6,7 @@ from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 from django.shortcuts import redirect
 from django.contrib.auth.decorators import login_required
+from .pwa import service_worker
 
 
 def dashboard_redirect(request):
@@ -16,6 +17,8 @@ def dashboard_redirect(request):
 
 
 urlpatterns = [
+    # Service worker de la PWA
+    path('sw.js', service_worker, name='service_worker'),
     # Admin Django
     path('admin/', admin.site.urls),
 

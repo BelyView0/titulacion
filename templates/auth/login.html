@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <!-- Configuración PWA para el inicio de sesión -->
+    <link rel="manifest" href="/static/manifest.webmanifest">
+    <meta name="theme-color" content="#1B396A">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Titulación ITA">
+    <link rel="apple-touch-icon" href="/static/img/logo-ita.png">
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Iniciar Sesión — SIGET</title>
@@ -226,5 +234,26 @@ function togglePass() {
     }
 }
 </script>
+
+    <!-- Registro del Service Worker de la PWA -->
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", function () {
+                navigator.serviceWorker.register("/sw.js", { scope: "/" })
+                    .then(function (registration) {
+                        console.log(
+                            "PWA: Service Worker registrado correctamente.",
+                            registration.scope
+                        );
+                    })
+                    .catch(function (error) {
+                        console.error(
+                            "PWA: Error al registrar el Service Worker:",
+                            error
+                        );
+                    });
+            });
+        }
+    </script>
 </body>
 </html>

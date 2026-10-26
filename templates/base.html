@@ -296,6 +296,7 @@
             margin-top: .2rem;
             display: -webkit-box;
             -webkit-line-clamp: 2;
+            line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
@@ -627,6 +628,14 @@
     </style>
 
     {% block extra_head %}{% endblock %}
+    
+<!-- Configuración de la PWA -->
+<link rel="manifest" href="{% static 'manifest.webmanifest' %}">
+<meta name="theme-color" content="#1B396A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Titulación ITA">
+<link rel="apple-touch-icon" href="{% static 'img/logo-ita.png' %}">
 </head>
 <body>
 
@@ -1331,6 +1340,27 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 </script>
 {% endif %}
+
+<!-- Registro del Service Worker de la PWA -->
+<script>
+    if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+            navigator.serviceWorker.register("/sw.js", { scope: "/" })
+                .then(function (registration) {
+                    console.log(
+                        "PWA: Service Worker registrado correctamente.",
+                        registration.scope
+                    );
+                })
+                .catch(function (error) {
+                    console.error(
+                        "PWA: No se pudo registrar el Service Worker:",
+                        error
+                    );
+                });
+        });
+    }
+</script>
 
 {% block extra_scripts %}{% endblock %}
 </body>
