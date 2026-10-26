@@ -1341,27 +1341,10 @@ document.addEventListener("DOMContentLoaded", function() {
 </script>
 {% endif %}
 
-<!-- Registro del Service Worker de la PWA -->
-<script>
-    if ("serviceWorker" in navigator) {
-        window.addEventListener("load", function () {
-            navigator.serviceWorker.register("/sw.js", { scope: "/" })
-                .then(function (registration) {
-                    console.log(
-                        "PWA: Service Worker registrado correctamente.",
-                        registration.scope
-                    );
-                })
-                .catch(function (error) {
-                    console.error(
-                        "PWA: No se pudo registrar el Service Worker:",
-                        error
-                    );
-                });
-        });
-    }
-</script>
+<!-- Gestión de instalación y actualizaciones de la PWA -->
+<script src="{% static 'js/pwa.js' %}" defer></script>
 
 {% block extra_scripts %}{% endblock %}
+
 </body>
 </html>

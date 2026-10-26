@@ -1,5 +1,4 @@
-
-const CACHE_NAME = "titulacion-ita-pwa-v1";
+const CACHE_NAME = "titulacion-ita-pwa-v2";
 
 const OFFLINE_URL = "/static/offline.html";
 
@@ -7,7 +6,6 @@ self.addEventListener("install", (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => cache.add(OFFLINE_URL))
-            .then(() => self.skipWaiting())
     );
 });
 
@@ -48,5 +46,11 @@ self.addEventListener("fetch", (event) => {
                 return await cache.match(OFFLINE_URL);
             })
         );
+    }
+});
+
+self.addEventListener("message", (event) => {
+    if (event.data && event.data.type === "SKIP_WAITING") {
+        self.skipWaiting();
     }
 });
