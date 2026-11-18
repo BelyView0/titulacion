@@ -130,8 +130,20 @@ class DescargarPlantillaView(AdminOOficinaRequeridoMixin, View):
             for m in Modalidad.objects.select_related('plan_estudios').all().order_by('plan_estudios__nombre', 'clave'):
                 rows_data.append([m.plan_estudios.nombre, m.clave, m.nombre, m.descripcion, 'Si' if m.activa else 'No'])
         elif key == 'tipos_documento':
-            for t in TipoDocumento.objects.all().order_by('orden'):
-                rows_data.append([t.nombre, t.descripcion, 'Si' if t.es_obligatorio else 'No', 'Si' if t.es_multiple else 'No', t.orden])
+            for t in TipoDocumento.objects.select_related(
+                'modalidad__plan_estudios'
+            ).all().order_by('modalidad__clave', 'orden'):
+                rows_data.append([
+                    t.modalidad.plan_estudios.nombre,
+                    t.modalidad.clave,
+                    t.nombre,
+                    t.descripcion_ayuda,
+                    'Si' if t.es_obligatorio else 'No',
+                    ','.join(t.formatos_admitidos or []),
+                    str(t.tamano_max_mb),
+                    t.orden,
+                    'Si' if t.solo_mas_de_12_semestres else 'No',
+                ])
         elif key == 'profesores':
             for p in Profesor.objects.select_related('departamento').all().order_by('cedula'):
                 rows_data.append([p.cedula, p.first_name, p.last_name, p.apellido_materno, p.titulo_academico, p.email, p.departamento.clave if p.departamento else '', 'Si' if p.activo else 'No'])
@@ -226,12 +238,42 @@ class DescargarPlantillaView(AdminOOficinaRequeridoMixin, View):
             },
             'tipos_documento': {
                 'title': 'Tipos de Documento',
-                'headers': ['Nombre', 'Descripción', 'Obligatorio (Si/No)', 'Múltiple (Si/No)', 'Orden'],
-                'widths': [35, 50, 20, 20, 10],
-                'help_rows': [
-                    ['Acta de Nacimiento', 'Documento en formato PDF legible', 'Si', 'No', 1],
-                    ['Fotografías Tamaño Título', 'Entregar físicamente y subir escaneo', 'Si', 'Si', 2]
-                ]
+                'headers': [
+                   'Plan de Estudios Nombre',
+                   'Clave de Modalidad',
+                   'Nombre',
+                   'Descripción / Instrucciones',
+                   'Obligatorio (Si/No)',
+                   'Formatos Admitidos',
+                   'Tamaño Máximo (MB)',
+                   'Orden',
+                   'Exclusivo para más de 12 semestres (Si/No)',
+              ],
+              'widths': [28, 22, 35, 45, 20, 22, 20, 10, 35],
+              'help_rows': [
+                  [
+                      'ISIC-2010-224',
+                      'RESIDENCIA',
+                      'Acta de Nacimiento',
+                      'Documento PDF legible',
+                      'Si',
+                      'pdf',
+                      2.5,
+                      1,
+                      'No',
+                  ],
+                  [
+                      'ISIC-2010-224',
+                      'RESIDENCIA',
+                      'Fotografías Tamaño Título',
+                      'Entregar físicamente y subir escaneo',
+                      'Si',
+                      'jpg,png',
+                      2.5,
+                      2,
+                      'No',
+                  ],
+               ]
             },
             'profesores': {
                 'title': 'Profesores',

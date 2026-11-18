@@ -5,10 +5,15 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
 
-from administracion.models import Departamento, Carrera, Profesor, Rol, Genero
+from administracion.models import (
+    Departamento,
+    Carrera,
+    Profesor,
+    Rol,
+    Genero,
+    ConfiguracionInstitucional,)
 from expediente.models import PlanEstudios, Modalidad
 from alumnos.models import PerfilAlumno
-
 Usuario = get_user_model()
 
 
@@ -20,13 +25,23 @@ class ExcelImportExportTestCase(TestCase):
     """
 
     def setUp(self):
-        # Crear superusuario administrador para autenticación
-        self.admin = Usuario.objects.create_superuser(
-            username='admin_test',
-            email='admin@apizaco.tecnm.mx',
-            password='AdminPassword123!',
-            rol=Rol.ADMINISTRADOR
+        # Configuración institucional ficticia para las pruebas.
+        # No utiliza credenciales reales ni envía correos.
+        ConfiguracionInstitucional.objects.create(
+            email_remitente='pruebas@example.com',
+            email_password='clave-ficticia',
+            sistema_configurado=True,
         )
+
+        self.admin = Usuario.objects.create_superuser(
+        username='admin_test',
+        email='admin@apizaco.tecnm.mx',
+        password='AdminPassword123!',
+        rol=Rol.ADMINISTRADOR,
+        correo_institucional='admin_test@apizaco.tecnm.mx',
+        correo_institucional_verificado=True,
+        )
+
         self.client.force_login(self.admin)
 
     def create_in_memory_excel(self, sheets_data):
@@ -121,17 +136,77 @@ class ExcelImportExportTestCase(TestCase):
                 [
                     ['20141720', 'DANIELA', 'SUAREZ', 'LOPEZ', 'daniela@test.com', 'ISC', 'ISIC-2010-224', 'Ago-Dic 2024', '95.50', '2411122334', 'F', 2020]
                 ]
-            )
+            ),
+            (
+    'Jefes de Departamento',
+    [
+        'Clave Departamento',
+        'Título Académico',
+        'Nombre(s)',
+        'Apellido Paterno',
+        'Apellido Materno',
+        'Género (M/F)'
+    ],
+    [
+        ['CB', 'M.C.', 'MARIA', 'LOPEZ', 'GARCIA', 'F'],
+        ['CH', 'Dr.', 'CARLOS', 'PEREZ', 'GOMEZ', 'M']
+    ]
+),
+           (
+    'Tipos de Documento',
+    [
+        'Nombre',
+        'Descripción',
+        'Obligatorio (Si/No)',
+        'Múltiple (Si/No)',
+        'Orden'
+    ],
+    [
+        ['Acta de Nacimiento', 'Documento PDF legible', 'Si', 'No', 1],
+        ['Fotografías Tamaño Título', 'Entregar físicamente y subir escaneo', 'Si', 'Si', 2]
+    ]
+),
         ]
 
         excel_file = self.create_in_memory_excel(data_excel)
 
-        # 2. Realizar POST de subida (Modo Completo / Todo)
+        # 2. Primera fase: subir el archivo y obtener la vista previa.
         response = self.client.post(
-            reverse('administracion:subir_archivo_masivo'),
-            {'tipo': 'todo', 'archivo_excel': excel_file}
+        reverse('administracion:subir_archivo_masivo'),
+        {'tipo': 'todo', 'archivo_excel': excel_file}
         )
-        self.assertRedirects(response, reverse('administracion:importar_exportar') + '?tab=todo')
+
+        self.assertEqual(response.status_code, 200)
+
+        print("\nERRORES DE IMPORTACIÓN:")
+        print(response.context.get('errors'))
+
+        self.assertTemplateUsed(response, 'administracion/importar_preview.html' )
+
+
+
+        """
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'administracion/importar_preview.html')
+        """
+        # Obtener la ruta temporal generada por la vista.
+        temp_file_path = response.context['temp_file_path']
+        self.assertTrue(temp_file_path)
+
+        # 3. Segunda fase: confirmar la importación.
+        response = self.client.post(
+    reverse('administracion:subir_archivo_masivo'),
+    {
+        'tipo': 'todo',
+        'confirmado': 'true',
+        'temp_file_path': temp_file_path,
+    }
+)
+
+        self.assertRedirects(
+    response,
+    reverse('administracion:importar_exportar') + '?tab=todo'
+)
 
         # 3. Validar creaciones exitosas en BD
         self.assertEqual(Departamento.objects.count(), 2)
