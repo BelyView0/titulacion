@@ -9,14 +9,38 @@ from titulacion.db_config import build_django_database
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get(
-    'DJANGO_SECRET_KEY',
-    'django-insecure-v-!#9q7$-wuprtdv))c9rg(-fh2%kv(h%j2l)(3ezq#=293a!',
+# Cargar variables de entorno desde .env si existe.
+env_file = BASE_DIR / '.env'
+
+if env_file.is_file():
+    with env_file.open(encoding='utf-8') as file:
+        for line in file:
+            line = line.strip()
+
+            if not line or line.startswith('#') or '=' not in line:
+                continue
+
+            key, value = line.split('=', 1)
+            key = key.strip()
+            value = value.strip()
+
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '')
+
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in (
+    '1', 'true', 'yes'
 )
 
-DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('1', 'true', 'yes')
-
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get(
+        'DJANGO_ALLOWED_HOSTS',
+        'localhost,127.0.0.1'
+    ).split(',')
+    if host.strip()
+]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
