@@ -33,6 +33,8 @@ INSTALLED_APPS = [
     'finanzas',
     'centro_computo',
     'centro_informacion',
+    
+    'rest_framework',
 ]
 
 MIDDLEWARE = [
