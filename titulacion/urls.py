@@ -76,8 +76,10 @@ urlpatterns = [
 
     # Home → login si no autenticado
     path('', lambda req: redirect('login'), name='home'),
-]
 
+    #api rest
+    path('api/v1/', include('api.urls')),
+]
 # Servir archivos media en modo desarrollo
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

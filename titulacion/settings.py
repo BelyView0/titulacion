@@ -4,6 +4,7 @@ Django settings for Sistema de Gestión de Titulación - ITA (SIGET)
 
 import os
 from pathlib import Path
+from datetime import timedelta
 
 from titulacion.db_config import build_django_database
 
@@ -33,8 +34,8 @@ INSTALLED_APPS = [
     'finanzas',
     'centro_computo',
     'centro_informacion',
-    
     'rest_framework',
+    'rest_framework_simplejwt',
 ]
 
 MIDDLEWARE = [
@@ -88,6 +89,26 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 PASSWORD_RESET_TIMEOUT = 300
+
+#Api-rest 
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+
+    'AUTH_HEADER_TYPES': ('Bearer',),
+
+    'UPDATE_LAST_LOGIN': True,
+}
 
 LANGUAGE_CODE = 'es-mx'
 TIME_ZONE = 'America/Mexico_City'
