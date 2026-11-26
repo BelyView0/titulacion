@@ -252,3 +252,85 @@ class DocumentoAlumnoSerializer(serializers.ModelSerializer):
             'observaciones': validacion.observaciones,
             'fecha': validacion.fecha,
         }
+        
+
+class ExpedienteActualizarSerializer(serializers.Serializer):
+    """Valida los datos que el alumno puede modificar de su expediente."""
+
+    plan_estudios = serializers.PrimaryKeyRelatedField(
+        queryset=__import__(
+            'expediente.models',
+            fromlist=['PlanEstudios']
+        ).PlanEstudios.objects.filter(activo=True),
+        required=False,
+        error_messages={
+            'does_not_exist': 'Selecciona un plan de estudios válido.',
+            'incorrect_type': 'Selecciona un plan de estudios válido.',
+        },
+    )
+
+    modalidad = serializers.PrimaryKeyRelatedField(
+        queryset=__import__(
+            'expediente.models',
+            fromlist=['Modalidad']
+        ).Modalidad.objects.filter(activa=True),
+        required=False,
+        error_messages={
+            'does_not_exist': 'Selecciona una modalidad válida.',
+            'incorrect_type': 'Selecciona una modalidad válida.',
+        },
+    )
+
+    asesor = serializers.PrimaryKeyRelatedField(
+        queryset=__import__(
+            'administracion.models',
+            fromlist=['Profesor']
+        ).Profesor.objects.filter(activo=True),
+        required=False,
+        error_messages={
+            'does_not_exist': 'Selecciona un asesor válido.',
+            'incorrect_type': 'Selecciona un asesor válido.',
+        },
+    )
+
+    titulo_trabajo = serializers.CharField(
+        max_length=500,
+        required=False,
+        allow_blank=False,
+        error_messages={
+            'max_length': 'Máximo 500 caracteres.',
+            'blank': 'Este campo es obligatorio.',
+        },
+    )
+
+    nombre_empresa = serializers.CharField(
+        max_length=300,
+        required=False,
+        allow_blank=False,
+        error_messages={
+            'max_length': 'Máximo 300 caracteres.',
+            'blank': 'Este campo es obligatorio.',
+        },
+    )
+
+    def validate(self, attrs):
+        expediente = self.context['expediente']
+
+        plan = attrs.get(
+            'plan_estudios',
+            expediente.plan_estudios
+        )
+
+        modalidad = attrs.get(
+            'modalidad',
+            expediente.modalidad
+        )
+
+        if modalidad.plan_estudios_id != plan.id:
+            raise serializers.ValidationError({
+                'modalidad': (
+                    'La modalidad no corresponde al plan seleccionado.'
+                )
+            })
+
+        return attrs

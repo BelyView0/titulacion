@@ -26,6 +26,8 @@ from expediente.models import (
     Modalidad,
     PlanEstudios,
     RecepcionEmpastado,
+    HistorialExpediente,
+    HistorialDocumento,
 )
 from expediente.notifications import registrar_cambio_estado
 
@@ -132,12 +134,6 @@ class CatalogoExpedienteAPIView(APIView):
     permission_classes = [IsAlumno, IsCorreoVerificado]
 
     def get(self, request):
-        if Expediente.objects.filter(alumno=request.user).exists():
-            return Response(
-                {'detail': 'Ya tienes un expediente registrado.'},
-                status=status.HTTP_409_CONFLICT,
-            )
-
         planes = PlanEstudios.objects.filter(activo=True).prefetch_related(
             Prefetch(
                 'modalidades',
@@ -176,7 +172,6 @@ class CatalogoExpedienteAPIView(APIView):
                 else None
             ),
         })
-
 
 # ─────────────────────────────────────────────────────────────
 # Creación del expediente
@@ -399,6 +394,7 @@ def _nombres_documentos_faltantes(expediente):
     ]
 
 
+
 class ExpedienteDetalleAPIView(APIView):
     """Equivale a ExpedienteDetalleView de la web (sección «Mi Expediente»)."""
 
@@ -434,6 +430,7 @@ class ExpedienteDetalleAPIView(APIView):
             )
 
         faltantes = _nombres_documentos_faltantes(expediente)
+
         tiene_obligatorios = expediente.documentos.filter(
             tipo_documento__es_obligatorio=True
         ).exists()
@@ -447,6 +444,101 @@ class ExpedienteDetalleAPIView(APIView):
             'documentos': documentos,
         })
 
+    def patch(self, request):
+        expediente = _expediente_del_alumno(request.user)
+
+        if expediente is None:
+            return _respuesta_sin_expediente()
+
+        # Estados en los que el alumno puede modificar sus datos.
+        estados_editables = [
+            EstadoExpediente.DATOS_EXPEDIENTE,
+            EstadoExpediente.CERTIFICADO_PENDIENTE_CITA,
+            EstadoExpediente.CERTIFICADO_CITA_PROGRAMADA,
+            EstadoExpediente.CARGA_DOCUMENTOS,
+            EstadoExpediente.EN_CORRECCION,
+        ]
+
+        if expediente.estado not in estados_editables:
+            return Response(
+                {
+                    'detail': (
+                        'No puedes modificar los datos de tu expediente '
+                        'en su estado actual.'
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Import local para evitar importaciones circulares.
+        from .serializers import ExpedienteActualizarSerializer
+
+        serializer = ExpedienteActualizarSerializer(
+            data=request.data,
+            context={'expediente': expediente},
+        )
+
+        serializer.is_valid(raise_exception=True)
+
+        datos = serializer.validated_data
+
+        nombres_campos = {
+            'plan_estudios': 'plan de estudios',
+            'modalidad': 'modalidad de titulación',
+            'asesor': 'asesor',
+            'titulo_trabajo': 'título del trabajo',
+            'nombre_empresa': 'nombre de la empresa',
+        }
+
+        campos_modificados = []
+
+        # Identificar y aplicar únicamente los campos que cambiaron.
+        for campo, valor in datos.items():
+            valor_actual = getattr(expediente, campo)
+
+            if valor_actual != valor:
+                setattr(expediente, campo, valor)
+                campos_modificados.append(nombres_campos[campo])
+
+        # Evitar registrar cambios cuando los datos son iguales.
+        if not campos_modificados:
+            return Response(
+                {
+                    'message': 'No se realizaron modificaciones.',
+                    'expediente': serializar_expediente(expediente),
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        # Guardar los cambios y registrar el movimiento en el historial.
+        with transaction.atomic():
+            estado_actual = expediente.estado
+
+            expediente.save()
+
+            HistorialExpediente.objects.create(
+                expediente=expediente,
+                estado_anterior=estado_actual,
+                estado_nuevo=estado_actual,
+                realizado_por=request.user,
+                descripcion=(
+                    'Actualizó los datos del expediente: '
+                    + ', '.join(campos_modificados)
+                    + '.'
+                ),
+            )
+
+        expediente.refresh_from_db()
+
+        return Response(
+            {
+                'message': (
+                    'Los datos del expediente se actualizaron correctamente.'
+                ),
+                'expediente': serializar_expediente(expediente),
+            },
+            status=status.HTTP_200_OK,
+        )
 
 class EnviarDocumentosAPIView(APIView):
     """El alumno envía su expediente a revisión de Oficina de Titulación."""
@@ -524,3 +616,69 @@ class EnviarDocumentosAPIView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+        
+class HistorialExpedienteAPIView(APIView):
+    permission_classes = [IsAlumno, IsCorreoVerificado]
+
+    def get(self, request):
+        expediente = _expediente_del_alumno(request.user)
+
+        if not expediente:
+            return _respuesta_sin_expediente()
+
+        cambios_expediente = HistorialExpediente.objects.filter(
+            expediente=expediente
+        ).select_related('realizado_por')
+
+        cambios_documentos = HistorialDocumento.objects.filter(
+            documento__expediente=expediente
+        ).select_related(
+            'realizado_por',
+            'documento__tipo_documento'
+        )
+
+        historial = []
+
+        for cambio in cambios_expediente:
+            historial.append({
+                'id': f'expediente-{cambio.pk}',
+                'tipo': 'EXPEDIENTE',
+                'fecha': cambio.fecha,
+                'titulo': 'Cambio en el expediente',
+                'descripcion': cambio.descripcion,
+                'estado_anterior': cambio.get_estado_anterior_display(),
+                'estado_nuevo': cambio.get_estado_nuevo_display(),
+                'documento': None,
+                'realizado_por': (
+                    cambio.realizado_por.get_full_name()
+                    if cambio.realizado_por
+                    else 'Sistema'
+                ),
+            })
+
+        for cambio in cambios_documentos:
+            historial.append({
+                'id': f'documento-{cambio.pk}',
+                'tipo': 'DOCUMENTO',
+                'fecha': cambio.fecha,
+                'titulo': cambio.accion,
+                'descripcion': cambio.observaciones,
+                'estado_anterior': None,
+                'estado_nuevo': None,
+                'documento': cambio.documento.tipo_documento.nombre,
+                'departamento': cambio.departamento,
+                'realizado_por': (
+                    cambio.realizado_por.get_full_name()
+                    if cambio.realizado_por
+                    else 'Sistema'
+                ),
+            })
+
+        historial.sort(
+            key=lambda elemento: elemento['fecha'],
+            reverse=True
+        )
+
+        return Response({
+            'historial': historial
+        }, status=status.HTTP_200_OK)

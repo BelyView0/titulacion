@@ -1,4 +1,4 @@
-
+ 
 from django.urls import path
 
 from .views import (
@@ -16,6 +16,7 @@ from .expediente_api import (
     ConfirmarAsistenciaAPIView,
     ExpedienteDetalleAPIView,
     EnviarDocumentosAPIView,
+    HistorialExpedienteAPIView,
 )
 
 app_name = 'alumnos'
@@ -91,5 +92,11 @@ urlpatterns = [
         'confirmar-asistencia/',
         ConfirmarAsistenciaAPIView.as_view(),
         name='confirmar-asistencia'
+    ),
+    
+    path(
+        'expediente/historial/',
+        HistorialExpedienteAPIView.as_view(),
+        name='historial-expediente'
     ),
 ]
