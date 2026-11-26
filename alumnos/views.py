@@ -449,6 +449,41 @@ class NotificacionListView(LoginRequiredMixin, ListView):
         ).order_by('-fecha')
 
 
+# Etapas lineales del proceso para el mapa visual (web y app móvil).
+ETAPAS_LINEALES_PROCESO = [
+    (EstadoExpediente.DATOS_EXPEDIENTE, 'Datos del expediente'),
+    (EstadoExpediente.CERTIFICADO_PENDIENTE_CITA, 'Cita certificado'),
+    (EstadoExpediente.CERTIFICADO_FIRMADO, 'Certificado firmado'),
+    (EstadoExpediente.CARGA_DOCUMENTOS, 'Carga de documentos'),
+    (EstadoExpediente.EN_REVISION, 'Revisión Oficina'),
+    (EstadoExpediente.EXPEDIENTE_APROBADO, 'Expediente aprobado'),
+    (EstadoExpediente.OFICIO_GENERADO, 'Oficio de publicación'),
+    (EstadoExpediente.OFICIO_FIRMADO, 'Oficio firmado'),
+    (EstadoExpediente.PAGO_VALIDADO, 'Pago validado'),
+    (EstadoExpediente.DOCUMENTOS_OFICIALES_LISTOS, 'Documentos oficiales'),
+    (EstadoExpediente.JURADO_ASIGNADO, 'Jurado asignado'),
+    (EstadoExpediente.PROTOCOLO_PROGRAMADO, 'Acto programado'),
+    (EstadoExpediente.ACTO_REALIZADO, 'Acto realizado'),
+    (EstadoExpediente.CONCLUIDO, 'Concluido'),
+]
+
+
+def etapas_y_completados(expediente):
+    """Devuelve (estados_proceso, estados_completados) del seguimiento.
+
+    Es la misma lógica que usa TimelineView; la comparte la API móvil para
+    que web y app muestren exactamente las mismas etapas.
+    """
+    valores_lineales = [e[0] for e in ETAPAS_LINEALES_PROCESO]
+    estado_actual = expediente.estado
+    if estado_actual in valores_lineales:
+        idx_actual = valores_lineales.index(estado_actual)
+        completados = valores_lineales[:idx_actual]
+    else:
+        completados = []
+    return ETAPAS_LINEALES_PROCESO, completados
+
+
 class TimelineView(ExpedientePropioMixin, TemplateView):
     template_name = 'alumnos/expediente/timeline.html'
 
@@ -458,34 +493,9 @@ class TimelineView(ExpedientePropioMixin, TemplateView):
         ctx['expediente'] = expediente
         if expediente:
             ctx['historial'] = expediente.historial.select_related('realizado_por').all()
-
-            # Etapas lineales del proceso para el mapa visual
-            etapas_lineales = [
-                (EstadoExpediente.DATOS_EXPEDIENTE, 'Datos del expediente'),
-                (EstadoExpediente.CERTIFICADO_PENDIENTE_CITA, 'Cita certificado'),
-                (EstadoExpediente.CERTIFICADO_FIRMADO, 'Certificado firmado'),
-                (EstadoExpediente.CARGA_DOCUMENTOS, 'Carga de documentos'),
-                (EstadoExpediente.EN_REVISION, 'Revisión Oficina'),
-                (EstadoExpediente.EXPEDIENTE_APROBADO, 'Expediente aprobado'),
-                (EstadoExpediente.OFICIO_GENERADO, 'Oficio de publicación'),
-                (EstadoExpediente.OFICIO_FIRMADO, 'Oficio firmado'),
-                (EstadoExpediente.PAGO_VALIDADO, 'Pago validado'),
-                (EstadoExpediente.DOCUMENTOS_OFICIALES_LISTOS, 'Documentos oficiales'),
-                (EstadoExpediente.JURADO_ASIGNADO, 'Jurado asignado'),
-                (EstadoExpediente.PROTOCOLO_PROGRAMADO, 'Acto programado'),
-                (EstadoExpediente.ACTO_REALIZADO, 'Acto realizado'),
-                (EstadoExpediente.CONCLUIDO, 'Concluido'),
-            ]
-            ctx['estados_proceso'] = etapas_lineales
-
-            # Determinar qué estados ya se pasaron
-            valores_lineales = [e[0] for e in etapas_lineales]
-            estado_actual = expediente.estado
-            if estado_actual in valores_lineales:
-                idx_actual = valores_lineales.index(estado_actual)
-                ctx['estados_completados'] = valores_lineales[:idx_actual]
-            else:
-                ctx['estados_completados'] = []
+            estados_proceso, estados_completados = etapas_y_completados(expediente)
+            ctx['estados_proceso'] = estados_proceso
+            ctx['estados_completados'] = estados_completados
         return ctx
 
 

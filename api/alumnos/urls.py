@@ -17,6 +17,7 @@ from .expediente_api import (
     ExpedienteDetalleAPIView,
     EnviarDocumentosAPIView,
     HistorialExpedienteAPIView,
+    SeguimientoAPIView,
 )
 
 app_name = 'alumnos'
@@ -98,5 +99,11 @@ urlpatterns = [
         'expediente/historial/',
         HistorialExpedienteAPIView.as_view(),
         name='historial-expediente'
+    ),
+
+    path(
+        'seguimiento/',
+        SeguimientoAPIView.as_view(),
+        name='seguimiento'
     ),
 ]

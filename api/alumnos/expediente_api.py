@@ -35,6 +35,7 @@ from alumnos.views import (
     ESTADOS_ENVIO_DOCUMENTOS,
     ESTADOS_PRECARGA_DOCUMENTOS,
     _obligatorios_sin_cargar,
+    etapas_y_completados,
 )
 from expediente.models import EstadoDocumento
 from expediente.notifications import (
@@ -682,3 +683,71 @@ class HistorialExpedienteAPIView(APIView):
         return Response({
             'historial': historial
         }, status=status.HTTP_200_OK)
+
+
+# ─────────────────────────────────────────────────────────────
+# Seguimiento (equivale a TimelineView / alumnos/expediente/timeline.html)
+# ─────────────────────────────────────────────────────────────
+
+class SeguimientoAPIView(APIView):
+    """GET /api/v1/alumnos/seguimiento/
+
+    Entrega lo mismo que la vista web recibe en su contexto: expediente,
+    estados_proceso, estados_completados e historial (más reciente primero).
+    Sin expediente responde 200 con `expediente: null` (la web muestra el
+    aviso "No tienes un expediente de titulación activo").
+    """
+
+    permission_classes = [IsAlumno, IsCorreoVerificado]
+
+    def get(self, request):
+        expediente = _expediente_del_alumno(request.user)
+
+        if not expediente:
+            return Response({
+                'expediente': None,
+                'estados_proceso': [],
+                'estados_completados': [],
+                'historial': [],
+            })
+
+        modalidad = expediente.modalidad
+        plan = modalidad.plan_estudios if modalidad else expediente.plan_estudios
+
+        estados_proceso, estados_completados = etapas_y_completados(expediente)
+
+        historial = [
+            {
+                'id': h.pk,
+                'descripcion': h.descripcion,
+                'estado_nuevo': h.estado_nuevo,
+                'estado_nuevo_display': h.get_estado_nuevo_display(),
+                'estado_nuevo_color': h.get_estado_nuevo_color(),
+                'estado_anterior': h.estado_anterior or None,
+                'estado_anterior_display': (
+                    h.get_estado_anterior_display() if h.estado_anterior else None
+                ),
+                'fecha': h.fecha,
+                'realizado_por': (
+                    h.realizado_por.get_full_name() if h.realizado_por else None
+                ),
+            }
+            for h in expediente.historial.select_related('realizado_por').all()
+        ]
+
+        return Response({
+            'expediente': {
+                'modalidad': modalidad.nombre if modalidad else None,
+                'plan_estudios': plan.nombre if plan else None,
+                'estado': expediente.estado,
+                'estado_display': expediente.get_estado_display(),
+                'estado_color': expediente.get_estado_display_color(),
+                'porcentaje_progreso': expediente.porcentaje_progreso(),
+            },
+            'estados_proceso': [
+                {'valor': str(valor), 'etiqueta': str(etiqueta)}
+                for valor, etiqueta in estados_proceso
+            ],
+            'estados_completados': [str(v) for v in estados_completados],
+            'historial': historial,
+        })
