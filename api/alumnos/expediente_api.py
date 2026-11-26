@@ -11,6 +11,7 @@ import logging
 
 from django.db import IntegrityError, transaction
 from django.db.models import Prefetch
+from django.urls import reverse
 from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.response import Response
@@ -28,9 +29,29 @@ from expediente.models import (
 )
 from expediente.notifications import registrar_cambio_estado
 
+from alumnos.views import (
+    ESTADOS_ENVIO_DOCUMENTOS,
+    ESTADOS_PRECARGA_DOCUMENTOS,
+    _obligatorios_sin_cargar,
+)
+from expediente.models import EstadoDocumento
+from expediente.notifications import (
+    notificar_alumno,
+    notificar_oficina_titulacion,
+)
+
 from .permissions import IsAlumno, IsCorreoVerificado
 
 logger = logging.getLogger(__name__)
+
+# Estados de documento en los que el alumno puede subir o reemplazar el
+# archivo (igual que DocumentoCargarView de la web).
+ESTADOS_DOCUMENTO_EDITABLES = (
+    EstadoDocumento.PENDIENTE,
+    EstadoDocumento.CARGADO,
+    EstadoDocumento.RECHAZADO,
+    EstadoDocumento.REQUIERE_CORRECCION,
+)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -344,6 +365,161 @@ class ConfirmarAsistenciaAPIView(APIView):
                     '¡Tu asistencia ha sido confirmada exitosamente! '
                     'Se te envió un correo de confirmación.'
                 ),
+                'expediente': serializar_expediente(expediente),
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+# ─────────────────────────────────────────────────────────────
+# Mi Expediente: detalle con documentos y envío a revisión
+# ─────────────────────────────────────────────────────────────
+
+def _expediente_del_alumno(usuario):
+    try:
+        return usuario.expediente
+    except Expediente.DoesNotExist:
+        return None
+
+
+def _respuesta_sin_expediente():
+    return Response(
+        {
+            'detail': 'No tienes un expediente registrado.',
+            'sin_expediente': True,
+        },
+        status=status.HTTP_404_NOT_FOUND,
+    )
+
+
+def _nombres_documentos_faltantes(expediente):
+    return [
+        d.tipo_documento.nombre
+        for d in _obligatorios_sin_cargar(expediente).select_related('tipo_documento')
+    ]
+
+
+class ExpedienteDetalleAPIView(APIView):
+    """Equivale a ExpedienteDetalleView de la web (sección «Mi Expediente»)."""
+
+    permission_classes = [IsAlumno, IsCorreoVerificado]
+
+    def get(self, request):
+        expediente = _expediente_del_alumno(request.user)
+
+        if expediente is None:
+            return _respuesta_sin_expediente()
+
+        # Crea los espacios de documentos que falten según semestres cursados.
+        sincronizar_documentos_expediente(expediente)
+
+        # Import local: serializers.py importa este módulo.
+        from .serializers import DocumentoAlumnoSerializer
+
+        puede_cargar = expediente.estado in ESTADOS_PRECARGA_DOCUMENTOS
+        puede_enviar = expediente.estado in ESTADOS_ENVIO_DOCUMENTOS
+
+        documentos = DocumentoAlumnoSerializer(
+            expediente.documentos.select_related(
+                'tipo_documento', 'validacion'
+            ).order_by('tipo_documento__orden'),
+            many=True,
+            context={'request': request},
+        ).data
+
+        for documento in documentos:
+            documento['puede_cargar'] = (
+                puede_cargar
+                and documento['estado'] in ESTADOS_DOCUMENTO_EDITABLES
+            )
+
+        faltantes = _nombres_documentos_faltantes(expediente)
+        tiene_obligatorios = expediente.documentos.filter(
+            tipo_documento__es_obligatorio=True
+        ).exists()
+
+        return Response({
+            'expediente': serializar_expediente(expediente),
+            'puede_cargar_documentos': puede_cargar,
+            'puede_enviar_documentos': puede_enviar,
+            'documentos_faltantes': faltantes,
+            'todos_obligatorios_cargados': tiene_obligatorios and not faltantes,
+            'documentos': documentos,
+        })
+
+
+class EnviarDocumentosAPIView(APIView):
+    """El alumno envía su expediente a revisión de Oficina de Titulación."""
+
+    permission_classes = [IsAlumno, IsCorreoVerificado]
+
+    def post(self, request):
+        expediente = _expediente_del_alumno(request.user)
+
+        if expediente is None:
+            return _respuesta_sin_expediente()
+
+        if expediente.estado not in ESTADOS_ENVIO_DOCUMENTOS:
+            return Response(
+                {
+                    'detail': (
+                        'El envío a revisión solo está disponible después de '
+                        'la cita de certificado y cuando el expediente esté en '
+                        'etapa de carga o corrección.'
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        faltantes = _nombres_documentos_faltantes(expediente)
+
+        if faltantes:
+            resumen = ', '.join(faltantes[:3])
+            if len(faltantes) > 3:
+                resumen += '...'
+
+            return Response(
+                {
+                    'detail': f'Faltan documentos obligatorios: {resumen}',
+                    'documentos_faltantes': faltantes,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            registrar_cambio_estado(
+                expediente=expediente,
+                estado_nuevo=EstadoExpediente.EN_REVISION,
+                realizado_por=request.user,
+                descripcion='Alumno envió expediente completo a revisión.',
+            )
+            notificar_oficina_titulacion(
+                expediente,
+                'Expediente en revisión',
+                f'{expediente.alumno.get_full_name()} envió su expediente a revisión.',
+                url=reverse(
+                    'oficina_titulacion:expediente_detalle',
+                    kwargs={'pk': expediente.pk},
+                ),
+            )
+
+        # El correo al alumno no debe tumbar el envío ya registrado.
+        try:
+            notificar_alumno(
+                expediente=expediente,
+                tipo='AVANCE',
+                titulo='Documentos enviados a revisión',
+                mensaje='Tu expediente fue enviado a Oficina de Titulación para revisión.',
+                url=reverse('alumnos:expediente'),
+            )
+        except Exception:
+            logger.exception('No se pudo notificar al alumno el envío a revisión.')
+
+        expediente.refresh_from_db()
+
+        return Response(
+            {
+                'message': '¡Expediente enviado a revisión!',
                 'expediente': serializar_expediente(expediente),
             },
             status=status.HTTP_200_OK,

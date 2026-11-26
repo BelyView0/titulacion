@@ -14,6 +14,8 @@ from .expediente_api import (
     CatalogoExpedienteAPIView,
     ExpedienteCrearAPIView,
     ConfirmarAsistenciaAPIView,
+    ExpedienteDetalleAPIView,
+    EnviarDocumentosAPIView,
 )
 
 app_name = 'alumnos'
@@ -65,6 +67,18 @@ urlpatterns = [
         'catalogos/expediente/',
         CatalogoExpedienteAPIView.as_view(),
         name='catalogo-expediente'
+    ),
+
+    path(
+        'expediente/',
+        ExpedienteDetalleAPIView.as_view(),
+        name='expediente'
+    ),
+
+    path(
+        'expediente/enviar-documentos/',
+        EnviarDocumentosAPIView.as_view(),
+        name='enviar-documentos'
     ),
 
     path(

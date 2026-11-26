@@ -44,60 +44,67 @@ class LoginSerializer(TokenObtainPairSerializer):
 
 class ChangePasswordSerializer(serializers.Serializer):
     """
-    Serializer para cambiar la contraseña del usuario autenticado.
+    Cambio de contraseña voluntario (usuario autenticado).
+
+    Igual que la web: código OTP enviado al correo + contraseña actual +
+    contraseña nueva y su confirmación. Solo valida que los campos vengan;
+    las reglas (y sus mensajes) se aplican en ChangePasswordView, en el mismo
+    orden que OTPPasswordChangeVerifyView de la web.
     """
 
+    otp = serializers.CharField(
+        write_only=True,
+        required=True,
+        max_length=6
+    )
+
+    # trim_whitespace=False: una contraseña puede empezar o terminar con espacio.
     current_password = serializers.CharField(
         write_only=True,
-        required=True
+        required=True,
+        trim_whitespace=False
     )
 
     new_password = serializers.CharField(
         write_only=True,
         required=True,
-        min_length=8
+        trim_whitespace=False
     )
 
     confirm_password = serializers.CharField(
         write_only=True,
-        required=True
+        required=True,
+        trim_whitespace=False
     )
 
-    def validate_current_password(self, value):
-        """
-        Comprueba que la contraseña actual sea correcta.
-        """
 
-        user = self.context['request'].user
+class ForcePasswordChangeSerializer(serializers.Serializer):
+    """
+    Cambio de contraseña obligatorio (primer inicio de sesión).
 
-        if not user.check_password(value):
-            raise serializers.ValidationError(
-                'La contraseña actual es incorrecta.'
-            )
+    Igual que ForcePasswordChangeView de la web: no pide contraseña actual
+    ni OTP, porque el usuario acaba de entrar con la contraseña temporal.
+    El correo es opcional.
+    """
 
-        return value
+    new_password = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        trim_whitespace=False
+    )
 
-    def validate(self, attrs):
-        """
-        Comprueba que las nuevas contraseñas coincidan
-        y cumplan las reglas de seguridad de Django.
-        """
+    confirm_password = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        trim_whitespace=False
+    )
 
-        user = self.context['request'].user
-
-        if attrs['new_password'] != attrs['confirm_password']:
-            raise serializers.ValidationError({
-                'confirm_password': 'Las contraseñas nuevas no coinciden.'
-            })
-
-        from django.contrib.auth.password_validation import validate_password
-
-        validate_password(
-            attrs['new_password'],
-            user=user
-        )
-
-        return attrs
+    email = serializers.EmailField(
+        required=False,
+        allow_blank=True
+    )
 
 
 class ForgotPasswordSerializer(serializers.Serializer):

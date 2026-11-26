@@ -37,6 +37,17 @@ from administracion.models import (
 
 from .permissions import IsAlumno, IsCorreoVerificado
 from django.urls import reverse
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
+
+from expediente.models import EstadoValidacion, ValidacionDocumento
+from expediente.notifications import registrar_cambio_documento
+from titulacion.validators import validar_archivo_tipo_documento
+
+from .expediente_api import (
+    ESTADOS_DOCUMENTO_EDITABLES,
+    ESTADOS_PRECARGA_DOCUMENTOS,
+)
 
 class PerfilAlumnoView(APIView):
     """
@@ -251,6 +262,15 @@ class SolicitarCorreccionControlAPIView(APIView):
 class CargarDocumentoAlumnoView(APIView):
     """
     Permite al alumno cargar o reemplazar un documento de su expediente.
+
+    Aplica las mismas reglas que DocumentoCargarView de la web:
+      - se permite precargar desde que existe el expediente
+        (ESTADOS_PRECARGA_DOCUMENTOS), no solo en CARGA_DOCUMENTOS;
+      - solo se puede subir si el documento está pendiente, cargado,
+        rechazado o requiere corrección;
+      - valida formato y tamaño con validar_archivo_tipo_documento;
+      - deja la validación de Oficina de Titulación en «pendiente» y
+        registra el movimiento en el historial.
     """
 
     permission_classes = [IsAlumno]
@@ -270,93 +290,73 @@ class CargarDocumentoAlumnoView(APIView):
         expediente = documento.expediente
         tipo_documento = documento.tipo_documento
 
-        # Verificar que el expediente permita cargar documentos.
-        estados_permitidos = [
-            EstadoExpediente.CARGA_DOCUMENTOS,
-            EstadoExpediente.EN_CORRECCION,
-        ]
-
-        if expediente.estado not in estados_permitidos:
+        if expediente.estado not in ESTADOS_PRECARGA_DOCUMENTOS:
             return Response(
                 {
-                    'detail': 'El expediente no se encuentra en una etapa que permita cargar documentos.'
+                    'detail': (
+                        'La carga de documentos no está disponible '
+                        'en la etapa actual del expediente.'
+                    )
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # No permitir reemplazar documentos aprobados.
-        if documento.estado == EstadoDocumento.APROBADO:
+        if documento.estado not in ESTADOS_DOCUMENTO_EDITABLES:
             return Response(
                 {
-                    'detail': 'Este documento ya fue aprobado y no puede reemplazarse.'
+                    'detail': 'Este documento no requiere acción en este momento.'
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Obtener el archivo enviado.
         archivo = request.FILES.get('archivo')
 
         if not archivo:
             return Response(
-                {
-                    'archivo': 'Debes seleccionar un archivo.'
-                },
+                {'archivo': 'Debes seleccionar un archivo.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Validar extensión.
-        if not tipo_documento.admite_extension(archivo.name):
+        # Formato y tamaño según el tipo de documento (igual que la web).
+        try:
+            validar_archivo_tipo_documento(archivo, tipo_documento)
+        except DjangoValidationError as error:
             return Response(
-                {
-                    'archivo': (
-                        'El formato del archivo no está permitido. '
-                        f'Formatos admitidos: {tipo_documento.formatos_admitidos}'
-                    )
-                },
+                {'archivo': ' '.join(error.messages)},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Validar tamaño máximo.
-        tamano_maximo = int(
-            tipo_documento.tamano_max_mb * 1024 * 1024
-        )
-
-        if archivo.size > tamano_maximo:
-            return Response(
-                {
-                    'archivo': (
-                        f'El archivo supera el tamaño máximo permitido '
-                        f'de {tipo_documento.tamano_max_mb} MB.'
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Obtener notas opcionales.
         notas = request.data.get('notas_alumno', '')
 
         # Identificar si se está reemplazando un archivo existente.
         reemplazando = bool(documento.archivo)
 
-        if reemplazando:
-            documento.version += 1
+        with transaction.atomic():
+            if reemplazando:
+                documento.version += 1
 
-        # Actualizar el documento.
-        documento.archivo = archivo
-        documento.estado = EstadoDocumento.CARGADO
-        documento.fecha_carga = timezone.now()
-        documento.notas_alumno = notas
+            documento.archivo = archivo
+            documento.estado = EstadoDocumento.CARGADO
+            documento.fecha_carga = timezone.now()
+            documento.notas_alumno = notas
 
-        documento.save()
+            documento.save()
 
-        # Registrar el movimiento en el historial.
-        HistorialDocumento.objects.create(
-            documento=documento,
-            accion='Documento cargado por el alumno',
-            departamento='ALUMNO',
-            realizado_por=request.user,
-            observaciones=notas
-        )
+            # Una nueva versión vuelve a quedar pendiente de validación.
+            ValidacionDocumento.objects.filter(documento=documento).delete()
+            ValidacionDocumento.objects.create(
+                documento=documento,
+                estado=EstadoValidacion.PENDIENTE
+            )
+
+            registrar_cambio_documento(
+                documento=documento,
+                accion=(
+                    f'Alumno cargó versión {documento.version} del documento.'
+                ),
+                realizado_por=request.user,
+                observaciones=notas,
+            )
 
         serializer = DocumentoAlumnoSerializer(
             documento,
@@ -373,7 +373,7 @@ class CargarDocumentoAlumnoView(APIView):
                 'documento': serializer.data
             },
             status=status.HTTP_201_CREATED
-        )      
+        )
 
 
 class EnviarVerificacionCorreoAPIView(APIView):
