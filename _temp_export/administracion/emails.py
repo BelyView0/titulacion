@@ -1,0 +1,201 @@
+"""
+Envío de correos electrónicos para el módulo de jurado.
+"""
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.conf import settings
+from .pdf_oficio import generar_oficio_jurado_pdf
+
+
+def enviar_notificacion_jurado(asignacion):
+    """
+    Envía correo al alumno y a cada miembro del jurado confirmando el acto protocolario.
+    El correo a los profesores incluye el PDF del oficio adjunto.
+    """
+    expediente = asignacion.expediente
+    alumno = expediente.alumno
+
+    # Generar PDF
+    try:
+        pdf_bytes = generar_oficio_jurado_pdf(asignacion)
+        pdf_disponible = True
+    except Exception as e:
+        print(f'[EMAIL] No se pudo generar PDF: {e}')
+        pdf_disponible = False
+
+    nombre_pdf = f'Oficio_Jurado_{alumno.last_name}_{alumno.first_name}.pdf'
+
+    context = {
+        'asignacion': asignacion,
+        'expediente': expediente,
+        'alumno': alumno,
+    }
+
+    # ── Correo a cada miembro del jurado ──────────────────────────
+    miembros = [
+        (asignacion.presidente, 'Presidente'),
+        (asignacion.secretario, 'Secretario/a'),
+        (asignacion.vocal_propietario, 'Vocal Propietario/a') if asignacion.vocal_propietario else None,
+        (asignacion.vocal_suplente, 'Vocal Suplente') if asignacion.vocal_suplente else None,
+    ]
+
+    for item in miembros:
+        if not item:
+            continue
+        profesor, rol = item
+        if not profesor.email:
+            continue
+
+        ctx_prof = {**context, 'profesor': profesor, 'rol_jurado': rol}
+        html_content = render_to_string('emails/notificacion_jurado_profesor.html', ctx_prof)
+        text_content = (
+            f'Estimado/a {profesor.get_full_name()},\n\n'
+            f'Ha sido designado/a como {rol} del jurado para el examen profesional '
+            f'de {alumno.get_full_name()}.\n\n'
+            f'Fecha: {asignacion.fecha_acto.strftime("%d de %B de %Y a las %H:%M hrs") if asignacion.fecha_acto else "Por confirmar"}\n'
+            f'Lugar: {asignacion.lugar_acto or "Por confirmar"}\n\n'
+            f'Adjunto encontrará el oficio oficial de designación.\n\n'
+            f'Atentamente,\nSistema de Titulación — ITA'
+        )
+
+        email = EmailMultiAlternatives(
+            subject=f'Designación como {rol} de Jurado — {alumno.get_full_name()}',
+            body=text_content,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[profesor.email],
+        )
+        email.attach_alternative(html_content, 'text/html')
+
+        if pdf_disponible:
+            email.attach(nombre_pdf, pdf_bytes, 'application/pdf')
+
+        try:
+            email.send(fail_silently=True)
+        except Exception as e:
+            print(f'[EMAIL] Error enviando a {profesor.email}: {e}')
+
+    # ── Correo al alumno ──────────────────────────────────────────
+    if alumno.email:
+        ctx_alumno = {**context}
+        html_alumno = render_to_string('emails/notificacion_jurado_alumno.html', ctx_alumno)
+        text_alumno = (
+            f'Estimado/a {alumno.get_full_name()},\n\n'
+            f'Se ha asignado el jurado para tu acto protocolario de titulación.\n\n'
+            f'Presidente: {asignacion.presidente.get_full_name()}\n'
+            f'Secretario/a: {asignacion.secretario.get_full_name()}\n'
+        )
+        if asignacion.vocal_propietario:
+            text_alumno += f'Vocal Propietario/a: {asignacion.vocal_propietario.get_full_name()}\n'
+        if asignacion.vocal_suplente:
+            text_alumno += f'Vocal Suplente: {asignacion.vocal_suplente.get_full_name()}\n'
+        text_alumno += (
+            f'\nFecha: {asignacion.fecha_acto.strftime("%d de %B de %Y a las %H:%M hrs") if asignacion.fecha_acto else "Por confirmar"}\n'
+            f'Lugar: {asignacion.lugar_acto or "Por confirmar"}\n\n'
+            f'Atentamente,\nSistema de Titulación — ITA'
+        )
+
+        email_alumno = EmailMultiAlternatives(
+            subject='Jurado asignado para tu examen profesional',
+            body=text_alumno,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[alumno.email],
+        )
+        email_alumno.attach_alternative(html_alumno, 'text/html')
+
+        try:
+            email_alumno.send(fail_silently=True)
+        except Exception as e:
+            print(f'[EMAIL] Error enviando al alumno: {e}')
+
+# ─── SISTEMA DE OTP (CONTRASEÑAS) ─────────────────────────────────────────────
+
+def correos_registrados(user):
+    """Correos personal e institucional del usuario, sin duplicados."""
+    vistos = set()
+    destinos = []
+    for correo in (user.email, getattr(user, 'correo_institucional', None)):
+        if not correo:
+            continue
+        clave = correo.strip().lower()
+        if clave and clave not in vistos:
+            vistos.add(clave)
+            destinos.append(correo.strip())
+    return destinos
+
+
+def enviar_codigo_otp(user, codigo, context='reset', destinatarios=None):
+    """
+    Envía el código de 6 dígitos a los correos indicados (o a todos los registrados).
+    context puede ser 'reset' (olvidé mi contraseña) o 'change' (cambio desde sesión).
+    """
+    destinos = destinatarios if destinatarios is not None else correos_registrados(user)
+    destinos = [c for c in destinos if c]
+    if not destinos:
+        print('[EMAIL] No hay correo registrado para enviar OTP.')
+        return
+
+    subject = 'Tu código de seguridad de 6 dígitos'
+    
+    if context == 'reset':
+        mensaje_corto = 'Has solicitado restablecer tu contraseña'
+        mensaje = f'{mensaje_corto}. Tu código de seguridad es:\n\n{codigo}\n\nEste código expirará en 5 minutos.'
+    else:
+        mensaje_corto = 'Has solicitado cambiar tu contraseña'
+        mensaje = f'{mensaje_corto}. Tu código de seguridad es:\n\n{codigo}\n\nEste código expirará en 5 minutos.'
+        
+    text_content = (
+        f'Hola {user.get_full_name() or user.numero_control},\n\n'
+        f'{mensaje}\n\n'
+        f'Si no solicitaste esto, ignora este mensaje y tu contraseña seguirá siendo la misma.\n\n'
+        f'Atentamente,\nSistema de Titulación — ITA'
+    )
+    
+    context_data = {
+        'user_name': user.get_full_name() or user.numero_control or user.username,
+        'mensaje_corto': mensaje_corto,
+        'codigo': codigo,
+        'minutos_validez': 5,
+    }
+    html_content = render_to_string('emails/otp_codigo.html', context_data)
+
+    email = EmailMultiAlternatives(
+        subject=f'[ITA] Código de Seguridad: {codigo}',
+        body=text_content,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=destinos,
+    )
+    email.attach_alternative(html_content, 'text/html')
+
+    try:
+        email.send(fail_silently=True)
+    except Exception as e:
+        print(f'[EMAIL] Error enviando código OTP a {destinos}: {e}')
+
+def enviar_alerta_cambio_password(user):
+    """
+    Envía una notificación de seguridad después de un cambio de contraseña exitoso.
+    """
+    text_content = (
+        f'Hola {user.get_full_name() or user.numero_control},\n\n'
+        f'Te confirmamos que tu contraseña ha sido modificada exitosamente.\n\n'
+        f'Si no realizaste este cambio, por favor contacta al administrador del sistema inmediatamente.\n\n'
+        f'Atentamente,\nSistema de Titulación — ITA'
+    )
+    
+    context_data = {
+        'user_name': user.get_full_name() or user.numero_control
+    }
+    html_content = render_to_string('emails/alerta_seguridad.html', context_data)
+
+    email = EmailMultiAlternatives(
+        subject='[ITA] Tu contraseña ha sido modificada',
+        body=text_content,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[user.email],
+    )
+    email.attach_alternative(html_content, 'text/html')
+
+    try:
+        email.send(fail_silently=True)
+    except Exception as e:
+        print(f'[EMAIL] Error enviando alerta de cambio de contraseña a {user.email}: {e}')

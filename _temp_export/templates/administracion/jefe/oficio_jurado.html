@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page {
+    size: letter;
+    margin: 1.2cm 2cm 1.2cm 2cm;
+  }
+  @font-face {
+    font-family: 'Noto Sans';
+    src: url('{{ STATIC_ROOT }}/fonts/NotoSans-Regular.ttf');
+  }
+  @font-face {
+    font-family: 'Patria';
+    src: url('{{ STATIC_ROOT }}/fonts/Patria-Bold.ttf');
+  }
+  body {
+    font-family: 'Noto Sans', sans-serif;
+    font-size: 10.5pt;
+    color: #000;
+    line-height: 1.25;
+  }
+  .header-sep-text { font-size: 8pt; color: #444; line-height: 1.2; }
+  .membrete-right {
+    text-align: right;
+    font-size: 9.5pt;
+    margin-top: 8px;
+    margin-bottom: 4px;
+  }
+  .fecha-oficio {
+    text-align: right;
+    font-size: 10pt;
+    margin-bottom: 6px;
+  }
+  .fecha-oficio strong { text-decoration: underline; }
+  .numero-oficio {
+    text-align: right;
+    font-size: 9.5pt;
+    margin-bottom: 12px;
+  }
+  .destinatarios {
+    margin-bottom: 6px;
+    line-height: 1.1;
+  }
+  .destinatarios table {
+    width: 100%;
+    border: none;
+    padding: 0;
+    margin-bottom: 0px;
+  }
+  .presentes {
+    font-size: 10.5pt;
+    font-weight: bold;
+    margin: 4px 0 10px 0;
+    text-align: left;
+    letter-spacing: 2px;
+  }
+  .cuerpo {
+    text-align: justify;
+    margin-bottom: 8px;
+    font-size: 10.5pt;
+  }
+  .cuerpo p { margin: 0 0 8px 0; text-indent: 1.25cm; }
+  .cierre {
+    margin-top: 15px;
+    font-size: 10.5pt;
+    text-align: center;
+  }
+  .atentamente {
+    font-size: 10.5pt;
+    margin-top: 15px;
+  }
+  .atentamente strong {
+    letter-spacing: 2px;
+  }
+  .firma-bloque {
+    margin-top: 45px;
+  }
+  .firma-nombre {
+    font-weight: bold;
+    font-size: 11pt;
+    text-transform: uppercase;
+  }
+  .firma-cargo {
+    font-size: 11pt;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  .ccp {
+    margin-top: 15px;
+    font-size: 8pt;
+  }
+  hr.separador {
+    border: none;
+    border-top: 2px solid #000;
+    margin: 4px 0 8px 0;
+  }
+  .pie-pagina {
+    margin-top: 24px;
+    border-top: 1px solid #888;
+    font-size: 8pt;
+    color: #555;
+    padding-top: 4px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<!-- Encabezado institucional (Imagen completa) -->
+{% if config and config.imagen_encabezado %}
+<div style="text-align: center; margin-bottom: 6px;">
+  <img src="{{ config.imagen_encabezado.path }}" style="max-width: 100%;" alt="Encabezado Institucional">
+</div>
+{% else %}
+<div style="text-align: center; margin-bottom: 6px; font-style: italic; color: #888;">
+  [Falta configurar imagen de encabezado]
+</div>
+{% endif %}
+
+<!-- Fecha y número de oficio -->
+<div class="fecha-oficio">
+  Tzompantepec, Tlaxcala, <strong>{{ asignacion.fecha_oficio|date:"j/F/Y" }}</strong>
+</div>
+<div class="numero-oficio">
+  Oficio No.<strong>{{ asignacion.numero_oficio|default:"______" }}</strong>
+</div>
+
+<!-- Destinatarios del jurado -->
+<div class="destinatarios">
+  <table>
+    <tr>
+      <td style="width: 75%; font-size: 10pt; font-weight: bold;">{{ asignacion.presidente.get_nombre_con_titulo }}</td>
+      <td style="width: 25%; font-size: 10pt; font-weight: bold; text-align: left; padding-left: 10px;">PRESIDENTE</td>
+    </tr>
+  </table>
+  <table>
+    <tr>
+      <td style="width: 75%; font-size: 10pt; font-weight: bold;">{{ asignacion.secretario.get_nombre_con_titulo }}</td>
+      <td style="width: 25%; font-size: 10pt; font-weight: bold; text-align: left; padding-left: 10px;">SECRETARIA</td>
+    </tr>
+  </table>
+  {% if asignacion.vocal_propietario %}
+  <table>
+    <tr>
+      <td style="width: 75%; font-size: 10pt; font-weight: bold;">{{ asignacion.vocal_propietario.get_nombre_con_titulo }}</td>
+      <td style="width: 25%; font-size: 10pt; font-weight: bold; text-align: left; padding-left: 10px;">VOCAL PROPIETARIA</td>
+    </tr>
+  </table>
+  {% endif %}
+  {% if asignacion.vocal_suplente %}
+  <table>
+    <tr>
+      <td style="width: 75%; font-size: 10pt; font-weight: bold;">{{ asignacion.vocal_suplente.get_nombre_con_titulo }}</td>
+      <td style="width: 25%; font-size: 10pt; font-weight: bold; text-align: left; padding-left: 10px;">VOCAL SUPLENTE</td>
+    </tr>
+  </table>
+  {% endif %}
+  <div style="margin-top:4px; font-weight:bold; font-size:10.5pt; text-transform:uppercase;">
+    CATEDRÁTICOS DEL DEPTO. DE {{ expediente.alumno.carrera.departamento.nombre|upper|default:"SISTEMAS Y COMPUTACIÓN" }}
+  </div>
+  <div class="presentes">P R E S E N T E S</div>
+</div>
+
+<!-- Cuerpo del oficio -->
+<div class="cuerpo">
+  <p>
+    Por este medio, me permito informar a usted que a propuesta de la Academia de
+    {{ expediente.alumno.carrera.nombre|upper|default:"la Carrera" }} y en coordinación
+    de la División de Estudios Profesionales, tengo a bien designarles integrantes del
+    <strong>JURADO</strong> para el acto de recepción profesional que sustentará el
+    C. <strong>{{ alumno.get_full_name|upper }}</strong>, con número de control
+    <strong>{{ alumno.numero_control|default:"___________" }}</strong>, pasante de la carrera de
+    <strong>{{ expediente.alumno.carrera.nombre|upper|default:"_____________" }}</strong> y egresado del
+    <strong>INSTITUTO TECNOLÓGICO DE APIZACO</strong>. Quién eligió la opción
+    <strong>{{ expediente.modalidad.nombre|upper|default:"_____________" }}</strong>
+    y cuyo tema es: &ldquo;<strong>{{ expediente.titulo_trabajo|upper|default:"_____________" }}</strong>&rdquo;
+  </p>
+  <p>
+    Así mismo le notifico que el Acto Recepcional fue programado para el día
+    <strong>{{ asignacion.fecha_acto|date:"j \d\e F \d\e Y"|default:"___ de _______ de ____" }}</strong>
+    en el horario de las
+    <strong>{{ asignacion.fecha_acto|time:"H:i"|default:"__:__" }} hrs.</strong>
+    En la <strong>{{ asignacion.lugar_acto|upper|default:"SALA ____________" }}</strong>.
+  </p>
+  <p>
+    Agradeciendo su puntual asistencia, reciba un cordial saludo.
+  </p>
+</div>
+
+<!-- Firma -->
+<div class="atentamente">
+  <strong>A T E N T A M E N T E</strong><br>
+  <em><strong style="font-style: italic;">Excelencia en Educación Tecnológica&reg;</strong></em><br>
+  <em>Pensar para Servir, Servir para Triunfar&reg;</em>
+</div>
+
+<div class="firma-bloque">
+  {% if jefe_depto %}
+  <div class="firma-nombre" style="line-height: 1.1;">
+    {{ jefe_depto.titulo_academico }} {{ jefe_depto.get_full_name|upper }}<br>
+    {% if jefe_depto.genero == 'F' %}JEFA{% else %}JEFE{% endif %} DEL DEPTO. DE {{ jefe_depto.departamento.nombre|upper }}
+  </div>
+  {% else %}
+  <div class="firma-nombre" style="line-height: 1.1;">
+    _______________________________________<br>
+    JEFE/A DEL DEPTO. DE {{ expediente.alumno.carrera.departamento.nombre|upper|default:"____________________" }}
+  </div>
+  {% endif %}
+</div>
+
+<!-- C.c.p. -->
+<div class="ccp">
+  C.c.p.- Div. Estudios Profesionales. - Para conocimiento del interesado.<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Depto. De Servicios Escolares<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Archivo.
+</div>
+
+<!-- Pie de página institucional dinámico (Imagen completa) -->
+<div style="margin-top: 15px; text-align: center;">
+  {% if config and config.imagen_pie_pagina %}
+  <img src="{{ config.imagen_pie_pagina.path }}" style="max-width: 100%;" alt="Pie de Página Institucional">
+  {% else %}
+  <div style="font-style: italic; color: #888; font-size: 9pt;">
+    [Falta configurar imagen de pie de página]
+  </div>
+  {% endif %}
+</div>
+
+</body>
+</html>

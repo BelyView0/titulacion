@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}Solicitudes de Jefes de Departamento{% endblock %}
+{% block page_title %}Solicitudes de Jefes de Departamento{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3 border-0">
+                <h5 class="mb-0 fw-bold"><i class="bi bi-inbox-fill text-primary me-2"></i>Solicitudes de Cambio de Jefe</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Departamento</th>
+                                <th>Solicitante</th>
+                                <th>Nuevos Datos Propuestos</th>
+                                <th>Estado</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for solicitud in solicitudes %}
+                            <tr>
+                                <td>{{ solicitud.fecha_solicitud|date:"d/m/Y H:i" }}</td>
+                                <td>{{ solicitud.departamento.nombre }}</td>
+                                <td>{{ solicitud.solicitante.get_full_name }}</td>
+                                <td>
+                                    <strong>{{ solicitud.titulo_academico_nuevo }} {{ solicitud.get_full_name }}</strong><br>
+                                    <small class="text-muted">Género: {{ solicitud.get_genero_nuevo_display }}</small>
+                                </td>
+                                <td>
+                                    {% if solicitud.estado == 'PENDIENTE' %}
+                                        <span class="badge bg-warning text-dark">Pendiente</span>
+                                    {% elif solicitud.estado == 'APROBADO' %}
+                                        <span class="badge bg-success">Aprobada</span>
+                                    {% elif solicitud.estado == 'RECHAZADO' %}
+                                        <span class="badge bg-danger">Rechazada</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Expirada</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    {% if solicitud.estado == 'PENDIENTE' %}
+                                        <form method="post" action="{% url 'administracion:resolucion_solicitud' solicitud.pk 'aprobar' %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-success" title="Aprobar"><i class="bi bi-check-lg"></i> Aprobar</button>
+                                        </form>
+                                        <form method="post" action="{% url 'administracion:resolucion_solicitud' solicitud.pk 'rechazar' %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-danger ms-1" title="Rechazar"><i class="bi bi-x-lg"></i> Rechazar</button>
+                                        </form>
+                                    {% else %}
+                                        <span class="text-muted small">Resuelta: {{ solicitud.fecha_resolucion|date:"d/m/Y H:i" }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">No hay solicitudes registradas.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

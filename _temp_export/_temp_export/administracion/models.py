@@ -1,0 +1,893 @@
+"""
+Modelos de Administración del Sistema
+- Usuario (Custom AbstractUser con roles)
+- Carrera
+- Departamento
+"""
+from django.contrib.auth.models import AbstractUser
+from django.db import models
+
+
+class Genero(models.TextChoices):
+    MASCULINO = 'M', 'Masculino'
+    FEMENINO = 'F', 'Femenino'
+    OTRO = 'O', 'Otro / Prefiero no decir'
+
+
+class CicloPeriodo(models.TextChoices):
+    ENE_JUN = 'ENE_JUN', 'Enero – Julio'
+    AGO_DIC = 'AGO_DIC', 'Agosto – Diciembre'
+
+
+def orden_periodo(ciclo, anio):
+    """Índice lineal de un periodo académico (ENE_JUN=0, AGO_DIC=1 dentro del año)."""
+    if not ciclo or not anio:
+        return None
+    mitad = 0 if ciclo == CicloPeriodo.ENE_JUN else 1
+    return int(anio) * 2 + mitad
+
+
+def calcular_semestres_cursados(ciclo_inicio, anio_inicio, ciclo_egreso, anio_egreso):
+    """Cuenta semestres inclusive entre ingreso y egreso (ej. AGO_DIC 2021 → ENE_JUN 2026 = 10)."""
+    ini = orden_periodo(ciclo_inicio, anio_inicio)
+    fin = orden_periodo(ciclo_egreso, anio_egreso)
+    if ini is None or fin is None:
+        return None
+    if fin < ini:
+        return None
+    return fin - ini + 1
+
+
+class Rol(models.TextChoices):
+    ADMINISTRADOR = 'ADMIN', 'Administrador del Sistema'
+    OFICINA_TITULACION = 'OFICINA_TITULACION', 'Oficina de Titulación'
+    FINANZAS = 'FINANZAS', 'Finanzas'
+    CENTRO_COMPUTO = 'CENTRO_COMPUTO', 'Centro de Cómputo'
+    CENTRO_INFORMACION = 'CENTRO_INFORMACION', 'Centro de Información'
+    JEFE_ACADEMIA = 'JEFE_ACADEMIA', 'Jefe de Academia'
+    ALUMNO = 'ALUMNO', 'Alumno'
+    # Roles legados (migración SIGET — no usar en registros nuevos)
+    JEFE_PROYECTO = 'JEFE_PROYECTO', 'Jefe de Proyectos (legado)'
+    ESCOLARES = 'ESCOLARES', 'Servicios Escolares (legado)'
+    ACADEMICO = 'ACADEMICO', 'División Académica (legado)'
+
+
+ROLES_LEGACY_A_SIGET = {
+    Rol.ESCOLARES: Rol.OFICINA_TITULACION,
+    Rol.ACADEMICO: Rol.OFICINA_TITULACION,
+    Rol.JEFE_PROYECTO: Rol.JEFE_ACADEMIA,
+}
+
+
+def choices_siget():
+    legados = {Rol.JEFE_PROYECTO, Rol.ESCOLARES, Rol.ACADEMICO}
+    return [choice for choice in Rol.choices if choice[0] not in legados]
+
+
+def normalizar_rol(rol):
+    return ROLES_LEGACY_A_SIGET.get(rol, rol)
+
+
+def roles_oficina_titulacion():
+    return (Rol.OFICINA_TITULACION, Rol.ESCOLARES, Rol.ACADEMICO)
+
+
+def roles_jefe_academia():
+    return (Rol.JEFE_ACADEMIA, Rol.JEFE_PROYECTO)
+
+
+class Carrera(models.Model):
+    nombre = models.CharField(max_length=200, verbose_name='Nombre de la carrera')
+    clave = models.CharField(max_length=20, unique=True, verbose_name='Clave')
+    activa = models.BooleanField(default=True)
+    departamento = models.ForeignKey(
+        'Departamento',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='carreras',
+        verbose_name='Departamento'
+    )
+
+    class Meta:
+        verbose_name = 'Carrera'
+        verbose_name_plural = 'Carreras'
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
+
+class Departamento(models.Model):
+    nombre = models.CharField(max_length=200, verbose_name='Nombre del departamento')
+    clave = models.CharField(max_length=20, unique=True)
+
+    class Meta:
+        verbose_name = 'Departamento'
+        verbose_name_plural = 'Departamentos'
+
+    def __str__(self):
+        return self.nombre
+
+    @property
+    def jefe_asignado(self):
+        """Retorna el jefe que está actualmente activo para este departamento."""
+        return self.jefes_historial.filter(activo=True).first()
+
+
+class Profesor(models.Model):
+    """
+    Catedrático / sinodal de la institución.
+    Independiente del sistema de usuarios — no necesita login.
+    """
+    first_name = models.CharField(max_length=150, verbose_name='Nombre(s)')
+    last_name = models.CharField(max_length=150, verbose_name='Apellido paterno')
+    apellido_materno = models.CharField(max_length=150, blank=True, verbose_name='Apellido materno')
+    titulo_academico = models.CharField(
+        max_length=250,
+        verbose_name='Título académico',
+        help_text='Ej: Doctor en Sistemas Computacionales, Maestra en Ingeniería'
+    )
+    cedula = models.CharField(
+        max_length=20,
+        verbose_name='Cédula profesional',
+        help_text='Número de cédula expedida por SEP'
+    )
+    email = models.EmailField(blank=True, verbose_name='Correo electrónico')
+    departamentos = models.ManyToManyField(
+        'Departamento',
+        blank=True,
+        related_name='profesores',
+        verbose_name='Departamentos'
+    )
+    activo = models.BooleanField(default=True, verbose_name='Activo')
+
+    class Meta:
+        verbose_name = 'Profesor / Sinodal'
+        verbose_name_plural = 'Profesores / Sinodales'
+        ordering = ['last_name', 'first_name']
+
+    def __str__(self):
+        return self.get_full_name()
+
+    def get_full_name(self):
+        partes = [self.first_name, self.last_name, self.apellido_materno]
+        return ' '.join(p.strip().upper() for p in partes if p and p.strip())
+
+    def get_nombre_con_titulo(self):
+        """Formato: 'Título - NOMBRE - No. Cédula 12345678'."""
+        return f'{self.titulo_academico} - {self.get_full_name()} - No. Cédula {self.cedula}'
+
+    def get_nombre_corto(self):
+        """Formato para correos: 'Título - NOMBRE' (sin cédula)."""
+        return f'{self.titulo_academico} - {self.get_full_name()}'
+
+
+class Usuario(AbstractUser):
+    """
+    Usuario extendido con rol y datos institucionales.
+    Reemplaza al User de Django.
+    """
+    rol = models.CharField(
+        max_length=20,
+        choices=Rol.choices,
+        default=Rol.ALUMNO,
+        verbose_name='Rol en el sistema'
+    )
+    numero_control = models.CharField(
+        max_length=20, blank=True, null=True,
+        verbose_name='Número de control / empleado',
+        help_text='Número de control para alumnos o número de empleado para personal'
+    )
+    carrera = models.ForeignKey(
+        Carrera, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name='Carrera'
+    )
+    telefono = models.CharField(max_length=15, blank=True, verbose_name='Teléfono')
+    genero = models.CharField(
+        max_length=1,
+        choices=Genero.choices,
+        blank=True,
+        verbose_name='Género'
+    )
+    periodo_inicio_ciclo = models.CharField(
+        max_length=10,
+        choices=CicloPeriodo.choices,
+        blank=True,
+        verbose_name='Periodo de inicio (ciclo)',
+        help_text='Ej: Agosto – Diciembre',
+    )
+    periodo_inicio_anio = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name='Periodo de inicio (año)',
+        help_text='Ej: 2021',
+    )
+    periodo_egreso_ciclo = models.CharField(
+        max_length=10,
+        choices=CicloPeriodo.choices,
+        blank=True,
+        verbose_name='Periodo de egreso (ciclo)',
+        help_text='Ej: Enero – Julio',
+    )
+    periodo_egreso_anio = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name='Periodo de egreso (año)',
+        help_text='Ej: 2026',
+    )
+    semestres_cursados = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name='Semestres cursados',
+        help_text='Calculado a partir de los periodos de inicio y egreso.',
+    )
+    foto_perfil = models.ImageField(
+        upload_to='perfiles/', null=True, blank=True,
+        verbose_name='Foto de perfil'
+    )
+    # Sobrescribimos los verboses de Django para el contexto mexicano
+    first_name = models.CharField(
+        max_length=150, blank=True,
+        verbose_name='Nombre(s)'
+    )
+    last_name = models.CharField(
+        max_length=150, blank=True,
+        verbose_name='Apellido paterno'
+    )
+    apellido_materno = models.CharField(
+        max_length=150, blank=True,
+        verbose_name='Apellido materno'
+    )
+    departamento = models.ForeignKey(
+        'Departamento',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='jefes',
+        verbose_name='Departamento (solo para Jefes de Proyecto)'
+    )
+    debe_cambiar_password = models.BooleanField(
+        default=False,
+        verbose_name='Debe cambiar contraseña',
+        help_text='Si es True, el usuario sera forzado a cambiar su contraseña al iniciar sesion.'
+    )
+    correo_institucional = models.EmailField(
+        blank=True, null=True,
+        verbose_name='Correo institucional',
+        help_text='Correo @apizaco.tecnm.mx o institucional para notificaciones'
+    )
+    correo_institucional_verificado = models.BooleanField(
+        default=False,
+        verbose_name='Correo institucional verificado'
+    )
+    email_verificado = models.BooleanField(
+        default=False,
+        verbose_name='Correo alternativo verificado'
+    )
+    fecha_alta = models.DateField(
+        null=True, blank=True,
+        verbose_name='Fecha de alta'
+    )
+    fecha_baja = models.DateField(
+        null=True, blank=True,
+        verbose_name='Fecha de baja'
+    )
+
+    @property
+    def username_visual(self):
+        if self.numero_control:
+            return self.numero_control
+        
+        if not self.first_name:
+            return self.username
+            
+        nombres = self.first_name.strip().split()
+        primer_nombre = nombres[0].capitalize()
+        inicial_segundo = nombres[1][0].upper() if len(nombres) > 1 and nombres[1] else ""
+        
+        inicial_paterno = self.last_name.strip()[0].upper() if self.last_name and self.last_name.strip() else ""
+        inicial_materno = self.apellido_materno.strip()[0].upper() if self.apellido_materno and self.apellido_materno.strip() else ""
+        
+        generado = f"{primer_nombre}{inicial_segundo}{inicial_paterno}{inicial_materno}"
+        return generado if len(generado) > 1 else self.username
+
+    class Meta:
+        verbose_name = 'Usuario'
+        verbose_name_plural = 'Usuarios'
+
+    def __str__(self):
+        return f'{self.get_full_name()} ({self.get_rol_display()})'
+
+    def get_full_name(self):
+        """Nombre completo: Nombre(s) ApellidoPaterno ApellidoMaterno"""
+        partes = [self.first_name, self.last_name, self.apellido_materno]
+        return ' '.join(p.strip() for p in partes if p and p.strip()) or self.username
+
+    def get_short_name(self):
+        return self.first_name or self.numero_control or self.username
+
+    def save(self, *args, **kwargs):
+        if self.numero_control:
+            self.username = self.numero_control
+        self.semestres_cursados = calcular_semestres_cursados(
+            self.periodo_inicio_ciclo,
+            self.periodo_inicio_anio,
+            self.periodo_egreso_ciclo,
+            self.periodo_egreso_anio,
+        )
+        super().save(*args, **kwargs)
+
+    @property
+    def periodo_inicio_display(self):
+        if not self.periodo_inicio_ciclo or not self.periodo_inicio_anio:
+            return '—'
+        return f'{self.get_periodo_inicio_ciclo_display()} {self.periodo_inicio_anio}'
+
+    @property
+    def periodo_egreso_display(self):
+        if not self.periodo_egreso_ciclo or not self.periodo_egreso_anio:
+            return '—'
+        return f'{self.get_periodo_egreso_ciclo_display()} {self.periodo_egreso_anio}'
+
+    @property
+    def requiere_documentos_extensos(self):
+        """True si cursó más de 12 semestres (documentos exclusivos del catálogo)."""
+        return bool(self.semestres_cursados and self.semestres_cursados > 12)
+
+    @property
+    def es_admin(self):
+        return self.rol == Rol.ADMINISTRADOR
+
+    def requiere_verificacion_correo(self):
+        """True si el usuario debe verificar al menos uno de sus correos."""
+
+        # Los administradores conservan su regla actual.
+        if self.es_admin:
+            if not ConfiguracionInstitucional.smtp_configurado():
+                return False
+
+            if not self.correo_institucional:
+                return True
+ 
+            return not self.correo_institucional_verificado
+
+        # Comprobar si existe al menos un correo verificado.
+        correo_personal_verificado = (
+            bool(self.email) and self.email_verificado
+        )
+
+        correo_institucional_verificado = (
+            bool(self.correo_institucional)
+            and self.correo_institucional_verificado
+        )
+
+        # Basta con verificar uno de los dos correos.
+        return not (
+           correo_personal_verificado
+           or correo_institucional_verificado
+        )
+
+
+    @property
+    def es_oficina_titulacion(self):
+        return self.rol in (Rol.OFICINA_TITULACION, Rol.ESCOLARES, Rol.ACADEMICO)
+
+    @property
+    def es_escolares(self):
+        return self.es_oficina_titulacion
+
+    @property
+    def es_academico(self):
+        return self.es_oficina_titulacion
+
+    @property
+    def es_finanzas(self):
+        return self.rol == Rol.FINANZAS
+
+    @property
+    def es_centro_computo(self):
+        return self.rol == Rol.CENTRO_COMPUTO
+
+    @property
+    def es_centro_informacion(self):
+        return self.rol == Rol.CENTRO_INFORMACION
+
+    @property
+    def es_alumno(self):
+        return self.rol == Rol.ALUMNO
+
+    @property
+    def es_jefe_academia(self):
+        return self.rol in (Rol.JEFE_ACADEMIA, Rol.JEFE_PROYECTO)
+
+    @property
+    def es_jefe_proyecto(self):
+        return self.es_jefe_academia
+
+    def tiene_periodo_activo(self):
+        from django.utils import timezone
+        hoy = timezone.localdate()
+        if not self.is_active:
+            return False
+        if self.fecha_baja and self.fecha_baja <= hoy:
+            return False
+        periodos = self.periodos_actividad.filter(activo=True)
+        if not periodos.exists():
+            return True
+        return periodos.filter(
+            models.Q(fecha_fin__isnull=True) | models.Q(fecha_fin__gte=hoy),
+            fecha_inicio__lte=hoy,
+        ).exists()
+
+    @property
+    def tiene_expediente(self):
+        """Verifica si el usuario tiene un expediente asociado (OneToOne)."""
+        try:
+            return self.expediente is not None
+        except Exception:
+            return False
+
+    @property
+    def url_foto_perfil(self):
+        """Obtiene la URL de la foto de perfil, ya sea del modelo o del expediente del alumno."""
+        if self.foto_perfil:
+            return self.foto_perfil.url
+        
+        if self.es_alumno and self.tiene_expediente:
+            try:
+                from expediente.models import Documento
+                doc_foto = Documento.objects.filter(
+                    expediente=self.expediente, 
+                    tipo_documento__es_fotografia=True
+                ).exclude(archivo='').first()
+                if doc_foto and doc_foto.archivo:
+                    return doc_foto.archivo.url
+            except Exception:
+                pass
+                
+        return None
+
+    def get_dashboard_url(self):
+        from django.urls import reverse
+        dashboards = {
+            Rol.ADMINISTRADOR: 'administracion:dashboard',
+            Rol.OFICINA_TITULACION: 'oficina_titulacion:dashboard',
+            Rol.ESCOLARES: 'oficina_titulacion:dashboard',
+            Rol.ACADEMICO: 'oficina_titulacion:dashboard',
+            Rol.FINANZAS: 'finanzas:dashboard',
+            Rol.CENTRO_COMPUTO: 'centro_computo:dashboard',
+            Rol.CENTRO_INFORMACION: 'centro_informacion:dashboard',
+            Rol.JEFE_ACADEMIA: 'administracion:jefe_dashboard',
+            Rol.JEFE_PROYECTO: 'administracion:jefe_dashboard',
+            Rol.ALUMNO: 'alumnos:dashboard',
+        }
+        return reverse(dashboards.get(self.rol, 'alumnos:dashboard'))
+
+
+class ConfiguracionInstitucional(models.Model):
+    """
+    Modelo Singleton para almacenar la configuración de logos institucionales.
+    Permite subir la imagen completa del encabezado y del pie de página.
+    """
+    anio_en_curso = models.IntegerField(
+        verbose_name="Año en curso",
+        help_text="Ej: 2026",
+        default=2026
+    )
+    dominio_institucional = models.CharField(
+        max_length=100,
+        verbose_name="Dominio Institucional",
+        help_text="Dominio requerido para el correo institucional (ej: apizaco.tecnm.mx)",
+        default="apizaco.tecnm.mx"
+    )
+    imagen_encabezado = models.ImageField(
+        upload_to='configuracion/',
+        blank=True, null=True,
+        verbose_name="Imagen completa del Encabezado",
+        help_text="Sube la imagen completa que servirá de membrete superior."
+    )
+    imagen_pie_pagina = models.ImageField(
+        upload_to='configuracion/',
+        blank=True, null=True,
+        verbose_name="Imagen completa del Pie de Página",
+        help_text="Sube la imagen completa que servirá de pie de página."
+    )
+    ultima_actualizacion = models.FloatField(
+        default=0.0,
+        verbose_name="Última actualización global",
+        help_text="Timestamp interno para forzar la actualización en tiempo real de los clientes."
+    )
+    permitir_jefe_proyectos_cambiar_jefe_departamento = models.BooleanField(
+        default=False,
+        verbose_name="Permitir a Jefes de Proyecto cambiar Jefe de Departamento directamente",
+        help_text="Si está activo, los Jefes de Proyecto no necesitarán solicitar el cambio a un administrador, el cambio será directo."
+    )
+    
+    # ── Identidad Institucional y Branding ──
+    nombre_institucion = models.CharField(
+        max_length=255,
+        default="Instituto Tecnológico de Apizaco",
+        verbose_name="Nombre de la Institución"
+    )
+    siglas = models.CharField(
+        max_length=50,
+        default="ITApizaco",
+        verbose_name="Siglas de la Institución"
+    )
+    logo_sep = models.ImageField(
+        upload_to='configuracion/logos/',
+        blank=True, null=True,
+        verbose_name='Logo SEP',
+        help_text='Logo de la Secretaría de Educación Pública (encabezado institucional).',
+    )
+    logo_tecnm = models.ImageField(
+        upload_to='configuracion/logos/',
+        blank=True, null=True,
+        verbose_name='Logo TecNM',
+        help_text='Logo del Tecnológico Nacional de México (encabezado institucional).',
+    )
+    logo_sistema = models.ImageField(
+        upload_to='configuracion/logos/',
+        blank=True, null=True,
+        verbose_name='Logo del plantel',
+        help_text='Logotipo del instituto/plantel (encabezado y barra de navegación). Se recomienda PNG transparente.',
+    )
+    mostrar_cintillo = models.BooleanField(
+        default=True,
+        verbose_name="Mostrar Cintillo Gubernamental",
+        help_text="Activar para mostrar la barra superior con los logos institucionales/gubernamentales."
+    )
+    imagen_cintillo = models.ImageField(
+        upload_to='configuracion/',
+        blank=True, null=True,
+        verbose_name="Imagen del Cintillo",
+        help_text="Opcional. Sube una imagen para reemplazar los logos del cintillo superior."
+    )
+    color_header = models.CharField(
+        max_length=7,
+        default="#1B396A",
+        verbose_name="Color de Barra de Navegación",
+        help_text="Color en formato hexadecimal."
+    )
+    color_menu = models.CharField(
+        max_length=7,
+        default="#003B73",
+        verbose_name="Color Primario (Botones y acentos)",
+        help_text="Color en formato hexadecimal."
+    )
+    color_botones = models.CharField(
+        max_length=7,
+        default="#0057B8",
+        verbose_name="Color Secundario (Hovers y enlaces)",
+        help_text="Color en formato hexadecimal."
+    )
+    color_cintillo = models.CharField(
+        max_length=7,
+        default="#611232",
+        verbose_name="Color de Fondo del Cintillo",
+        help_text="Color en formato hexadecimal."
+    )
+    
+    # ── Configuración de Correo Electrónico (SMTP) ──
+    email_host = models.CharField(
+        max_length=255, default='smtp.gmail.com',
+        verbose_name='Servidor SMTP (Host)',
+        help_text='Ej: smtp.gmail.com, smtp.office365.com'
+    )
+    email_port = models.IntegerField(
+        default=587,
+        verbose_name='Puerto SMTP',
+        help_text='Ej: 587 (TLS), 465 (SSL)'
+    )
+    email_use_tls = models.BooleanField(
+        default=True,
+        verbose_name='Usar TLS',
+        help_text='Habilitar seguridad TLS (Recomendado para el puerto 587)'
+    )
+    email_remitente = models.EmailField(
+        blank=True, null=True,
+        verbose_name='Correo Remitente',
+        help_text='Cuenta de correo desde donde se enviarán las notificaciones'
+    )
+    email_password = models.CharField(
+        max_length=255, blank=True, null=True,
+        verbose_name='Contraseña de Aplicación',
+        help_text='Contraseña de aplicación generada desde el proveedor de correo'
+    )
+    sistema_configurado = models.BooleanField(
+        default=False,
+        verbose_name='Sistema configurado',
+        help_text='Indica que la configuración inicial obligatoria fue completada.'
+    )
+    clave_ctt = models.CharField(
+        max_length=20, blank=True,
+        verbose_name='Clave CTT institucional',
+        help_text='Ej: 29DIT0037U'
+    )
+    director_nombre = models.CharField(max_length=200, blank=True, verbose_name='Nombre del Director(a)')
+    director_cargo = models.CharField(
+        max_length=200, blank=True, default='Director(a)',
+        verbose_name='Cargo del Director(a)'
+    )
+    director_genero = models.CharField(
+        max_length=1, choices=Genero.choices, blank=True,
+        verbose_name='Género del Director(a)'
+    )
+    jefe_escolares_nombre = models.CharField(
+        max_length=200, blank=True,
+        verbose_name='Jefe del Depto. de Servicios Escolares'
+    )
+    jefe_escolares_cargo = models.CharField(
+        max_length=200, blank=True,
+        default='Jefe del Departamento de Servicios Escolares',
+        verbose_name='Cargo Jefe Escolares'
+    )
+    telefono_institucional = models.CharField(
+        max_length=20,
+        default='2414172010',
+        blank=True,
+        verbose_name='Teléfono institucional (base)',
+        help_text='Número base del plantel. Las extensiones de cada área se configuran en Contactos de áreas.',
+    )
+
+    class Meta:
+        verbose_name = "Configuración Institucional"
+        verbose_name_plural = "Configuración Institucional"
+
+    def __str__(self):
+        return f"Membretes Oficiales del Año {self.anio_en_curso}"
+
+    def save(self, *args, **kwargs):
+        if not self.pk and ConfiguracionInstitucional.objects.exists():
+            return ConfiguracionInstitucional.objects.first()
+        return super(ConfiguracionInstitucional, self).save(*args, **kwargs)
+
+    def smtp_listo(self):
+        return bool(self.email_host and self.email_remitente and self.email_password)
+
+    @classmethod
+    def smtp_configurado(cls):
+        config = cls.objects.first()
+        return bool(config and config.smtp_listo())
+
+
+class ContactoArea(models.Model):
+    """
+    Contacto institucional de un área (no es usuario del sistema).
+    Se muestra a alumnos para consultas; no recibe notificaciones SMTP automáticas.
+    """
+    class Area(models.TextChoices):
+        FINANZAS = 'FINANZAS', 'Recursos Financieros'
+        CENTRO_COMPUTO = 'CENTRO_COMPUTO', 'Centro de Cómputo'
+        CENTRO_INFORMACION = 'CENTRO_INFORMACION', 'Centro de Información'
+        SERVICIOS_ESCOLARES = 'SERVICIOS_ESCOLARES', 'Servicios Escolares'
+
+    area = models.CharField(
+        max_length=30, choices=Area.choices, unique=True,
+        verbose_name='Área',
+    )
+    nombre_responsable = models.CharField(max_length=200, verbose_name='Nombre del responsable')
+    correo_departamento = models.EmailField(
+        verbose_name='Correo del departamento',
+        help_text='Correo institucional del área (solo para mostrar contacto).',
+    )
+    correo_personal = models.EmailField(
+        blank=True,
+        verbose_name='Correo personal del responsable',
+        help_text='Opcional. No se usa para envíos automáticos del sistema.',
+    )
+    extension = models.CharField(max_length=10, blank=True, verbose_name='Extensión')
+    activo = models.BooleanField(default=True, verbose_name='Activo')
+
+    class Meta:
+        verbose_name = 'Contacto de área'
+        verbose_name_plural = 'Contactos de áreas'
+        ordering = ['area']
+
+    def __str__(self):
+        return f'{self.get_area_display()} — {self.nombre_responsable}'
+
+    def telefono_completo(self):
+        config = ConfiguracionInstitucional.objects.first()
+        base = (config.telefono_institucional if config else '') or '2414172010'
+        if self.extension:
+            return f'{base} ext. {self.extension}'
+        return base
+
+    @classmethod
+    def por_area(cls, area):
+        return cls.objects.filter(area=area, activo=True).first()
+
+    @classmethod
+    def areas_adeudo(cls):
+        return cls.objects.filter(
+            area__in=[
+                cls.Area.FINANZAS,
+                cls.Area.CENTRO_COMPUTO,
+                cls.Area.CENTRO_INFORMACION,
+            ],
+            activo=True,
+        )
+
+    @classmethod
+    def servicios_escolares(cls):
+        return cls.por_area(cls.Area.SERVICIOS_ESCOLARES)
+
+
+class JefeDepartamento(models.Model):
+    """
+    Representa al Jefe o Jefa de un Departamento Académico o Administrativo.
+    Se utiliza principalmente para estampar la firma y el cargo en los oficios generados.
+    """
+    departamento = models.ForeignKey(
+        Departamento,
+        on_delete=models.CASCADE,
+        related_name='jefes_historial',
+        verbose_name="Departamento"
+    )
+    activo = models.BooleanField(
+        default=True,
+        verbose_name="¿Es el jefe activo actualmente?",
+        help_text="Solo debe haber un jefe activo por departamento a la vez."
+    )
+    titulo_academico = models.CharField(
+        max_length=50,
+        verbose_name="Título Académico",
+        help_text="Ej: Ing., M.C., Dra., Dr."
+    )
+    nombre = models.CharField(max_length=150, verbose_name="Nombre(s)")
+    apellido_paterno = models.CharField(max_length=150, verbose_name="Apellido Paterno")
+    apellido_materno = models.CharField(max_length=150, blank=True, verbose_name="Apellido Materno")
+    genero = models.CharField(
+        max_length=1,
+        choices=Genero.choices,
+        default=Genero.FEMENINO,
+        verbose_name="Género",
+        help_text="Se usa para determinar si el cargo dice 'JEFE' o 'JEFA'"
+    )
+
+    class Meta:
+        verbose_name = "Jefe de Departamento"
+        verbose_name_plural = "Jefes de Departamento"
+
+    def __str__(self):
+        return f"{self.titulo_academico} {self.get_full_name()} - {self.departamento.nombre}"
+
+    def get_full_name(self):
+        partes = [self.nombre, self.apellido_paterno, self.apellido_materno]
+        return ' '.join(p.strip() for p in partes if p and p.strip())
+
+
+class SolicitudCambioJefe(models.Model):
+    """
+    Ticket para solicitar la actualización de un Jefe de Departamento.
+    Permite uso urgente en oficios mientras el Administrador lo aprueba.
+    """
+    class EstadoSolicitud(models.TextChoices):
+        PENDIENTE = 'PENDIENTE', 'Pendiente'
+        APROBADO = 'APROBADO', 'Aprobado'
+        RECHAZADO = 'RECHAZADO', 'Rechazado'
+        EXPIRADO = 'EXPIRADO', 'Expirado'
+
+    departamento = models.ForeignKey(
+        Departamento,
+        on_delete=models.CASCADE,
+        related_name='solicitudes_cambio_jefe'
+    )
+    solicitante = models.ForeignKey(
+        'Usuario',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='solicitudes_cambio_jefe'
+    )
+    titulo_academico_nuevo = models.CharField(max_length=50, verbose_name="Título Académico")
+    nombre_nuevo = models.CharField(max_length=150, verbose_name="Nombre(s)")
+    apellido_paterno_nuevo = models.CharField(max_length=150, verbose_name="Apellido Paterno")
+    apellido_materno_nuevo = models.CharField(max_length=150, blank=True, verbose_name="Apellido Materno")
+    genero_nuevo = models.CharField(max_length=1, choices=Genero.choices, default=Genero.FEMENINO)
+    
+    estado = models.CharField(
+        max_length=15,
+        choices=EstadoSolicitud.choices,
+        default=EstadoSolicitud.PENDIENTE
+    )
+    fecha_solicitud = models.DateTimeField(auto_now_add=True)
+    fecha_resolucion = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Solicitud de Cambio de Jefe"
+        verbose_name_plural = "Solicitudes de Cambio de Jefe"
+
+    def __str__(self):
+        return f"Solicitud para {self.departamento.nombre} - {self.get_full_name()}"
+
+    @property
+    def titulo_academico(self):
+        return self.titulo_academico_nuevo
+
+    @property
+    def nombre(self):
+        return self.nombre_nuevo
+
+    @property
+    def apellido_paterno(self):
+        return self.apellido_paterno_nuevo
+
+    @property
+    def apellido_materno(self):
+        return self.apellido_materno_nuevo
+
+    def get_full_name(self):
+        partes = [self.nombre_nuevo, self.apellido_paterno_nuevo, self.apellido_materno_nuevo]
+        return ' '.join(p.strip() for p in partes if p and p.strip())
+
+    def get_genero_display(self):
+        return dict(Genero.choices).get(self.genero_nuevo, self.genero_nuevo)
+
+class PeriodoActividadUsuario(models.Model):
+    """Historial de periodos activos/inactivos de un usuario."""
+    usuario = models.ForeignKey(
+        Usuario, on_delete=models.CASCADE,
+        related_name='periodos_actividad',
+        verbose_name='Usuario'
+    )
+    fecha_inicio = models.DateField(verbose_name='Fecha de inicio')
+    fecha_fin = models.DateField(null=True, blank=True, verbose_name='Fecha de fin')
+    motivo = models.CharField(
+        max_length=200, blank=True,
+        verbose_name='Motivo',
+        help_text='Ej: vacaciones, incapacidad, baja temporal'
+    )
+    activo = models.BooleanField(default=True, verbose_name='Periodo vigente')
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Periodo de actividad'
+        verbose_name_plural = 'Periodos de actividad'
+        ordering = ['-fecha_inicio']
+
+    def __str__(self):
+        return f'{self.usuario} ({self.fecha_inicio} - {self.fecha_fin or "actual"})'
+
+
+class PasswordResetOTP(models.Model):
+    """
+    Almacena los códigos de 6 dígitos (OTP) para verificación de contraseña.
+    """
+    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='otps')
+    codigo = models.CharField(max_length=6, verbose_name="Código de 6 dígitos")
+    creado_en = models.DateTimeField(auto_now_add=True)
+    usado = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "Código OTP"
+        verbose_name_plural = "Códigos OTP"
+
+    def __str__(self):
+        return f"OTP para {self.usuario.username} - {self.creado_en}"
+
+class EmailVerificationOTP(models.Model):
+    """
+    Almacena los códigos de 6 dígitos (OTP) para verificación de correos.
+    """
+    TIPO_CORREO_CHOICES = [
+        ('INSTITUCIONAL', 'Institucional'),
+        ('PERSONAL', 'Personal'),
+    ]
+    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='email_otps')
+    email_a_verificar = models.EmailField(verbose_name="Correo a verificar")
+    tipo_correo = models.CharField(max_length=15, choices=TIPO_CORREO_CHOICES)
+    codigo = models.CharField(max_length=6, verbose_name="Código de 6 dígitos")
+    creado_en = models.DateTimeField(auto_now_add=True)
+    usado = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "OTP de Verificación de Correo"
+        verbose_name_plural = "OTPs de Verificación de Correos"
+
+    def __str__(self):
+        return f"Verificación para {self.email_a_verificar} - {self.codigo}"
+
+    def is_valid(self):
+        from django.utils import timezone
+        import datetime
+        # Válido si no ha sido usado y han pasado menos de 15 minutos
+        return not self.usado and (timezone.now() - self.creado_en) < datetime.timedelta(minutes=15)
+

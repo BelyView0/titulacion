@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Configuración Institucional — Administración{% endblock %}
+{% block page_title %}Configuración Institucional{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <i class="bi bi-gear me-2"></i> Configuración General y Membretes
+            </div>
+            
+            <div class="p-4">
+                <p class="text-muted small mb-4">
+                    Ajusta los parámetros generales del sistema, permisos especiales y sube las imágenes para el membrete superior e inferior de los oficios PDF.
+                </p>
+
+                <form method="post" enctype="multipart/form-data" novalidate>
+                    {% csrf_token %}
+
+                    {% if form.errors %}
+                    <div class="alert alert-danger py-2 mb-4">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Corrige los siguientes errores:</strong>
+                        <ul class="mb-0 mt-1 small">
+                            {% for field in form %}
+                                {% for error in field.errors %}
+                                <li>{{ field.label }}: {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold"><i class="bi bi-globe me-1 text-primary"></i> {{ form.dominio_institucional.label }}</label>
+                        {{ form.dominio_institucional }}
+                        <div class="form-text text-muted">{{ form.dominio_institucional.help_text }}</div>
+                    </div>
+
+                    <div class="mb-4 bg-light p-3 rounded border">
+                        <div class="form-check form-switch d-flex align-items-center gap-2">
+                            {{ form.permitir_jefe_proyectos_cambiar_jefe_departamento }}
+                            <label class="form-check-label fw-bold mb-0 mt-1" for="{{ form.permitir_jefe_proyectos_cambiar_jefe_departamento.id_for_label }}">
+                                {{ form.permitir_jefe_proyectos_cambiar_jefe_departamento.label }}
+                            </label>
+                        </div>
+                        <div class="form-text text-muted mt-2"><i class="bi bi-info-circle me-1"></i> {{ form.permitir_jefe_proyectos_cambiar_jefe_departamento.help_text }}</div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    <h6 class="fw-bold mb-3"><i class="bi bi-palette text-primary me-2"></i>Identidad Institucional y Branding</h6>
+                    
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold"><i class="bi bi-building me-1 text-primary"></i> {{ form.nombre_institucion.label }}</label>
+                            {{ form.nombre_institucion }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold"><i class="bi bi-fonts me-1 text-primary"></i> {{ form.siglas.label }}</label>
+                            {{ form.siglas }}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold"><i class="bi bi-telephone me-1 text-primary"></i> {{ form.telefono_institucional.label }}</label>
+                            {{ form.telefono_institucional }}
+                            <div class="form-text text-muted">{{ form.telefono_institucional.help_text }}
+                                <a href="{% url 'administracion:configuracion_contactos' %}">Editar contactos de áreas</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <h6 class="fw-bold mb-3"><i class="bi bi-images text-primary me-2"></i>Logos del encabezado institucional</h6>
+                        <p class="text-muted small mb-3">Carga los tres logos que aparecen en la barra superior del sistema. Si no subes uno, se usará la imagen predeterminada.</p>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small">{{ form.logo_sep.label }}</label>
+                                {{ form.logo_sep }}
+                                <div class="form-text text-muted small">{{ form.logo_sep.help_text }}</div>
+                                {% if form.instance.logo_sep %}
+                                <div class="mt-2 border rounded p-2 text-center bg-light">
+                                    <img src="{{ form.instance.logo_sep.url }}" style="max-height: 45px; max-width: 100%;" alt="Logo SEP">
+                                </div>
+                                {% else %}
+                                <div class="mt-2 border rounded p-2 text-center bg-light">
+                                    <img src="{% static 'img/logo-sep.png' %}" style="max-height: 45px; max-width: 100%;" alt="SEP predeterminado">
+                                    <div class="form-text small mt-1">Predeterminado</div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small">{{ form.logo_tecnm.label }}</label>
+                                {{ form.logo_tecnm }}
+                                <div class="form-text text-muted small">{{ form.logo_tecnm.help_text }}</div>
+                                {% if form.instance.logo_tecnm %}
+                                <div class="mt-2 border rounded p-2 text-center bg-light">
+                                    <img src="{{ form.instance.logo_tecnm.url }}" style="max-height: 45px; max-width: 100%;" alt="Logo TecNM">
+                                </div>
+                                {% else %}
+                                <div class="mt-2 border rounded p-2 text-center bg-light">
+                                    <img src="{% static 'img/logo-tecnm.png' %}" style="max-height: 45px; max-width: 100%;" alt="TecNM predeterminado">
+                                    <div class="form-text small mt-1">Predeterminado</div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small">{{ form.logo_sistema.label }}</label>
+                                {{ form.logo_sistema }}
+                                <div class="form-text text-muted small">{{ form.logo_sistema.help_text }}</div>
+                                {% if form.instance.logo_sistema %}
+                                <div class="mt-2 border rounded p-2 text-center bg-light">
+                                    <img src="{{ form.instance.logo_sistema.url }}" style="max-height: 45px; max-width: 100%;" alt="Logo plantel">
+                                </div>
+                                {% else %}
+                                <div class="mt-2 border rounded p-2 text-center bg-light">
+                                    <img src="{% static 'img/logo-ita.png' %}" style="max-height: 45px; max-width: 100%;" alt="Plantel predeterminado">
+                                    <div class="form-text small mt-1">Predeterminado</div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4 bg-light p-3 rounded border">
+                        <div class="form-check form-switch d-flex align-items-center gap-2">
+                            {{ form.mostrar_cintillo }}
+                            <label class="form-check-label fw-bold mb-0 mt-1" for="{{ form.mostrar_cintillo.id_for_label }}">
+                                {{ form.mostrar_cintillo.label }}
+                            </label>
+                        </div>
+                        <div class="form-text text-muted mt-2"><i class="bi bi-info-circle me-1"></i> {{ form.mostrar_cintillo.help_text }}</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold"><i class="bi bi-image me-1 text-primary"></i> {{ form.imagen_cintillo.label }}</label>
+                        {{ form.imagen_cintillo }}
+                        <div class="form-text text-muted">{{ form.imagen_cintillo.help_text }}</div>
+                        {% if form.instance.imagen_cintillo %}
+                        <div class="mt-2 border rounded p-2 text-center" style="background:#f8f9fa;">
+                            <img src="{{ form.instance.imagen_cintillo.url }}" style="max-height: 50px; max-width: 100%;" alt="Imagen cintillo actual">
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small text-muted">{{ form.color_header.label }}</label>
+                            {{ form.color_header }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small text-muted">{{ form.color_menu.label }}</label>
+                            {{ form.color_menu }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small text-muted">{{ form.color_botones.label }}</label>
+                            {{ form.color_botones }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small text-muted">{{ form.color_cintillo.label }}</label>
+                            {{ form.color_cintillo }}
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+                    <h6 class="fw-bold mb-3"><i class="bi bi-images text-primary me-2"></i>Imágenes para PDFs</h6>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold"><i class="bi bi-layout-text-window me-1 text-primary"></i> {{ form.imagen_encabezado.label }}</label>
+                        {{ form.imagen_encabezado }}
+                        <div class="form-text text-muted">{{ form.imagen_encabezado.help_text }}</div>
+                        {% if form.instance.imagen_encabezado %}
+                        <div class="mt-2 border rounded p-2 text-center" style="background:#f8f9fa;">
+                            <img src="{{ form.instance.imagen_encabezado.url }}" style="max-width: 100%; max-height: 100px;" alt="Encabezado actual">
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold"><i class="bi bi-layout-text-window-reverse me-1 text-primary"></i> {{ form.imagen_pie_pagina.label }}</label>
+                        {{ form.imagen_pie_pagina }}
+                        <div class="form-text text-muted">{{ form.imagen_pie_pagina.help_text }}</div>
+                        {% if form.instance.imagen_pie_pagina %}
+                        <div class="mt-2 border rounded p-2 text-center" style="background:#f8f9fa;">
+                            <img src="{{ form.instance.imagen_pie_pagina.url }}" style="max-width: 100%; max-height: 100px;" alt="Pie de página actual">
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <a href="{% url 'administracion:dashboard' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Volver al Inicio
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-1"></i>Guardar Cambios
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

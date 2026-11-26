@@ -1,0 +1,125 @@
+"""
+Generación del Oficio de Asignación de Jurado en PDF.
+Usa xhtml2pdf para convertir el template HTML al PDF institucional del ITA.
+"""
+from django.template.loader import render_to_string
+from django.conf import settings
+from administracion.models import ConfiguracionInstitucional
+from xhtml2pdf import pisa
+from io import BytesIO
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+import os
+
+
+try:
+    _font_path = os.path.relpath(
+        os.path.join(settings.BASE_DIR, 'static', 'fonts', 'NotoSans-Regular.ttf')
+    )
+    if 'Noto Sans' not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont('Noto Sans', _font_path))
+except Exception:
+    pass
+
+
+def link_callback(uri, rel):
+    """
+    Convierte URIs de Django (ej. /static/img/logo.png) a rutas de archivo locales
+    para que xhtml2pdf pueda encontrarlas.
+    """
+    if os.path.isabs(uri):
+        return uri
+    
+    sUrl = settings.STATIC_URL
+    sRoot = settings.STATIC_ROOT
+    mUrl = settings.MEDIA_URL
+    mRoot = settings.MEDIA_ROOT
+    
+    if uri.startswith(mUrl):
+        path = os.path.join(mRoot, uri.replace(mUrl, ""))
+    elif uri.startswith(sUrl):
+        path = os.path.join(sRoot, uri.replace(sUrl, "")) if sRoot else ""
+        if not os.path.isfile(path) and hasattr(settings, 'STATICFILES_DIRS'):
+            for d in settings.STATICFILES_DIRS:
+                test_path = os.path.join(d, uri.replace(sUrl, ""))
+                if os.path.isfile(test_path):
+                    path = test_path
+                    break
+    else:
+        path = uri
+        
+    return path
+
+
+def generar_oficio_jurado_pdf(asignacion, jefe_custom=None):
+    """
+    Recibe una instancia de AsignacionJurado y retorna los bytes del PDF.
+    Si jefe_custom se proporciona (una instancia de SolicitudCambioJefe u objeto con nombre, titulo, etc.), 
+    se usa ese en lugar del oficial.
+    """
+    expediente = asignacion.expediente
+    alumno = expediente.alumno
+    config = ConfiguracionInstitucional.objects.first()
+    
+    departamento_alumno = alumno.carrera.departamento if alumno.carrera else None
+    jefe_depto = None
+
+    if jefe_custom:
+        jefe_depto = jefe_custom
+    elif departamento_alumno and hasattr(departamento_alumno, 'jefe_asignado'):
+        jefe_depto = departamento_alumno.jefe_asignado
+
+    context = {
+        'asignacion': asignacion,
+        'expediente': expediente,
+        'alumno': alumno,
+        'presidente': asignacion.presidente,
+        'secretario': asignacion.secretario,
+        'vocal_propietario': asignacion.vocal_propietario,
+        'vocal_suplente': asignacion.vocal_suplente,
+        'lugar': getattr(settings, 'ITA_CIUDAD', 'Tzompantepec, Tlaxcala'),
+        'config': config,
+        'jefe_depto': jefe_depto,
+    }
+
+    html_string = render_to_string('administracion/jefe/oficio_jurado.html', context)
+
+    result = BytesIO()
+    pdf = pisa.pisaDocument(BytesIO(html_string.encode("UTF-8")), result, link_callback=link_callback)
+    
+    if not pdf.err:
+        return result.getvalue()
+    else:
+        raise Exception("Error al generar PDF: " + str(pdf.err))
+
+def generar_documentos_protocolo_pdf(jurado, acto):
+    """
+    Recibe el jurado y el acto protocolario y genera el PDF con la Guía, Juramento y Código de Ética.
+    """
+    from administracion.pdf_texto import nombre_documento, static_dir
+
+    expediente = jurado.expediente
+    alumno = expediente.alumno
+    static = static_dir()
+
+    context = {
+        'jurado': jurado,
+        'acto': acto,
+        'fecha_acto': acto.fecha_acto if acto else jurado.fecha_acto,
+        'expediente': expediente,
+        'alumno': alumno,
+        'alumno_nombre': nombre_documento(alumno.get_full_name()),
+        'carrera_nombre': (alumno.carrera.nombre if alumno.carrera_id else ''),
+        'modalidad': expediente.modalidad,
+        'STATIC_ROOT': str(static),
+    }
+
+    html_string = render_to_string('administracion/jefe/documentos_protocolo.html', context)
+
+    result = BytesIO()
+    pdf = pisa.pisaDocument(BytesIO(html_string.encode("UTF-8")), result, link_callback=link_callback)
+    
+    if not pdf.err:
+        return result.getvalue()
+    else:
+        raise Exception("Error al generar PDF de Documentos Protocolo: " + str(pdf.err))

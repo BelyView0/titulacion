@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}Departamentos{% endblock %}
+{% block page_title %}Gestión de Departamentos{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <span class="text-muted small fw-semibold"><i class="bi bi-info-circle me-1"></i> Total de departamentos: {{ departamentos|length }}</span>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'administracion:departamento_crear' %}" class="btn btn-success btn-sm">
+            <i class="bi bi-plus-circle me-1"></i>Nuevo Departamento
+        </a>
+    </div>
+</div>
+
+<div class="content-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Clave</th>
+                    <th>Nombre</th>
+                    <th>Jefe Asignado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in departamentos %}
+                <tr>
+                    <td class="fw-semibold text-dark">{{ d.clave }}</td>
+                    <td>{{ d.nombre }}</td>
+                    <td>
+                        {% if d.jefe_asignado %}
+                            <div class="small fw-semibold text-dark">{{ d.jefe_asignado.titulo_academico }} {{ d.jefe_asignado.get_full_name }}</div>
+                        {% else %}
+                            <span class="text-muted small fst-italic">Sin asignar</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'administracion:departamento_editar' d.pk %}" class="btn btn-sm btn-outline-secondary" title="Editar"><i class="bi bi-pencil"></i></a>
+                        <a href="{% url 'administracion:departamento_eliminar' d.pk %}" class="btn btn-sm btn-outline-danger" title="Eliminar"><i class="bi bi-trash"></i></a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center text-muted py-4">Sin departamentos registrados.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

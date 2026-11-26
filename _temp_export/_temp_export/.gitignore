@@ -1,0 +1,37 @@
+﻿# Entorno virtual
+venv/
+env/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Base de datos
+db.sqlite3
+db.sqlite3.backup_*
+*.dump
+backup_*.sql
+
+# Fixtures de migracion generados
+fixtures/migracion_*.json
+
+# Archivos de entorno
+.env
+config/database.json
+
+# Media subida por usuarios
+media/
+
+# VSCode
+.vscode/
+
+# Sistema
+.DS_Store
+
+# Seguridad admin
+.admin_ensure_lock
+
+# Reportes temporales de verificacion
+listado_completo_bd.txt
+restauracion_log.txt

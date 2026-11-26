@@ -1,0 +1,30 @@
+{% extends "emails/base_email.html" %}
+
+{% block header_icon %}👨‍🏫{% endblock %}
+{% block header_title %}Designación de Jurado{% endblock %}
+
+{% block content %}
+<p style="font-size:15px;color:#333;">Estimado(a) <strong>{{ profesor.get_full_name }}</strong>,</p>
+<p style="font-size:14px;color:#555;line-height:1.6;">
+  Por medio del presente, se le notifica que ha sido designado/a como <strong style="color:#1B396A;">{{ rol_jurado }}</strong>
+  del jurado para el acto de recepción profesional de:
+</p>
+
+<div style="background:#f8f9fa;border-radius:8px;padding:20px;margin:20px 0;border-left:4px solid #1B396A;">
+  <h3 style="margin-top:0;color:#1B396A;font-size:15px;">Datos del Sustentante y Acto:</h3>
+  <table style="width:100%;border-collapse:collapse;font-size:14px;">
+    <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;width:120px;">Sustentante:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ alumno.get_full_name }}</td></tr>
+    <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">No. Control:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ alumno.numero_control }}</td></tr>
+    <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">Carrera:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ alumno.carrera.nombre|default:"—" }}</td></tr>
+    <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">Modalidad:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ expediente.modalidad.nombre|default:expediente.modalidad }}</td></tr>
+    <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">Tema:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ expediente.titulo_trabajo }}</td></tr>
+    <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">Fecha del acto:</td><td style="padding:6px 0;font-weight:700;color:#1B396A;">{% if asignacion.fecha_acto %}{{ asignacion.fecha_acto|date:"d/m/Y" }} a las {{ asignacion.fecha_acto|time:"H:i" }} hrs{% else %}Por confirmar{% endif %}</td></tr>
+    <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">Lugar:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ asignacion.lugar_acto|default:"Por confirmar" }}</td></tr>
+    <tr><td style="padding:6px 0;font-weight:700;color:#6c757d;">No. Oficio:</td><td style="padding:6px 0;font-weight:700;color:#333;">{{ asignacion.numero_oficio|default:"---" }}</td></tr>
+  </table>
+</div>
+
+<div style="background:#eef2f7;border-radius:8px;padding:16px;margin:20px 0;text-align:center;color:#445;font-size:14px;line-height:1.5;">
+  Adjunto a este correo encontrará el <strong>oficio oficial de designación (PDF)</strong>.<br> Se agradece su puntual asistencia.
+</div>
+{% endblock %}

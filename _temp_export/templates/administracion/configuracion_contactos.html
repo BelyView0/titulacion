@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}Contactos de áreas — Administración{% endblock %}
+{% block page_title %}Contactos de áreas{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="content-card p-4">
+            <div class="card-header-custom mb-3">
+                <i class="bi bi-telephone me-2"></i> Contactos institucionales
+            </div>
+            <p class="text-muted small mb-3">
+                Estos datos se muestran a los alumnos para consultas (adeudos y plan de estudios).
+                <strong>No se envían notificaciones automáticas</strong> a estos correos.
+                Teléfono base actual:
+                <strong>{{ telefono_base.telefono_institucional|default:"2414172010" }}</strong>
+                (se edita en <a href="{% url 'administracion:configuracion' %}">Datos institucionales</a>).
+            </p>
+
+            <form method="post">
+                {% csrf_token %}
+                {{ formset.management_form }}
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Área</th>
+                                <th>Responsable</th>
+                                <th>Correo depto.</th>
+                                <th>Correo personal</th>
+                                <th>Ext.</th>
+                                <th>Activo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for form in formset %}
+                        <tr>
+                            {{ form.id }}
+                            <td class="small fw-semibold">{{ form.instance.get_area_display }}</td>
+                            <td>{{ form.nombre_responsable }}</td>
+                            <td>{{ form.correo_departamento }}</td>
+                            <td>{{ form.correo_personal }}</td>
+                            <td style="max-width:80px;">{{ form.extension }}</td>
+                            <td class="text-center">{{ form.activo }}</td>
+                        </tr>
+                        {% if form.errors %}
+                        <tr>
+                            <td colspan="6" class="text-danger small">{{ form.errors }}</td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{% url 'administracion:configuracion' %}" class="btn btn-outline-secondary btn-sm">Volver</a>
+                    <button type="submit" class="btn btn-primary btn-sm">Guardar contactos</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

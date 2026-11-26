@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Planes de Estudio{% endblock %}
+{% block page_title %}Gestión de Planes de Estudio{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <span class="text-muted small fw-semibold"><i class="bi bi-info-circle me-1"></i> Total de planes: {{ planes|length }}</span>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'administracion:plan_crear' %}" class="btn btn-success btn-sm">
+            <i class="bi bi-plus-circle me-1"></i>Nuevo Plan
+        </a>
+    </div>
+</div>
+
+<div class="content-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Nombre</th>
+                    <th>Descripción</th>
+                    <th>Estado</th>
+                    <th>N° Modalidades</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in planes %}
+                <tr>
+                    <td class="fw-semibold text-dark">{{ p.nombre }}</td>
+                    <td><small class="text-muted">{{ p.descripcion|default:"—" }}</small></td>
+                    <td>
+                        {% if p.activo %}
+                        <span class="badge bg-success-subtle text-success">Activo</span>
+                        {% else %}
+                        <span class="badge bg-secondary-subtle text-secondary">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td><span class="badge bg-info-subtle text-info">{{ p.num_modalidades }}</span></td>
+                    <td>
+                        <a href="{% url 'administracion:plan_editar' p.pk %}" class="btn btn-sm btn-outline-secondary" title="Editar"><i class="bi bi-pencil"></i></a>
+                        <a href="{% url 'administracion:plan_eliminar' p.pk %}" class="btn btn-sm btn-outline-danger" title="Eliminar"><i class="bi bi-trash"></i></a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-4">Sin planes de estudio registrados.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

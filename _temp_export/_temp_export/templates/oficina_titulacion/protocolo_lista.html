@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block title %}Grupos de protocolo{% endblock %}
+{% block page_title %}Grupos de protocolo{% endblock %}
+
+{% block content %}
+<div class="content-card p-3 mb-4">
+    <h6 class="fw-bold mb-3">Nuevo grupo</h6>
+    <form method="post" class="row g-2 align-items-end">
+        {% csrf_token %}
+        <div class="col-md-3">
+            <label class="form-label small">Nombre</label>
+            <input type="text" name="nombre" class="form-control form-control-sm" required>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small">Fecha</label>
+            <input type="date" name="fecha" class="form-control form-control-sm" required>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small">Hora inicio</label>
+            <input type="time" name="hora_inicio" class="form-control form-control-sm" required>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small">Lugar</label>
+            <input type="text" name="lugar" class="form-control form-control-sm" required>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small">Intervalo (min)</label>
+            <input type="number" name="intervalo_minutos" value="30" class="form-control form-control-sm" min="5">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label small">Criterio</label>
+            <input type="text" name="criterio" class="form-control form-control-sm">
+        </div>
+        <div class="col-md-2 d-flex align-items-center gap-2">
+            <input type="checkbox" name="es_egel" id="es_egel" class="form-check-input">
+            <label for="es_egel" class="form-check-label small">EGEL escalonado</label>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary btn-sm">Crear grupo</button>
+        </div>
+    </form>
+</div>
+
+{% for grupo in grupos %}
+<div class="content-card mb-3">
+    <div class="card-header-custom">
+        {{ grupo.nombre }} — {{ grupo.fecha|date:"d/m/Y" }} {{ grupo.hora_inicio }}
+        <span class="badge bg-light text-dark ms-2">{{ grupo.num_actos }} acto(s)</span>
+    </div>
+    <div class="p-3">
+        <p class="small text-muted mb-2">{{ grupo.lugar }}{% if grupo.es_egel %} · EGEL ({{ grupo.intervalo_minutos }} min){% endif %}</p>
+        <form method="post" action="{% url 'oficina_titulacion:asignar_protocolo' grupo.pk %}">
+            {% csrf_token %}
+            <p class="small fw-semibold">Asignar expedientes con jurado (estado JURADO_ASIGNADO):</p>
+            <div class="table-responsive mb-2" style="max-height:200px;">
+                <table class="table table-sm mb-0">
+                    <tbody>
+                        {% for exp in grupo.expedientes_pendientes %}
+                        <tr>
+                            <td><input type="checkbox" name="expediente_ids" value="{{ exp.pk }}"></td>
+                            <td>{{ exp.alumno.get_full_name }}</td>
+                            <td>{{ exp.alumno.carrera.nombre|default:"—" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-muted">Sin expedientes pendientes de protocolo</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <button type="submit" class="btn btn-success btn-sm">Asignar seleccionados</button>
+        </form>
+    </div>
+</div>
+{% empty %}
+<div class="content-card p-4 text-center text-muted">No hay grupos de protocolo</div>
+{% endfor %}
+
+{% if is_paginated %}
+<div class="mt-2">
+    <nav><ul class="pagination pagination-sm mb-0">
+        {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a></li>{% endif %}
+        {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Siguiente</a></li>{% endif %}
+    </ul></nav>
+</div>
+{% endif %}
+{% endblock %}

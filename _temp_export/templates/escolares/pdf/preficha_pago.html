@@ -1,0 +1,218 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page {
+    size: letter;
+    margin: 0.8cm 1.2cm 0.8cm 1.2cm;
+  }
+  body {
+    font-family: 'Noto Sans', sans-serif;
+    font-size: 8.5pt;
+    color: #000;
+    line-height: 1.2;
+  }
+  .receipt-label-top {
+    text-align: center;
+    font-size: 8pt;
+    font-weight: bold;
+    text-decoration: underline;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .receipt-container {
+    border: 2px solid #000;
+    padding: 8px;
+    margin-bottom: 5px;
+  }
+  .header-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 6px;
+  }
+  .header-table td {
+    padding: 2px;
+    vertical-align: middle;
+  }
+  .logo-sep-img {
+    height: 40px;
+    width: auto;
+  }
+  .logo-ita-img {
+    height: 42px;
+    width: auto;
+  }
+  .header-title {
+    text-align: center;
+    font-size: 15pt;
+    font-weight: bold;
+    letter-spacing: 1px;
+  }
+  .info-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 6px;
+  }
+  .info-table td {
+    border: 1px solid #000;
+    padding: 4px 6px;
+    vertical-align: middle;
+  }
+  .label-cell {
+    font-size: 8.5pt;
+    width: 15%;
+  }
+  .value-cell {
+    font-weight: bold;
+    font-size: 9pt;
+  }
+  .datetime-label-cell {
+    font-size: 8pt;
+    width: 12%;
+    text-align: right;
+  }
+  .datetime-value-cell {
+    font-size: 8.5pt;
+    width: 15%;
+    text-align: center;
+  }
+  .reference-box {
+    border: 2px solid #000;
+    text-align: center;
+    font-size: 14pt;
+    font-weight: bold;
+    padding: 4px;
+    margin-bottom: 6px;
+    background-color: #f5f5f5;
+  }
+  .bank-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 6px;
+  }
+  .bank-table td {
+    text-align: center;
+    padding: 3px;
+    font-size: 9pt;
+  }
+  .warning-box {
+    border: 1px solid #000;
+    text-align: center;
+    padding: 4px;
+    margin-top: 4px;
+  }
+  .warning-bold {
+    font-weight: bold;
+    font-size: 7.5pt;
+    text-decoration: underline;
+    margin-bottom: 2px;
+  }
+  .warning-desc {
+    font-size: 6.5pt;
+    font-style: italic;
+  }
+  .cut-line {
+    border-top: 1px dashed #666;
+    text-align: center;
+    margin: 18px 0;
+    position: relative;
+  }
+  .cut-text {
+    font-size: 7.5pt;
+    color: #666;
+    background-color: #fff;
+    padding: 0 10px;
+    position: absolute;
+    top: -6px;
+    left: 42%;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+</style>
+</head>
+<body>
+
+<!-- MACRO DE RECIBO -->
+{% for es_estudiante in "01" %}
+  <div class="receipt-label-top">
+    {% if forloop.first %}PREFICHA ITA{% else %}PREFICHA ESTUDIANTE{% endif %}
+  </div>
+
+  <div class="receipt-container">
+    <!-- Encabezado con logos -->
+    <table class="header-table">
+      <tr>
+        <td style="width: 25%; text-align: left;">
+          <img src="{% static 'img/logo-sep.png' %}" class="logo-sep-img" alt="SEP">
+        </td>
+        <td style="width: 50%;">
+          <div class="header-title">PREFICHA DE DEPÓSITO</div>
+        </td>
+        <td style="width: 25%; text-align: right;">
+          <img src="{% static 'img/logo-ita.png' %}" class="logo-ita-img" alt="ITA">
+        </td>
+      </tr>
+    </table>
+
+    <!-- Tabla de datos del estudiante y concepto -->
+    <table class="info-table">
+      <tr>
+        <td class="label-cell">Nombre:</td>
+        <td class="value-cell" style="width: 53%;">{{ alumno.get_full_name|upper }}</td>
+        <td class="datetime-label-cell">Fecha:</td>
+        <td class="datetime-value-cell">{{ fecha|date:"d/m/Y" }}</td>
+      </tr>
+      <tr>
+        <td class="label-cell">No. Control:</td>
+        <td class="value-cell">{{ alumno.numero_control }}</td>
+        <td class="datetime-label-cell">Hora:</td>
+        <td class="datetime-value-cell">{{ hora|date:"h:i a" }}</td>
+      </tr>
+      <tr>
+        <td class="label-cell">Concepto:</td>
+        <td class="value-cell" style="text-transform: uppercase;">TRÁMITE DE TITULACIÓN NIVEL LICENCIATURA</td>
+        <td class="datetime-label-cell" style="font-size: 8.5pt;">Monto:</td>
+        <td class="datetime-value-cell" style="font-weight: bold; font-size: 9.5pt;">$2,700.00</td>
+      </tr>
+    </table>
+
+    <!-- Referencia de pago -->
+    <div class="reference-box">
+      Referencia de pago: {{ referencia }}
+    </div>
+
+    <!-- Detalles del Banco -->
+    <table class="bank-table">
+      <tr>
+        <td colspan="3" style="font-size: 9.5pt;">Institución Bancaria: <strong>BANAMEX</strong></td>
+      </tr>
+      <tr>
+        <td style="width: 50%; text-align: right; padding-right: 15px;">No de Sucursal: <strong>0648</strong></td>
+        <td style="width: 50%; text-align: left; padding-left: 15px;">Número de cuenta: <strong>6530500</strong></td>
+      </tr>
+    </table>
+
+    <!-- Advertencias -->
+    <div class="warning-box">
+      <div class="warning-bold">
+        FAVOR DE VERIFICAR QUE EL IMPORTE Y LA REFERENCIA ALFANUMÉRICA DEL RECIBO BANCARIO SEA IGUAL AL MONTO Y REFERENCIA DE PAGO DE ESTA PREFICHA.
+      </div>
+      <div class="warning-desc">
+        Esta preficha solo es válida como referencia de depósito, una vez realizado el depósito se deberá conservar el recibo bancario sellado, para cualquier aclaración en el Departamento de Recursos Financieros.
+      </div>
+    </div>
+  </div>
+
+  {% if forloop.first %}
+    <!-- Línea de corte -->
+    <div class="cut-line">
+      <span class="cut-text">CORTAR AQUÍ</span>
+    </div>
+  {% endif %}
+{% endfor %}
+
+</body>
+</html>

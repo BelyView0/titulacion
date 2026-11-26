@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block title %}{% if object %}Editar Carrera{% else %}Nueva Carrera{% endif %}{% endblock %}
+{% block page_title %}{% if object %}Editar Carrera: {{ object.nombre }}{% else %}Nueva Carrera{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="content-card p-4">
+            <div class="card-header-custom mb-4">
+                <i class="bi bi-mortarboard-fill"></i>
+                {% if object %}Editar Registro de Carrera{% else %}Registrar Nueva Carrera{% endif %}
+            </div>
+            
+            <form method="post" id="form-carrera">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                        <div>{{ error }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Sección: Datos de la Carrera -->
+                <p class="text-muted fw-semibold small mb-3 text-uppercase" style="letter-spacing:.08em">
+                    <i class="bi bi-info-circle me-1"></i> Información General
+                </p>
+
+                <div class="mb-3">
+                    {% include '_field.html' with field=form.nombre %}
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        {% include '_field.html' with field=form.clave %}
+                    </div>
+                    <div class="col-md-6">
+                        {% include '_field.html' with field=form.departamento %}
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" role="switch" id="id_activa" name="activa" {% if form.activa.value %}checked{% endif %}>
+                        <label class="form-check-label fw-semibold" for="id_activa">Carrera Activa</label>
+                        <div class="form-text">Si está inactiva, los alumnos no podrán seleccionarla al registrarse.</div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-success px-4">
+                        <i class="bi bi-check-circle me-1"></i>
+                        {% if object %}Guardar Cambios{% else %}Registrar Carrera{% endif %}
+                    </button>
+                    <a href="{% url 'administracion:carreras' %}" class="btn btn-outline-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
