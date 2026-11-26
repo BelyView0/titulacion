@@ -336,20 +336,34 @@ class Usuario(AbstractUser):
         return self.rol == Rol.ADMINISTRADOR
 
     def requiere_verificacion_correo(self):
-        """True si el usuario debe completar verificación antes de usar el sistema."""
+        """True si el usuario debe verificar al menos uno de sus correos."""
+
+        # Los administradores conservan su regla actual.
         if self.es_admin:
             if not ConfiguracionInstitucional.smtp_configurado():
                 return False
+
             if not self.correo_institucional:
                 return True
+ 
             return not self.correo_institucional_verificado
-        if self.email and not self.email_verificado:
-            return True
-        if self.correo_institucional and not self.correo_institucional_verificado:
-            return True
-        if not self.email and not self.correo_institucional:
-            return True
-        return False
+
+        # Comprobar si existe al menos un correo verificado.
+        correo_personal_verificado = (
+            bool(self.email) and self.email_verificado
+        )
+
+        correo_institucional_verificado = (
+            bool(self.correo_institucional)
+            and self.correo_institucional_verificado
+        )
+
+        # Basta con verificar uno de los dos correos.
+        return not (
+           correo_personal_verificado
+           or correo_institucional_verificado
+        )
+
 
     @property
     def es_oficina_titulacion(self):

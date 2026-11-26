@@ -46,11 +46,6 @@ class ChangePasswordSerializer(serializers.Serializer):
     Serializer para cambiar la contraseña del usuario autenticado.
     """
 
-    current_password = serializers.CharField(
-        write_only=True,
-        required=True
-    )
-
     new_password = serializers.CharField(
         write_only=True,
         required=True,
@@ -64,12 +59,6 @@ class ChangePasswordSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         user = self.context['request'].user
-
-        # Comprobar contraseña actual
-        if not user.check_password(attrs['current_password']):
-            raise serializers.ValidationError({
-                'current_password': 'La contraseña actual es incorrecta.'
-            })
 
         # Comprobar que las nuevas contraseñas coincidan
         if attrs['new_password'] != attrs['confirm_password']:

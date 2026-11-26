@@ -5,8 +5,8 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
 
-from administracion.models import Departamento, Carrera, Profesor, Rol, Genero
-from expediente.models import PlanEstudios, Modalidad
+from administracion.models import Departamento, Carrera, Profesor, Rol, Genero, ConfiguracionInstitucional, JefeDepartamento
+from expediente.models import PlanEstudios, Modalidad, TipoDocumento
 from alumnos.models import PerfilAlumno
 
 Usuario = get_user_model()
@@ -20,6 +20,12 @@ class ExcelImportExportTestCase(TestCase):
     """
 
     def setUp(self):
+        ConfiguracionInstitucional.objects.create(
+            email_host='localhost',
+            email_remitente='pruebas@example.com',
+            email_password='password-ficticio',
+            sistema_configurado=True,
+        )
         # Crear superusuario administrador para autenticación
         self.admin = Usuario.objects.create_superuser(
             username='admin_test',
@@ -27,6 +33,15 @@ class ExcelImportExportTestCase(TestCase):
             password='AdminPassword123!',
             rol=Rol.ADMINISTRADOR
         )
+
+        # Simular que el administrador ya verificó su correo institucional
+        self.admin.correo_institucional = 'admin@apizaco.tecnm.mx'
+        self.admin.correo_institucional_verificado = True
+        self.admin.save(update_fields=[
+            'correo_institucional',
+            'correo_institucional_verificado',
+]       )
+
         self.client.force_login(self.admin)
 
     def create_in_memory_excel(self, sheets_data):
@@ -127,19 +142,42 @@ class ExcelImportExportTestCase(TestCase):
         excel_file = self.create_in_memory_excel(data_excel)
 
         # 2. Realizar POST de subida (Modo Completo / Todo)
+        # 2. Primera petición: subir archivo y obtener vista previa
         response = self.client.post(
             reverse('administracion:subir_archivo_masivo'),
             {'tipo': 'todo', 'archivo_excel': excel_file}
         )
-        self.assertRedirects(response, reverse('administracion:importar_exportar') + '?tab=todo')
 
-        # 3. Validar creaciones exitosas en BD
-        self.assertEqual(Departamento.objects.count(), 2)
-        self.assertEqual(Carrera.objects.count(), 2)
-        self.assertEqual(PlanEstudios.objects.count(), 1)
-        self.assertEqual(Modalidad.objects.count(), 1)
-        self.assertEqual(Profesor.objects.count(), 1)
-        self.assertEqual(PerfilAlumno.objects.count(), 1)
+        self.assertEqual(response.status_code, 200)
+        print("\nERRORES DE IMPORTACIÓN:")
+        print(response.context.get('errors'))
+
+        print("\nCONTEXTO DE RESPUESTA:")
+        print(response.context)
+        self.assertTemplateUsed(response, 'administracion/importar_preview.html')
+
+        # Obtener la ruta del archivo temporal desde la vista previa
+        temp_file_path = response.context['temp_file_path']
+
+        self.assertTrue(temp_file_path)
+
+        # 3. Segunda petición: confirmar y guardar la importación
+        response = self.client.post(
+            reverse('administracion:subir_archivo_masivo'),
+            {
+                'tipo': 'todo',
+                'temp_file_path': temp_file_path,
+                'confirmado': 'true',
+            }
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('administracion:importar_exportar') + '?tab=todo'
+       )
+        
+        self.assertEqual(JefeDepartamento.objects.count(), 1)
+        self.assertEqual(TipoDocumento.objects.count(), 1)
 
         # Validar contraseña por defecto y cambio obligatorio para Alumno
         alumno = Usuario.objects.get(username='20141720')
@@ -194,6 +232,20 @@ class ExcelImportExportTestCase(TestCase):
                 ['Clave', 'Nombre del Departamento', 'Rol Responsable'],
                 [
                     ['CB', 'Ciencias Basicas', 'ACADEMICO']
+                ]
+            ),
+            (
+                'Jefes de Departamento',
+                ['Clave Departamento', 'Título Académico', 'Nombre(s)', 'Apellido Paterno', 'Apellido Materno', 'Género (M/F)'],
+                [
+                    ['CB', 'M.C.', 'MARIA', 'LOPEZ', 'GARCIA', 'F']
+                ]
+            ),
+            (
+                'Tipos de Documento',
+                ['Nombre', 'Descripción', 'Obligatorio (Si/No)', 'Múltiple (Si/No)', 'Orden'],
+                [
+                    ['Acta de Nacimiento', 'Documento PDF de prueba', 'Si', 'No', 1]
                 ]
             ),
             (

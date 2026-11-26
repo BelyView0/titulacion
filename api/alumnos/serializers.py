@@ -2,33 +2,29 @@ from rest_framework import serializers
 
 from administracion.models import Usuario
 from alumnos.models import PerfilAlumno, Notificacion
-from expediente.models import Expediente
+from expediente.models import Expediente, Documento
+
 
 
 class PerfilAlumnoSerializer(serializers.ModelSerializer):
     """
     Serializer para consultar y actualizar el perfil del alumno.
-
-    Combina información del modelo Usuario y PerfilAlumno.
+    Utiliza los campos existentes del modelo Usuario.
     """
 
-    # Información académica proveniente de PerfilAlumno
-    plan_estudios = serializers.SerializerMethodField()
-    semestre_egreso = serializers.SerializerMethodField()
-    promedio = serializers.SerializerMethodField()
-
-    # Información calculada
     nombre = serializers.CharField(
         source='get_full_name',
         read_only=True
     )
 
-    # Datos que no puede modificar el alumno
     numero_control = serializers.CharField(
         read_only=True
     )
 
     carrera = serializers.SerializerMethodField()
+    genero = serializers.SerializerMethodField()
+    periodo_inicio = serializers.SerializerMethodField()
+    periodo_egreso = serializers.SerializerMethodField()
 
     class Meta:
         model = Usuario
@@ -43,15 +39,14 @@ class PerfilAlumnoSerializer(serializers.ModelSerializer):
             'carrera',
             'telefono',
             'genero',
-            'generacion',
+            'periodo_inicio',
+            'periodo_egreso',
+            'semestres_cursados',
             'email',
             'email_verificado',
             'correo_institucional',
             'correo_institucional_verificado',
             'foto_perfil',
-            'plan_estudios',
-            'semestre_egreso',
-            'promedio',
         ]
 
         read_only_fields = [
@@ -59,87 +54,52 @@ class PerfilAlumnoSerializer(serializers.ModelSerializer):
             'nombre',
             'numero_control',
             'carrera',
-            'generacion',
+            'genero',
+            'periodo_inicio',
+            'periodo_egreso',
+            'semestres_cursados',
             'email_verificado',
             'correo_institucional',
             'correo_institucional_verificado',
-            'plan_estudios',
-            'semestre_egreso',
-            'promedio',
         ]
 
     def get_carrera(self, obj):
-        """
-        Obtiene la carrera del usuario.
-        """
-
         if obj.carrera:
             return obj.carrera.nombre
 
         return None
 
-    def _get_perfil(self, obj):
-        """
-        Obtiene el PerfilAlumno relacionado con el usuario.
-        """
-
-        try:
-            return obj.perfil_alumno
-        except PerfilAlumno.DoesNotExist:
-            return None
-
-    def get_plan_estudios(self, obj):
-        perfil = self._get_perfil(obj)
-
-        if perfil and perfil.plan_estudios:
-            return str(perfil.plan_estudios)
+    def get_genero(self, obj):
+        if obj.genero:
+            return obj.get_genero_display()
 
         return None
 
-    def get_semestre_egreso(self, obj):
-        perfil = self._get_perfil(obj)
+    def get_periodo_inicio(self, obj):
+        return obj.periodo_inicio_display
 
-        if perfil:
-            return perfil.semestre_egreso
-
-        return None
-
-    def get_promedio(self, obj):
-        perfil = self._get_perfil(obj)
-
-        if perfil:
-            return perfil.promedio
-
-        return None
+    def get_periodo_egreso(self, obj):
+        return obj.periodo_egreso_display
 
     def update(self, instance, validated_data):
-        """
-        Actualiza únicamente los datos que el alumno puede modificar.
-        """
-
         old_email = instance.email
 
-        # Correo personal
         if 'email' in validated_data:
             instance.email = validated_data['email']
 
-        # Teléfono
         if 'telefono' in validated_data:
             instance.telefono = validated_data['telefono']
 
-
-        # Foto de perfil
         if 'foto_perfil' in validated_data:
             instance.foto_perfil = validated_data['foto_perfil']
 
-        # Si cambia el correo personal,
-        # debe volver a verificarse.
         if instance.email != old_email:
             instance.email_verificado = False
 
         instance.save()
 
         return instance
+
 
 
 class NotificacionDashboardSerializer(serializers.ModelSerializer):
@@ -200,4 +160,74 @@ class DashboardAlumnoSerializer(serializers.Serializer):
             ),
             'titulo_trabajo': expediente.titulo_trabajo,
             'nombre_empresa': expediente.nombre_empresa,
+        }
+        
+        
+class DocumentoAlumnoSerializer(serializers.ModelSerializer):
+    """
+    Información de los documentos del expediente del alumno.
+    """
+
+    tipo_documento = serializers.SerializerMethodField()
+    estado_display = serializers.CharField(
+        source='get_estado_display',
+        read_only=True
+    )
+    archivo = serializers.SerializerMethodField()
+    validacion_oficina = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Documento
+        fields = [
+            'id',
+            'tipo_documento',
+            'archivo',
+            'estado',
+            'estado_display',
+            'version',
+            'fecha_carga',
+            'fecha_actualizacion',
+            'notas_alumno',
+            'observaciones_revision',
+            'fecha_revision',
+            'validacion_oficina',
+        ]
+
+    def get_tipo_documento(self, obj):
+        tipo = obj.tipo_documento
+
+        return {
+            'id': tipo.id,
+            'nombre': tipo.nombre,
+            'descripcion_ayuda': tipo.descripcion_ayuda,
+            'es_obligatorio': tipo.es_obligatorio,
+            'solo_mas_de_12_semestres': tipo.solo_mas_de_12_semestres,
+            'orden': tipo.orden,
+            'formatos_admitidos': tipo.formatos_admitidos,
+            'tamano_max_mb': tipo.tamano_max_mb,
+        }
+
+    def get_archivo(self, obj):
+        if not obj.archivo:
+            return None
+
+        request = self.context.get('request')
+        url = obj.archivo.url
+
+        if request:
+            return request.build_absolute_uri(url)
+
+        return url
+
+    def get_validacion_oficina(self, obj):
+        validacion = obj.validacion_oficina
+
+        if not validacion:
+            return None
+
+        return {
+            'estado': validacion.estado,
+            'estado_display': validacion.get_estado_display(),
+            'observaciones': validacion.observaciones,
+            'fecha': validacion.fecha,
         }
