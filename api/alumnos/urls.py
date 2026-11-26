@@ -8,6 +8,12 @@ from .views import (
     CargarDocumentoAlumnoView,
     EnviarVerificacionCorreoAPIView,
     ValidarVerificacionCorreoAPIView,
+    SolicitarCorreccionControlAPIView,
+)
+from .expediente_api import (
+    CatalogoExpedienteAPIView,
+    ExpedienteCrearAPIView,
+    ConfirmarAsistenciaAPIView,
 )
 
 app_name = 'alumnos'
@@ -47,5 +53,29 @@ urlpatterns = [
         'documentos/<int:pk>/cargar/',
         CargarDocumentoAlumnoView.as_view(),
         name='cargar-documento'
+    ),
+    
+    path(
+        'perfil/solicitar-correccion-control/',
+        SolicitarCorreccionControlAPIView.as_view(),
+        name='solicitar-correccion-control'
+    ),
+    
+    path(
+        'catalogos/expediente/',
+        CatalogoExpedienteAPIView.as_view(),
+        name='catalogo-expediente'
+    ),
+
+    path(
+        'expediente/crear/',
+        ExpedienteCrearAPIView.as_view(),
+        name='crear-expediente'
+    ),
+
+    path(
+        'confirmar-asistencia/',
+        ConfirmarAsistenciaAPIView.as_view(),
+        name='confirmar-asistencia'
     ),
 ]

@@ -31,10 +31,12 @@ from django.template.loader import render_to_string
 from administracion.models import (
     EmailVerificationOTP,
     ConfiguracionInstitucional,
+    Rol,
+    Usuario,
 )
 
 from .permissions import IsAlumno, IsCorreoVerificado
-
+from django.urls import reverse
 
 class PerfilAlumnoView(APIView):
     """
@@ -94,7 +96,8 @@ class DashboardAlumnoView(APIView):
         ).order_by('-fecha')[:5]
 
         serializer = DashboardAlumnoSerializer(
-            request.user
+            request.user,
+            context={'request': request}
         )
 
         data = serializer.data
@@ -138,6 +141,110 @@ class DocumentosAlumnoView(APIView):
 
         return Response(
             serializer.data,
+            status=status.HTTP_200_OK
+        )
+        
+class SolicitarCorreccionControlAPIView(APIView):
+    """
+    Recibe una solicitud de corrección del número de control
+    y notifica a los administradores.
+    """
+
+    permission_classes = [IsAlumno]
+
+    def post(self, request):
+        nuevo_control = str(
+            request.data.get('nuevo_control') or ''
+        ).strip()
+
+        comentario = str(
+            request.data.get('comentario') or ''
+        ).strip()
+
+        if not nuevo_control:
+            return Response(
+                {
+                    'detail': 'Debes proporcionar el número de control correcto.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = request.user
+
+        admins = Usuario.objects.filter(
+            rol=Rol.ADMINISTRADOR
+        )
+
+        url_admin = request.build_absolute_uri(
+            reverse(
+                'administracion:usuario_editar',
+                args=[user.pk]
+            )
+        )
+
+        mensaje = (
+            f'El usuario {user.get_full_name()} ({user.username}) '
+            f'ha solicitado un cambio de su número de control/empleado a: '
+            f'{nuevo_control}.'
+        )
+
+        if comentario:
+            mensaje += f'\nComentario: {comentario}'
+
+        for admin in admins:
+
+            # Crear notificación interna
+            Notificacion.objects.create(
+                destinatario=admin,
+                tipo='URGENTE',
+                titulo='Solicitud de cambio de Número de Control',
+                mensaje=mensaje,
+                url_relacionada=reverse(
+                    'administracion:usuario_editar',
+                    args=[user.pk]
+                )
+            )
+
+            # Enviar correo electrónico
+            if admin.email:
+                try:
+                    html_content = render_to_string(
+                        'emails/notificacion_generica.html',
+                        {
+                            'titulo': 'Solicitud de cambio de Número de Control',
+                            'saludo': f'Hola {admin.get_full_name()},',
+                            'mensaje': mensaje,
+                            'url_accion': url_admin
+                        }
+                    )
+
+                    msg = EmailMultiAlternatives(
+                        'Solicitud de cambio de Número de Control',
+                        (
+                            f'{mensaje}\n\n'
+                            f'Puedes revisar y editar el usuario aquí: {url_admin}'
+                        ),
+                        settings.DEFAULT_FROM_EMAIL,
+                        [admin.email]
+                    )
+
+                    msg.attach_alternative(
+                        html_content,
+                        'text/html'
+                    )
+
+                    msg.send(fail_silently=True)
+
+                except Exception:
+                    pass
+
+        return Response(
+            {
+                'detail': (
+                    'Tu solicitud de corrección ha sido enviada '
+                    'a los administradores.'
+                )
+            },
             status=status.HTTP_200_OK
         )
         

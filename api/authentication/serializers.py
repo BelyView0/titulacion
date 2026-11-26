@@ -41,10 +41,16 @@ class LoginSerializer(TokenObtainPairSerializer):
         return data
 
 
+
 class ChangePasswordSerializer(serializers.Serializer):
     """
     Serializer para cambiar la contraseña del usuario autenticado.
     """
+
+    current_password = serializers.CharField(
+        write_only=True,
+        required=True
+    )
 
     new_password = serializers.CharField(
         write_only=True,
@@ -57,16 +63,33 @@ class ChangePasswordSerializer(serializers.Serializer):
         required=True
     )
 
-    def validate(self, attrs):
+    def validate_current_password(self, value):
+        """
+        Comprueba que la contraseña actual sea correcta.
+        """
+
         user = self.context['request'].user
 
-        # Comprobar que las nuevas contraseñas coincidan
+        if not user.check_password(value):
+            raise serializers.ValidationError(
+                'La contraseña actual es incorrecta.'
+            )
+
+        return value
+
+    def validate(self, attrs):
+        """
+        Comprueba que las nuevas contraseñas coincidan
+        y cumplan las reglas de seguridad de Django.
+        """
+
+        user = self.context['request'].user
+
         if attrs['new_password'] != attrs['confirm_password']:
             raise serializers.ValidationError({
                 'confirm_password': 'Las contraseñas nuevas no coinciden.'
             })
 
-        # Validar la nueva contraseña con las reglas de Django
         from django.contrib.auth.password_validation import validate_password
 
         validate_password(
@@ -76,32 +99,22 @@ class ChangePasswordSerializer(serializers.Serializer):
 
         return attrs
 
-class ForgotPasswordSerializer(serializers.Serializer):
-    """
-    Solicita el envío de un código OTP para recuperar la contraseña.
-    """
 
-    username = serializers.CharField(required=True)
+class ForgotPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
 
-class VerifyResetOTPSerializer(serializers.Serializer):
-    """
-    Verifica el código OTP enviado al usuario.
-    """
 
-    username = serializers.CharField(required=True)
+class VerifyResetOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
     otp = serializers.CharField(
         required=True,
         min_length=6,
         max_length=6
     )
 
-class ResetPasswordSerializer(serializers.Serializer):
-    """
-    Establece una nueva contraseña después de verificar el OTP.
-    """
 
-    username = serializers.CharField(required=True)
+class ResetPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
 
     otp = serializers.CharField(
         required=True,
@@ -121,7 +134,6 @@ class ResetPasswordSerializer(serializers.Serializer):
     )
 
     def validate(self, attrs):
-
         if attrs['new_password'] != attrs['confirm_password']:
             raise serializers.ValidationError({
                 'confirm_password': 'Las contraseñas nuevas no coinciden.'
@@ -129,9 +141,7 @@ class ResetPasswordSerializer(serializers.Serializer):
 
         from django.contrib.auth.password_validation import validate_password
 
-        validate_password(
-            attrs['new_password']
-        )
+        validate_password(attrs['new_password'])
 
         return attrs
 

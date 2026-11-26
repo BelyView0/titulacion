@@ -1,9 +1,9 @@
 from rest_framework import serializers
 
-from administracion.models import Usuario
+from administracion.models import Usuario, ConfiguracionInstitucional
 from alumnos.models import PerfilAlumno, Notificacion
 from expediente.models import Expediente, Documento
-
+from .expediente_api import serializar_expediente
 
 
 class PerfilAlumnoSerializer(serializers.ModelSerializer):
@@ -59,7 +59,6 @@ class PerfilAlumnoSerializer(serializers.ModelSerializer):
             'periodo_egreso',
             'semestres_cursados',
             'email_verificado',
-            'correo_institucional',
             'correo_institucional_verificado',
         ]
 
@@ -80,18 +79,51 @@ class PerfilAlumnoSerializer(serializers.ModelSerializer):
 
     def get_periodo_egreso(self, obj):
         return obj.periodo_egreso_display
+    
+    def validate_correo_institucional(self, value):
+        """
+        Permite asignar el correo institucional únicamente
+        cuando el usuario todavía no tiene uno registrado.
+        """
+
+        if self.instance and self.instance.correo_institucional:
+            raise serializers.ValidationError(
+                'No puedes modificar tu correo institucional una vez asignado.'
+            )
+
+        if value:
+            configuracion = ConfiguracionInstitucional.objects.first()
+
+            dominio = (
+                configuracion.dominio_institucional
+                if configuracion
+                else 'apizaco.tecnm.mx'
+            )
+
+            if not value.lower().endswith(f'@{dominio.lower()}'):
+                raise serializers.ValidationError(
+                    f'El correo institucional debe terminar en @{dominio}.'
+                )
+
+        return value
 
     def update(self, instance, validated_data):
         old_email = instance.email
 
         if 'email' in validated_data:
-            instance.email = validated_data['email']
+           instance.email = validated_data['email']
 
         if 'telefono' in validated_data:
-            instance.telefono = validated_data['telefono']
+           instance.telefono = validated_data['telefono']
 
         if 'foto_perfil' in validated_data:
-            instance.foto_perfil = validated_data['foto_perfil']
+           instance.foto_perfil = validated_data['foto_perfil']
+
+        if 'correo_institucional' in validated_data:
+           if not instance.correo_institucional:
+               instance.correo_institucional = validated_data[
+                   'correo_institucional'
+                ]
 
         if instance.email != old_email:
             instance.email_verificado = False
@@ -125,7 +157,7 @@ class DashboardAlumnoSerializer(serializers.Serializer):
     Serializer del dashboard del alumno.
     """
 
-    alumno = PerfilAlumnoSerializer(read_only=True)
+    alumno = PerfilAlumnoSerializer(source='*', read_only=True)
 
     expediente = serializers.SerializerMethodField()
 
@@ -149,18 +181,7 @@ class DashboardAlumnoSerializer(serializers.Serializer):
         except Expediente.DoesNotExist:
             return None
 
-        return {
-            'id': expediente.id,
-            'estado': expediente.estado,
-            'estado_display': expediente.get_estado_display(),
-            'modalidad': (
-                expediente.modalidad.nombre
-                if expediente.modalidad
-                else None
-            ),
-            'titulo_trabajo': expediente.titulo_trabajo,
-            'nombre_empresa': expediente.nombre_empresa,
-        }
+        return serializar_expediente(expediente)
         
         
 class DocumentoAlumnoSerializer(serializers.ModelSerializer):
