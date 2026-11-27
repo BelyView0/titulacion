@@ -97,6 +97,15 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    # Solo limita las vistas que declaran `throttle_scope` (login y
+    # recuperación de contraseña); el resto de la API no se ve afectada.
+    'DEFAULT_THROTTLE_CLASSES': (
+        'rest_framework.throttling.ScopedRateThrottle',
+    ),
+    'DEFAULT_THROTTLE_RATES': {
+        'login': '10/min',
+        'password_reset': '10/min',
+    },
 }
 
 SIMPLE_JWT = {

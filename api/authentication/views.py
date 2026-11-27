@@ -1,9 +1,6 @@
-import random
-from datetime import timedelta
+import logging
 
-from django.core.mail import send_mail
 from django.db.models import Q
-from django.utils import timezone
 
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -28,8 +25,10 @@ from administracion.emails import (
     enviar_alerta_cambio_password,
     enviar_codigo_otp,
 )
-from administracion.models import Usuario, PasswordResetOTP
+from administracion.models import Usuario
 from administracion.views_auth import generate_otp_for_user, is_otp_valid
+
+logger = logging.getLogger(__name__)
 
 
 class LoginView(TokenObtainPairView):
@@ -38,6 +37,7 @@ class LoginView(TokenObtainPairView):
     """
 
     serializer_class = LoginSerializer
+    throttle_scope = 'login'
 
 
 class LogoutView(APIView):
@@ -272,17 +272,20 @@ def obtener_usuario_por_correo(email):
 
 class ForgotPasswordView(APIView):
     """
-    Genera y envía un código OTP utilizando solamente el correo.
+    Paso 1 de la recuperación (equivale a OTPPasswordResetRequestView de la
+    web): envía el código OTP al correo personal o institucional indicado,
+    con la misma plantilla de correo que la web.
     """
 
     permission_classes = []
+    throttle_scope = 'password_reset'
 
     def post(self, request):
 
         serializer = ForgotPasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        email = serializer.validated_data['email']
+        email = serializer.validated_data['email'].strip()
 
         user = obtener_usuario_por_correo(email)
 
@@ -292,45 +295,25 @@ class ForgotPasswordView(APIView):
             'se ha enviado un código de recuperación.'
         )
 
-        if not user:
-            return Response(
-                {'message': mensaje},
-                status=status.HTTP_200_OK
-            )
+        if user:
+            # Al correo exacto que el usuario escribió (personal o institucional).
+            if user.email and user.email.lower() == email.lower():
+                destino = user.email
+            else:
+                destino = user.correo_institucional
 
-        # Determinar cuál de los correos registrados coincide.
-        if user.email and user.email.lower() == email.lower():
-            destino = user.email
-        else:
-            destino = user.correo_institucional
+            otp = generate_otp_for_user(user)
 
-        # Invalidar códigos OTP anteriores.
-        PasswordResetOTP.objects.filter(
-            usuario=user,
-            usado=False
-        ).update(usado=True)
-
-        # Generar código OTP de seis dígitos.
-        codigo = f'{random.randint(0, 999999):06d}'
-
-        PasswordResetOTP.objects.create(
-            usuario=user,
-            codigo=codigo
-        )
-
-        # Enviar código al correo proporcionado.
-        send_mail(
-            subject='Código de recuperación de contraseña - ITA',
-            message=(
-                f'Estimado(a) {user.get_full_name()},\n\n'
-                f'Su código de recuperación es: {codigo}\n\n'
-                'Este código tiene una vigencia de 5 minutos.\n\n'
-                'Si usted no solicitó este cambio, ignore este mensaje.'
-            ),
-            from_email=None,
-            recipient_list=[destino],
-            fail_silently=False,
-        )
+            try:
+                enviar_codigo_otp(
+                    user,
+                    otp.codigo,
+                    context='reset',
+                    destinatarios=[destino] if destino else None,
+                )
+            except Exception:
+                # Un fallo de SMTP no debe delatar si la cuenta existe.
+                logger.exception('No se pudo enviar el código de recuperación.')
 
         return Response(
             {'message': mensaje},
@@ -338,12 +321,22 @@ class ForgotPasswordView(APIView):
         )
 
 
+MENSAJE_OTP_INVALIDO = (
+    'El código es incorrecto o ha expirado (límite de 5 minutos). '
+    'Solicita uno nuevo.'
+)
+
+
 class VerifyResetOTPView(APIView):
     """
     Verifica el código OTP utilizando el correo electrónico.
+
+    Cuenta como intento: tras PasswordResetOTP.MAX_INTENTOS códigos
+    incorrectos el OTP se invalida y hay que solicitar otro.
     """
 
     permission_classes = []
+    throttle_scope = 'password_reset'
 
     def post(self, request):
 
@@ -355,39 +348,8 @@ class VerifyResetOTPView(APIView):
 
         user = obtener_usuario_por_correo(email)
 
-        if not user:
-            return Response(
-                {'message': 'Código inválido.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        otp = (
-            PasswordResetOTP.objects
-            .filter(
-                usuario=user,
-                codigo=codigo,
-                usado=False
-            )
-            .order_by('-creado_en')
-            .first()
-        )
-
-        if not otp:
-            return Response(
-                {'message': 'Código OTP inválido o ya utilizado.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Comprobar vigencia de cinco minutos.
-        if timezone.now() - otp.creado_en > timedelta(minutes=5):
-
-            otp.usado = True
-            otp.save(update_fields=['usado'])
-
-            return Response(
-                {'message': 'El código OTP ha expirado.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        if not user or not is_otp_valid(user, codigo):
+            return _error(MENSAJE_OTP_INVALIDO)
 
         return Response(
             {
@@ -400,10 +362,13 @@ class VerifyResetOTPView(APIView):
 
 class ResetPasswordView(APIView):
     """
-    Restablece la contraseña utilizando el correo y el código OTP.
+    Paso 2 de la recuperación (equivale a OTPPasswordResetVerifyView de la
+    web): código OTP + nueva contraseña. Mismas validaciones, en el mismo
+    orden y con los mismos mensajes que la web.
     """
 
     permission_classes = []
+    throttle_scope = 'password_reset'
 
     def post(self, request):
 
@@ -413,62 +378,38 @@ class ResetPasswordView(APIView):
         email = serializer.validated_data['email']
         codigo = serializer.validated_data['otp']
         new_password = serializer.validated_data['new_password']
+        confirm_password = serializer.validated_data['confirm_password']
+
+        if new_password != confirm_password:
+            return _error('Las contraseñas no coinciden.')
+
+        if len(new_password) < 8:
+            return _error('La contraseña debe tener al menos 8 caracteres.')
 
         user = obtener_usuario_por_correo(email)
 
-        if not user:
-            return Response(
-                {'message': 'Solicitud inválida.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        otp_instance = is_otp_valid(user, codigo) if user else False
 
-        otp = (
-            PasswordResetOTP.objects
-            .filter(
-                usuario=user,
-                codigo=codigo,
-                usado=False
-            )
-            .order_by('-creado_en')
-            .first()
-        )
+        if not otp_instance:
+            return _error(MENSAJE_OTP_INVALIDO)
 
-        if not otp:
-            return Response(
-                {'message': 'Código OTP inválido o ya utilizado.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Comprobar vigencia del código.
-        if timezone.now() - otp.creado_en > timedelta(minutes=5):
-
-            otp.usado = True
-            otp.save(update_fields=['usado'])
-
-            return Response(
-                {'message': 'El código OTP ha expirado.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Establecer la nueva contraseña.
+        # Igual que la web: solo cambia la contraseña (no toca la bandera
+        # debe_cambiar_password) y avisa por correo.
         user.set_password(new_password)
-        user.debe_cambiar_password = False
+        user.save(update_fields=['password'])
 
-        user.save(
-            update_fields=[
-                'password',
-                'debe_cambiar_password'
-            ]
-        )
+        otp_instance.usado = True
+        otp_instance.save(update_fields=['usado'])
 
-        # Marcar el código como utilizado.
-        otp.usado = True
-        otp.save(update_fields=['usado'])
+        try:
+            enviar_alerta_cambio_password(user)
+        except Exception:
+            logger.exception('No se pudo enviar la alerta de cambio de contraseña.')
 
         return Response(
             {
                 'message': 'Contraseña restablecida correctamente.',
-                'requires_password_change': False
+                'requires_password_change': user.debe_cambiar_password
             },
             status=status.HTTP_200_OK
         )

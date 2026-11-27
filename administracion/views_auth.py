@@ -7,32 +7,58 @@ from django.views import View
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from datetime import timedelta
 import random
+import secrets
 
 from administracion.models import Usuario, PasswordResetOTP
 from administracion.emails import enviar_codigo_otp, enviar_alerta_cambio_password
 
 def generate_otp_for_user(user):
     """Genera un código de 6 dígitos y lo guarda en la base de datos."""
-    codigo = f"{random.randint(0, 999999):06d}"
+    # secrets (CSPRNG) en lugar de random: el código es una credencial.
+    codigo = f"{secrets.randbelow(1_000_000):06d}"
     # Invalida OTPs anteriores
     PasswordResetOTP.objects.filter(usuario=user, usado=False).update(usado=True)
     otp = PasswordResetOTP.objects.create(usuario=user, codigo=codigo)
     return otp
 
 def is_otp_valid(user, codigo):
-    """Verifica si un OTP es correcto y no tiene más de 5 minutos."""
-    try:
-        otp = PasswordResetOTP.objects.filter(usuario=user, codigo=codigo, usado=False).latest('creado_en')
-        # Verificar expiración (5 minutos)
+    """
+    Verifica si un OTP es correcto, vigente (5 minutos) y con intentos
+    disponibles. Cada código incorrecto cuenta como intento fallido sobre el
+    OTP activo; al llegar a MAX_INTENTOS se invalida y hay que pedir otro.
+    """
+    codigo = str(codigo or '').strip()
+
+    with transaction.atomic():
+        otp = (
+            PasswordResetOTP.objects.select_for_update()
+            .filter(usuario=user, usado=False)
+            .order_by('-creado_en')
+            .first()
+        )
+
+        if otp is None:
+            return False
+
         if timezone.now() > otp.creado_en + timedelta(minutes=5):
             return False
+
+        if otp.intentos_fallidos >= PasswordResetOTP.MAX_INTENTOS:
+            return False
+
+        if not secrets.compare_digest(otp.codigo, codigo):
+            otp.intentos_fallidos += 1
+            if otp.intentos_fallidos >= PasswordResetOTP.MAX_INTENTOS:
+                otp.usado = True
+            otp.save(update_fields=['intentos_fallidos', 'usado'])
+            return False
+
         return otp
-    except PasswordResetOTP.DoesNotExist:
-        return False
 
 # ─── RECUPERACIÓN DE CONTRASEÑA (Desde Login) ────────────────────────────────
 

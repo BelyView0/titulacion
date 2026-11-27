@@ -121,6 +121,12 @@ class VerifyResetOTPSerializer(serializers.Serializer):
 
 
 class ResetPasswordSerializer(serializers.Serializer):
+    """
+    Recuperación de contraseña (paso 2). Solo valida que los campos vengan;
+    las reglas y sus mensajes (iguales a los de la web) se aplican en
+    ResetPasswordView.
+    """
+
     email = serializers.EmailField(required=True)
 
     otp = serializers.CharField(
@@ -129,28 +135,19 @@ class ResetPasswordSerializer(serializers.Serializer):
         max_length=6
     )
 
+    # trim_whitespace=False: una contraseña puede empezar o terminar con espacio.
     new_password = serializers.CharField(
         required=True,
         write_only=True,
-        min_length=8
+        trim_whitespace=False
     )
 
     confirm_password = serializers.CharField(
         required=True,
-        write_only=True
+        write_only=True,
+        trim_whitespace=False
     )
 
-    def validate(self, attrs):
-        if attrs['new_password'] != attrs['confirm_password']:
-            raise serializers.ValidationError({
-                'confirm_password': 'Las contraseñas nuevas no coinciden.'
-            })
-
-        from django.contrib.auth.password_validation import validate_password
-
-        validate_password(attrs['new_password'])
-
-        return attrs
 
 class MeSerializer(serializers.ModelSerializer):
     """
@@ -176,7 +173,13 @@ class MeSerializer(serializers.ModelSerializer):
             'carrera',
             'telefono',
             'genero',
-            'generacion',
+            # `generacion` ya no existe en Usuario: la migración 0029 lo
+            # reemplazó por los periodos de inicio y egreso.
+            'periodo_inicio_ciclo',
+            'periodo_inicio_anio',
+            'periodo_egreso_ciclo',
+            'periodo_egreso_anio',
+            'semestres_cursados',
             'correo_institucional',
             'email',
             'debe_cambiar_password',

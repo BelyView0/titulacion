@@ -855,6 +855,14 @@ class PasswordResetOTP(models.Model):
     codigo = models.CharField(max_length=6, verbose_name="Código de 6 dígitos")
     creado_en = models.DateTimeField(auto_now_add=True)
     usado = models.BooleanField(default=False)
+    intentos_fallidos = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name="Intentos fallidos",
+    )
+
+    # Tras este número de códigos incorrectos el OTP se invalida y hay que
+    # solicitar uno nuevo (evita adivinar los 10^6 códigos posibles).
+    MAX_INTENTOS = 5
 
     class Meta:
         verbose_name = "Código OTP"
@@ -890,4 +898,3 @@ class EmailVerificationOTP(models.Model):
         import datetime
         # Válido si no ha sido usado y han pasado menos de 15 minutos
         return not self.usado and (timezone.now() - self.creado_en) < datetime.timedelta(minutes=15)
-
