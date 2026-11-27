@@ -194,6 +194,10 @@ class DocumentoAlumnoSerializer(serializers.ModelSerializer):
         source='get_estado_display',
         read_only=True
     )
+    estado_color = serializers.CharField(
+        source='get_estado_color',
+        read_only=True
+    )
     archivo = serializers.SerializerMethodField()
     validacion_oficina = serializers.SerializerMethodField()
 
@@ -205,6 +209,7 @@ class DocumentoAlumnoSerializer(serializers.ModelSerializer):
             'archivo',
             'estado',
             'estado_display',
+            'estado_color',
             'version',
             'fecha_carga',
             'fecha_actualizacion',

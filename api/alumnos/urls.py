@@ -1,4 +1,3 @@
- 
 from django.urls import path
 
 from .views import (
@@ -18,6 +17,16 @@ from .expediente_api import (
     EnviarDocumentosAPIView,
     HistorialExpedienteAPIView,
     SeguimientoAPIView,
+)
+from .expediente_etapas import (
+    ConfirmarCitaAPIView,
+    SolicitarReprogramacionCitaAPIView,
+    SubirComprobantePagoAPIView,
+    PrefichaPagoEnlaceAPIView,
+    PrefichaPagoDescargaView,
+    SubirActaExencionAPIView,
+    DocumentosProtocoloEnlaceAPIView,
+    DocumentosProtocoloDescargaView,
 )
 
 app_name = 'alumnos'
@@ -105,5 +114,53 @@ urlpatterns = [
         'seguimiento/',
         SeguimientoAPIView.as_view(),
         name='seguimiento'
+    ),
+
+    path(
+        'citas/<int:pk>/confirmar/',
+        ConfirmarCitaAPIView.as_view(),
+        name='confirmar-cita'
+    ),
+
+    path(
+        'citas/<int:pk>/reprogramar/',
+        SolicitarReprogramacionCitaAPIView.as_view(),
+        name='reprogramar-cita'
+    ),
+
+    path(
+        'expediente/subir-pago/',
+        SubirComprobantePagoAPIView.as_view(),
+        name='subir-pago'
+    ),
+
+    path(
+        'expediente/preficha-pago/',
+        PrefichaPagoEnlaceAPIView.as_view(),
+        name='preficha-enlace'
+    ),
+
+    path(
+        'expediente/preficha-pago/descargar/<str:token>/',
+        PrefichaPagoDescargaView.as_view(),
+        name='preficha-descarga'
+    ),
+
+    path(
+        'expediente/subir-acta-exencion/',
+        SubirActaExencionAPIView.as_view(),
+        name='subir-acta-exencion'
+    ),
+
+    path(
+        'expediente/documentos-protocolo/',
+        DocumentosProtocoloEnlaceAPIView.as_view(),
+        name='protocolo-enlace'
+    ),
+
+    path(
+        'expediente/documentos-protocolo/descargar/<str:token>/',
+        DocumentosProtocoloDescargaView.as_view(),
+        name='protocolo-descarga'
     ),
 ]

@@ -436,6 +436,10 @@ class ExpedienteDetalleAPIView(APIView):
             tipo_documento__es_obligatorio=True
         ).exists()
 
+        # Citas, pago, adeudos, certificados, acta e historial reciente
+        # (todo lo que la web muestra en «Mi Expediente»).
+        from .expediente_etapas import construir_etapas
+
         return Response({
             'expediente': serializar_expediente(expediente),
             'puede_cargar_documentos': puede_cargar,
@@ -443,6 +447,7 @@ class ExpedienteDetalleAPIView(APIView):
             'documentos_faltantes': faltantes,
             'todos_obligatorios_cargados': tiene_obligatorios and not faltantes,
             'documentos': documentos,
+            **construir_etapas(expediente, request),
         })
 
     def patch(self, request):
