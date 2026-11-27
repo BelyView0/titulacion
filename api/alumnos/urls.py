@@ -9,6 +9,10 @@ from .views import (
     ValidarVerificacionCorreoAPIView,
     SolicitarCorreccionControlAPIView,
 )
+from .notificaciones import (
+    NotificacionesAlumnoAPIView,
+    NotificacionesResumenAPIView,
+)
 from .expediente_api import (
     CatalogoExpedienteAPIView,
     ExpedienteCrearAPIView,
@@ -48,6 +52,18 @@ urlpatterns = [
         'perfil/verificar/<str:tipo>/validar/',
         ValidarVerificacionCorreoAPIView.as_view(),
         name='validar-verificacion-correo'
+    ),
+
+    path(
+        'notificaciones/',
+        NotificacionesAlumnoAPIView.as_view(),
+        name='notificaciones'
+    ),
+
+    path(
+        'notificaciones/resumen/',
+        NotificacionesResumenAPIView.as_view(),
+        name='notificaciones-resumen'
     ),
 
     path(
